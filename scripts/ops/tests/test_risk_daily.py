@@ -276,3 +276,33 @@ def test_an_unreconciled_attribution_is_a_watch_not_an_act(state):
 def test_a_factor_block_the_job_could_not_measure_stays_unmeasured_not_info(state):
     _pnl(state, factor_status="UNMEASURED")
     assert r.factor_block("cef", state, ASOF)["status"] == r.UNMEASURED
+
+
+def _partial(state, **extra):
+    _pnl(state, factor_status="PARTIAL")
+    p = state / "reports" / "pnl" / f"{ASOF.isoformat()}.json"
+    rep = json.loads(p.read_text())
+    rep["factor"].update(extra)
+    p.write_text(json.dumps(rep))
+
+
+def test_a_partial_factor_block_is_a_watch_naming_the_names_and_their_share(state):
+    """Ruling C (team lead, 2026-11-10): the job's PARTIAL block (a held name without a same-day
+    price, left out) is a WATCH whose first line names what was left out and its share of the
+    gross, then the job's lines verbatim; never an ACT. Fails on the parent commit (UNMEASURED)."""
+    _partial(state, missing=[{"symbol": "LATE", "shares": -1000.0, "gross_usd": 9000.0, "reason": "no close"}],
+             missing_gross_share=0.0912)
+    b = r.factor_block("cef", state, ASOF)
+    assert b["status"] == r.WATCH and b["data"]["missing"] == ["LATE"] and b["data"]["missing_gross_share"] == 0.0912
+    assert b["lines"][0].startswith("Factor exposure PARTIAL: LATE left out at the last close, 9.1% of the book's gross")
+    assert b["lines"][1].startswith("MUNI (headline)")
+    assert not any(ln.startswith("ACT") for ln in b["lines"])
+    rep, code = r.run_report("cef", state, ASOF, now_utc=dt.datetime(2026, 11, 6, 3, 30, tzinfo=dt.timezone.utc),
+                             send=lambda *a: True)
+    assert rep["blocks"]["factor_exposure"]["status"] == r.WATCH and not rep["act_lines"]
+
+
+def test_a_partial_block_without_its_share_says_unmeasured_never_a_number(state):
+    _partial(state, missing=[{"symbol": "LATE"}])
+    b = r.factor_block("cef", state, ASOF)
+    assert b["status"] == r.WATCH and "share of the book's gross UNMEASURED" in b["lines"][0]

@@ -87,8 +87,12 @@ A MISSING INPUT IS UNMEASURED, NAMED, NEVER INFERRED (CLAUDE.md, no silent fallb
   * a session with a modelled fee and no FEE row yet: "no FEE row yet (UNMEASURED)" in the
     fee check, never a measured 0.00 (the account's FEE rows post later than the trade date:
     `live_attribution`, FEES).
-  * yfinance unavailable for a held name or a factor ETF: the factor block is UNMEASURED
-    naming it; the attribution above it is unaffected.
+  * a held name without a same-day price (yfinance has not served it by 20:30; HYT lags,
+    CLAUDE.md landmine 6) or without any price history: the factor block is PARTIAL, not
+    UNMEASURED (team lead, 2026-11-10). It reads every other held name, names each one left
+    out with the reason and their share of the book's gross, and labels every reading and
+    REVIEW flag PARTIAL (`build_factor`). A factor ETF without its price, or no held name
+    with its inputs: UNMEASURED, naming it. The attribution above it is unaffected either way.
   * a book whose Dimson lag rule has no answer: the factor block says UNMEASURED and why.
 
 NO LOOKAHEAD (H7). The attribution uses fills and closes of the sessions it reports, the
@@ -105,6 +109,7 @@ import sys
 from fractions import Fraction
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[2]
@@ -295,9 +300,21 @@ def build_attribution(book: str, state: Path, asof: dt.date, reader, groups: dic
 def build_factor(book: str, res, inp, *, groups: dict, asof: dt.date, price_fetcher=None,
                  now_utc: dt.datetime | None = None) -> dict:
     """Factor exposure against the review line, headline first, by family or muni/taxable.
-    Exposures need each held name's price history (keyless yfinance); a name yfinance
-    cannot serve makes the whole block UNMEASURED, naming it, because a book read without
-    one of its names is a different book. Never a default."""
+    Exposures need each held name's price history (keyless yfinance). Never a default.
+
+    PARTIAL, NOT UNMEASURED, FOR A HELD NAME WITHOUT ITS INPUTS (team lead, 2026-11-10). Until
+    that ruling a held name yfinance had not served at 20:30 made the whole block UNMEASURED,
+    because a book read without one of its names is a different book. Now the fetch keeps a
+    late name's history (`fetch_each(partial=True)`) and `readout(partial=True)` reads each
+    held name on every date it has every input for, leaving it out, named, where it does not
+    (exposure_readout's module docstring, PARTIAL). The block is then PARTIAL: it lists each
+    name left out at the last close with its reason and their share of the book's gross, and
+    every reading and REVIEW flag on the partial book says PARTIAL. The share is read at the
+    attribution's own closes (Alpaca's daily bars, the marks the rebuild reconciles to official
+    equity), the one source here that has every held name's close on the date, so the
+    numerator and denominator come from one source. The block stays UNMEASURED, as before,
+    when a factor ETF has no price at the last close, or when on some date no held name has
+    its inputs (there is no book to read)."""
     fs = ER.factor_set(book)
     if fs.dimson_lags is None:
         return _factor_unmeasured(f"book {book} has no Dimson lag: its lag rule has not produced one "
@@ -310,14 +327,56 @@ def build_factor(book: str, res, inp, *, groups: dict, asof: dt.date, price_fetc
     tickers = sorted(set(P["symbol"]) | set(fs.etfs))
     # 252 sessions of beta window (about 370 calendar days) plus lags before the first positions date.
     start = pd.Timestamp(first).date() - dt.timedelta(days=int(fs.window * 1.6) + 30)
-    fetcher = price_fetcher or (lambda t, s, a: ER.fetch_each(t, s, a, required=fs.etfs))
+    fetcher = price_fetcher or (lambda t, s, a: ER.fetch_each(t, s, a, required=fs.etfs, partial=True))
     px, _, failed = fetcher(tickers, start, asof)
     held_failed = sorted(set(failed) & set(P["symbol"]))
-    if held_failed:
-        return _factor_unmeasured("price history unavailable for held name(s): "
-                                  + "; ".join(f"{t} ({failed[t]})" for t in held_failed), fs)
-    ro = ER.readout(px, P, groups, fs=fs)
-    return _factor_report(ro, fs, book)
+    on_last = set() if px is None or not len(px) else \
+        set(px.loc[(pd.to_datetime(px["date"]) == pd.Timestamp(last)) & np.isfinite(px["close"].to_numpy(float)), "ticker"])
+    etf_gone = [e for e in fs.etfs if e not in on_last]
+    if etf_gone:                                 # every exposure needs the factors: no partial reading
+        return _factor_unmeasured(f"factor ETF price unavailable at the close of {last}: "
+                                  + "; ".join(f"{e} ({failed.get(e, 'no row on that date')})" for e in etf_gone)
+                                  + ("; held name(s) without a price history: " + "; ".join(
+                                      f"{t} ({failed[t]})" for t in held_failed) if held_failed else ""), fs)
+    try:
+        ro = ER.readout(px, P, groups, fs=fs, partial=True)
+    except ER.NoInputsError as e:
+        return _factor_unmeasured(f"{e}" + ("; fetch: " + "; ".join(f"{t} ({failed[t]})" for t in held_failed)
+                                            if held_failed else ""), fs)
+    return _factor_report(ro, fs, book, partial=partial_info(ro, res, failed, last))
+
+
+def partial_info(ro, res, failed: dict, last: dt.date) -> dict | None:
+    """What a PARTIAL block says (team lead, 2026-11-10; `build_factor`): each held name left
+    out at the last close with its reason, the shares and its gross at the attribution's close;
+    their share of the book's gross, from the attribution's closes for every held name; and
+    every date on which a name was left out. None when every held name was read on every date.
+    A name left out that the attribution holds no close for raises: its share would be a
+    guess."""
+    ex = ro.excluded
+    if ex is None or not len(ex):
+        return None
+    nd = res.name_day[(res.name_day["date"] == last) & (res.name_day["q_end"] != 0)]
+    gross = {r.symbol: abs(Fraction(r.q_end) * Fraction(r.close)) for r in nd.itertuples()}
+    total = sum(gross.values(), Fraction(0))
+    at_last = ex[ex["date"] == pd.Timestamp(last)]
+    missing = []
+    for r in at_last.itertuples():
+        if r.symbol not in gross:
+            raise ER.ReadoutError(f"{r.symbol} is left out at the close of {last}, and the attribution holds no "
+                                  "position and close for it there: its share of the book's gross is unknown")
+        missing.append({"symbol": r.symbol, "shares": float(r.shares), "gross_usd": float(gross[r.symbol]),
+                        "reason": r.reason + (f" ({failed[r.symbol]})" if r.symbol in failed else "")})
+    if total <= 0:
+        raise ER.ReadoutError(f"the attribution's gross at the close of {last} is {total}: no share can be read")
+    share = float(sum((gross[m["symbol"]] for m in missing), Fraction(0)) / total)
+    dates = {}
+    for r in ex.itertuples():
+        dates.setdefault(pd.Timestamp(r.date).date().isoformat(), []).append(r.symbol)
+    return {"missing": missing, "missing_gross_share": share,
+            "missing_gross_basis": (f"sum of |shares x close| of the names left out over that of every held name, "
+                                    f"at the close of {last}, at the attribution's closes (Alpaca daily bars)"),
+            "partial_dates": dates}
 
 
 def _factor_unmeasured(why: str, fs: ER.FactorSet) -> dict:
@@ -325,43 +384,71 @@ def _factor_unmeasured(why: str, fs: ER.FactorSet) -> dict:
             "lines": [f"Factor exposure UNMEASURED: {why}"]}
 
 
-def _factor_report(ro, fs: ER.FactorSet, book: str) -> dict:
+def _factor_report(ro, fs: ER.FactorSet, book: str, partial: dict | None = None) -> dict:
     """The exposure at the last close and the review history. A review-line breach is a word
     in this report and nothing else: it pushes nothing and sets no severity (team lead,
     2026-11-09: report-only). The line is REVIEW_FRACTION x vol_target_annual x
     sizing_multiplier (team lead, 2026-11-10), and the JSON's `review_line` carries the value
     and its three inputs, so a reader sees what the flags were read against; c/target stays
-    over vol_target_annual, and the header line says the line in those units too."""
+    over vol_target_annual, and the header line says the line in those units too.
+
+    With `partial` (team lead, 2026-11-10; `build_factor`) the block is PARTIAL: its first
+    lines name what was left out and its share of the gross, every flag read on a partial book
+    at the last close says "(PARTIAL)", in the JSON as in the text, and the review history and
+    the factor P&L say how many of their dates were partial."""
     ex = ro.exposure
     last = ex["date"].max()
     today = ex[ex["date"] == last].set_index("factor")
+    pdates = set((partial or {}).get("partial_dates", {}))
+    lab = " (PARTIAL)" if pd.Timestamp(last).date().isoformat() in pdates else ""
     def fac(k):
         r = today.loc[k]
         return {"exposure_usd": float(r["exposure_usd"]), "exposure_frac": float(r["exposure_frac"]),
                 "contrib_of_target": float(r["contrib_of_target"]), "t_stat": float(r["t_stat"]),
-                "review": str(r["review"]), "factor_vol": float(r["factor_vol"])}
+                "review": str(r["review"]) + lab, "factor_vol": float(r["factor_vol"])}
     order = [fs.headline] + list(fs.indicative)
     factors = {k: fac(k) for k in order}
     history = {k: {"review_dates": int(ex[(ex["factor"] == k) & (ex["review"] == "REVIEW")]["date"].nunique()),
                    "dates": int(ex[ex["factor"] == k]["date"].nunique())} for k in order}
+    if partial:
+        for k in order:
+            history[k]["partial_dates"] = len(pdates)
     tv = ro.total_vol.set_index("date").loc[last]
     mult = "1 (key absent: the unit book)" if fs.sizing_multiplier is None else f"{fs.sizing_multiplier:.4g}"
     review_line = {"value": fs.review_line, "review_fraction": ER.REVIEW_FRACTION,
                    "vol_target_annual": fs.vol_target, "sizing_multiplier": fs.sizing_multiplier,
                    "multiplier_applied": fs.multiplier, "of_target": ER.REVIEW_FRACTION * fs.multiplier,
                    "spec_id": fs.spec_id, "ruling": "team lead, 2026-11-10: the line includes the sizing multiplier"}
-    lines = [f"Factor exposure at the close of {pd.Timestamp(last).date()} (headline {fs.headline}, "
+    lines = [f"Factor exposure{' PARTIAL' if partial else ''} at the close of {pd.Timestamp(last).date()} "
+             f"(headline {fs.headline}, "
              f"line = REVIEW_FRACTION {ER.REVIEW_FRACTION} x vol target {fs.vol_target:.4g} x sizing multiplier "
              f"{mult} = {fs.review_line:.4g}, i.e. c/target {review_line['of_target']:.3f}, of book {book}; "
              f"window {ro.window} sessions strictly before each date, Dimson lags 0..{ro.lags}): "
-             f"gross {float(tv['gross_usd']):,.0f} USD, net {float(tv['net_usd']):+,.0f} USD, total factor "
-             f"vol {float(tv['total_of_target']):.3f} of target"]
+             f"gross {float(tv['gross_usd']):,.0f} USD, net {float(tv['net_usd']):+,.0f} USD"
+             f"{' of the names read' if lab else ''}, total factor vol {float(tv['total_of_target']):.3f} of target"
+             f"{lab}"]
+    if partial:
+        miss = partial["missing"]
+        if miss:
+            lines.insert(0, f"Factor exposure PARTIAL (team lead, 2026-11-10): {len(miss)} held name(s) left out at "
+                            f"the close of {pd.Timestamp(last).date()}, without every input the readout needs, "
+                            f"{partial['missing_gross_share']:.1%} of the book's gross at the attribution's closes: "
+                            + "; ".join(f"{m['symbol']}, {m['shares']:+,.0f} shares, {m['gross_usd']:,.0f} USD gross, "
+                                        f"{m['reason']}" for m in miss)
+                            + ". The exposures, the review-line comparison and every flag at that close are on the "
+                              "remaining names, each labelled PARTIAL")
+        else:
+            lines.insert(0, f"Factor exposure PARTIAL (team lead, 2026-11-10): every held name is read at the close "
+                            f"of {pd.Timestamp(last).date()}, but a name was left out on {len(pdates)} earlier date(s)")
+        lines.insert(1, "Dates with a name left out: " + "; ".join(f"{d} {', '.join(s)}"
+                                                                   for d, s in sorted(partial["partial_dates"].items())))
     for k in order:
         f = factors[k]
         tag = "headline" if k == fs.headline else "indicative"
         lines.append(f"{k} ({tag}): E {f['exposure_usd']:+,.0f} USD ({f['exposure_frac']:+.3f} of equity), c/target "
                      f"{f['contrib_of_target']:.3f}, t {f['t_stat']:+.2f}: {f['review']}; REVIEW on "
-                     f"{history[k]['review_dates']} of {history[k]['dates']} date(s) so far")
+                     f"{history[k]['review_dates']} of {history[k]['dates']} date(s) so far"
+                     + (f", {len(pdates)} of them PARTIAL" if partial else ""))
     split: dict
     if fs.group_split == "muni":
         mv = ER.muni_vs_taxable(ro)
@@ -370,7 +457,7 @@ def _factor_report(ro, fs: ER.FactorSet, book: str) -> dict:
                  "book_usd": float(row["book_usd"]), "muni_held": bool(row["muni_held"]),
                  "taxable_held": bool(row["taxable_held"]),
                  "taxable_by_group": dict(row["taxable_by_group"])}
-        lines.append(f"{fs.headline} by side: muni group {split['muni_usd']:+,.0f} USD, taxable groups "
+        lines.append(f"{fs.headline} by side{lab}: muni group {split['muni_usd']:+,.0f} USD, taxable groups "
                      f"{split['taxable_usd']:+,.0f} USD ({', '.join(f'{g} {v:+,.0f}' for g, v in split['taxable_by_group'].items()) or 'none held'})")
     else:
         hg = ER.headline_by_group(ro)
@@ -380,7 +467,7 @@ def _factor_report(ro, fs: ER.FactorSet, book: str) -> dict:
                                                            "share_of_book": float(r.share_of_book)}
                                                    for r in hg.itertuples()},
                  "book_usd": float(hg["book_usd"].iloc[0]) if len(hg) else 0.0}
-        lines.append(f"{fs.headline} by family: "
+        lines.append(f"{fs.headline} by family{lab}: "
                      + ", ".join(f"{g} {v['exposure_usd']:+,.0f} ({v['share_of_book']:+.2f} of book)"
                                  for g, v in split["families"].items()))
     fp = ro.factor_pnl
@@ -388,13 +475,19 @@ def _factor_report(ro, fs: ER.FactorSet, book: str) -> dict:
     if len(fp):
         book_rows = fp[fp["scope"] == "book"]
         pnl = {k: float(book_rows[book_rows["factor"] == k]["pnl_summed"].sum()) for k in order}
+        on_partial = int(book_rows[book_rows["prev"].map(lambda d: pd.Timestamp(d).date().isoformat()).isin(pdates)]
+                         ["date"].nunique()) if partial else 0
         lines.append("Cumulative factor P&L (book, E(t-1) x f(t), model reading): "
-                     + ", ".join(f"{k} {v:+,.2f}" for k, v in pnl.items()))
-    return {"status": "OK", "asof": pd.Timestamp(last).date().isoformat(), "headline": fs.headline,
-            "review_line": review_line,
+                     + ", ".join(f"{k} {v:+,.2f}" for k, v in pnl.items())
+                     + (f" ({on_partial} session(s) on a PARTIAL previous-session book)" if on_partial else ""))
+    out = {"status": "PARTIAL" if partial else "OK", "asof": pd.Timestamp(last).date().isoformat(),
+           "headline": fs.headline, "review_line": review_line,
             "factors": factors, "history": history, "split": split, "factor_pnl": pnl, "lines": lines,
             "gross_usd": float(tv["gross_usd"]), "net_usd": float(tv["net_usd"]),
             "total_of_target": float(tv["total_of_target"])}
+    if partial:
+        out.update(partial)
+    return out
 
 
 # ---------------------------------------------------------------- the report

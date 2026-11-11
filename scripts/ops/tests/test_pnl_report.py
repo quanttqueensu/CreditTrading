@@ -387,14 +387,105 @@ def test_a_broker_read_failure_marks_the_unit_failed(tmp_path):
 
 
 def test_yfinance_failure_for_a_held_name_costs_only_the_factor_block(tmp_path):
+    """Since ruling C (team lead, 2026-11-10) a held name with no price history is left out and
+    named, and the block is PARTIAL, not UNMEASURED; the attribution is untouched."""
     def broken(tickers, start, asof):
         fs = ER.factor_set("cef")
         px = price_history(fs)
         return px[px["ticker"] != "BBB"], {}, {"BBB": "ReadoutError: yfinance returned no rows for BBB"}
     rep, code = run(tmp_path, price_fetcher=broken)
     assert code == P.EXIT_OK and rep["status"] == "PARTIAL"
-    assert rep["factor"]["status"] == P.UNMEASURED and "BBB" in rep["factor"]["why"]
+    assert rep["factor"]["status"] == "PARTIAL" and [m["symbol"] for m in rep["factor"]["missing"]] == ["BBB"]
+    assert "no price history in the fetch (ReadoutError: yfinance returned no rows for BBB)" == \
+        rep["factor"]["missing"][0]["reason"]
     assert rep["attribution"]["status"] == "OK"
+
+
+def _late(drop):
+    """A price fetch whose rows for the tickers in `drop` stop a session before the as-of: a
+    late same-day price (HYT's, CLAUDE.md landmine 6)."""
+    def fetch(tickers, start, asof):
+        px = price_history(ER.factor_set("cef"))
+        return px[~(px["ticker"].isin(drop) & (px["date"] == pd.Timestamp(ASOF)))].reset_index(drop=True), {}, {}
+    return fetch
+
+
+def _positions_at_closes():
+    """The fixture account's shares at each traded close, from its fills, and Alpaca's close."""
+    q, rows = {"AAA": 0, "BBB": 0}, []
+    for d in TRADED:
+        for _, s, side, n, _, dd in FILLS:
+            if dd == d:
+                q[s] += SIGN[side] * n
+        rows.append({s: q[s] for s in q})
+    return rows
+
+
+def test_a_late_same_day_price_makes_the_factor_block_partial_not_unmeasured(tmp_path):
+    """Ruling C (team lead, 2026-11-10): BBB has no price at the as-of close. The block is
+    PARTIAL; it names BBB, its reason and its share of the book's gross at the attribution's
+    closes (computed here from the fixture's own shares and closes); the exposures at that
+    close equal a direct strict readout of the same prices with BBB not held that day; every
+    flag there says PARTIAL; and risk_daily reads the block as a WATCH naming the share. Fails
+    on the parent commit, where the block was UNMEASURED."""
+    rep, code = run(tmp_path, price_fetcher=_late({"BBB"}))
+    f = rep["factor"]
+    assert code == P.EXIT_OK and rep["status"] == "PARTIAL" and rep["attribution"]["reconciled"] is True
+    assert f["status"] == "PARTIAL" and [m["symbol"] for m in f["missing"]] == ["BBB"]
+    assert f["missing"][0]["reason"] == f"no close on {ASOF} (its price history ends {TRADED[-2]})"
+    q = _positions_at_closes()[-1]
+    gross = {s: abs(q[s] * F(CLOSES[s][ASOF])) for s in q}
+    assert f["missing"][0]["shares"] == q["BBB"] and f["missing"][0]["gross_usd"] == pytest.approx(float(gross["BBB"]))
+    assert f["missing_gross_share"] == pytest.approx(float(gross["BBB"] / (gross["AAA"] + gross["BBB"])), rel=1e-12)
+    assert f["partial_dates"] == {ASOF.isoformat(): ["BBB"]}
+    # the exposures at the close: a strict readout of the same prices, BBB not held on the as-of
+    fs = ER.factor_set("cef")
+    px = _late({"BBB"})(None, None, None)[0]
+    eq = dict(equity_series())
+    rows = [dict(date=d.isoformat(), symbol=s, shares=float(n), equity=eq[d])
+            for d, qq in zip(TRADED, _positions_at_closes()) for s, n in qq.items() if n and not (d == ASOF and s == "BBB")]
+    direct = ER.readout(px, pd.DataFrame(rows), GROUPS, fs=fs).exposure
+    direct = direct[direct["date"] == pd.Timestamp(ASOF)].set_index("factor")
+    for k, x in f["factors"].items():
+        assert x["exposure_usd"] == pytest.approx(float(direct.at[k, "exposure_usd"]), rel=1e-12), k
+        assert x["review"] == f"{direct.at[k, 'review']} (PARTIAL)", k
+    assert f["lines"][0].startswith("Factor exposure PARTIAL") and "BBB" in f["lines"][0]
+    assert f"{f['missing_gross_share']:.1%} of the book's gross" in f["lines"][0]
+    assert all("(PARTIAL)" in ln for ln in f["lines"] if ln.startswith(("MUNI (", "TERM (", "CREDIT (", "LOANS (")))
+    md = (tmp_path / "cef" / "reports" / "pnl" / f"{ASOF}.md").read_text()
+    assert "## Factor exposure against the review line (PARTIAL)" in md
+    from scripts.ops import risk_daily as RD
+    b = RD.factor_block("cef", tmp_path / "cef", ASOF)
+    assert b["status"] == RD.WATCH and b["data"]["missing"] == ["BBB"]
+    assert b["lines"][0].startswith("Factor exposure PARTIAL: BBB left out") and \
+        f"{f['missing_gross_share']:.1%} of the book's gross" in b["lines"][0]
+
+
+def test_every_held_name_late_or_a_factor_etf_late_stays_unmeasured(tmp_path):
+    """Ruling C's edges: no held name with its inputs, or a factor ETF without its price, leaves
+    the block UNMEASURED, as before, naming why. A pin on the outcome (the parent was
+    UNMEASURED for the first case too, for another reason); the ETF case fails on the parent,
+    whose readout raised instead of naming the ETF."""
+    rep, code = run(tmp_path, price_fetcher=_late({"AAA", "BBB"}))
+    assert code == P.EXIT_OK and rep["factor"]["status"] == P.UNMEASURED
+    assert f"no held name has every input the readout needs on {ASOF}" in rep["factor"]["why"]
+    etf = ER.factor_set("cef").etfs[0]
+    rep, code = run(tmp_path, price_fetcher=_late({etf}))
+    assert code == P.EXIT_OK and rep["factor"]["status"] == P.UNMEASURED
+    assert rep["factor"]["why"].startswith(f"factor ETF price unavailable at the close of {ASOF}: {etf}")
+
+
+def test_the_job_asks_the_fetch_for_its_partial_mode(tmp_path, monkeypatch):
+    """The job, not the research CLI, turns the partial fetch on. Fails on the parent commit."""
+    seen = {}
+
+    def fake_fetch_each(tickers, start, asof, *, required=(), partial=False):
+        seen.update(required=tuple(required), partial=partial)
+        return price_history(ER.factor_set("cef")), {}, {}
+    monkeypatch.setattr(ER, "fetch_each", fake_fetch_each)
+    P.run_report("cef", tmp_path / "cef", ASOF, now_utc=NOW, reader=FakeReader(), groups=GROUPS,
+                 nav_fetcher=fake_navs, dist_check_fetcher=fake_dividends, price_fetcher=None)
+    assert seen == {"required": ER.factor_set("cef").etfs, "partial": True}
 
 
 def test_a_factor_set_with_no_lag_is_unmeasured_named(tmp_path, monkeypatch):

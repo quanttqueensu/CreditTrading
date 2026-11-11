@@ -370,14 +370,35 @@ def attribution_block(book: str, state: Path, asof: dt.date) -> dict:
 def factor_block(book: str, state: Path, asof: dt.date) -> dict:
     """The factor exposure from the P&L job's report, verbatim, or UNMEASURED naming the file.
     A review-line breach is in these lines and changes nothing: report only (team lead,
-    2026-11-09), so the status is INFO or UNMEASURED, never WATCH or ACT, and no line is
-    an ACT line."""
+    2026-11-09), so a breach never raises the status, and no line is an ACT line.
+
+    A PARTIAL block (team lead, 2026-11-10: a held name without a same-day price is left out
+    and named, not the whole block UNMEASURED) is a WATCH, with a first line naming the names
+    left out and their share of the book's gross, as an unreconciled attribution is a WATCH:
+    it is a data gap on a held name, which the design's severity table (s2.3) already makes a
+    WATCH, and a reading on part of the book should not pass as INFO. A share the job's JSON
+    does not carry is said to be UNMEASURED, never filled in. Status: INFO, WATCH or
+    UNMEASURED, never ACT."""
     rep, path = _pnl_report(state, asof)
     if rep is None:
         return _unmeasured(f"no P&L report at {path} (the 20:30 job has not written one for {asof})")
     fac = rep.get("factor") or {}
     lines = list(fac.get("lines") or [f"factor readout UNMEASURED: {fac.get('why')}"])
-    status = UNMEASURED if fac.get("status") != "OK" else INFO
+    st = fac.get("status")
+    if st == "PARTIAL":
+        miss = fac.get("missing") or []
+        share = fac.get("missing_gross_share")
+        names = ", ".join(str(m.get("symbol")) for m in miss)
+        lines.insert(0, (f"Factor exposure PARTIAL: {names} left out at the last close, " if miss else
+                         "Factor exposure PARTIAL: every held name read at the last close, a name left out on an "
+                         "earlier date, ")
+                     + (f"{share:.1%} of the book's gross" if isinstance(share, (int, float)) and not isinstance(share, bool)
+                        else "share of the book's gross UNMEASURED (not in the job's JSON)")
+                     + "; the readings below are on the remaining names (WATCH: a data gap on a held name; "
+                       "a review-line breach still sends nothing)")
+        return block(WATCH, lines, report=str(path), headline=fac.get("headline"),
+                     missing=[m.get("symbol") for m in miss], missing_gross_share=share)
+    status = INFO if st == "OK" else UNMEASURED
     return block(status, lines, report=str(path), headline=fac.get("headline"))
 
 

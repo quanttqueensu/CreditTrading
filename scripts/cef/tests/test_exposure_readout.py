@@ -1407,6 +1407,101 @@ def test_the_summary_prints_the_line_and_its_three_inputs():
     assert "x sizing_multiplier" in ER.REVIEW_RULE and ER.REVIEW_RULE in md
 
 
+# --------------------------------------------------------------------------- ruling C (team lead,
+# 2026-11-10): the report job's partial mode; the strict default unchanged
+
+def _late_book():
+    """The two-group book with DDD's rows stopping one session before the last positions date,
+    as a late same-day price leaves them."""
+    px, dates, book, groups = _two_group_book()
+    late = px[~((px["ticker"] == "DDD") & (px["date"] >= dates[-1]))].reset_index(drop=True)
+    return px, late, dates, book, groups
+
+
+def test_partial_mode_leaves_a_late_name_out_only_on_the_date_it_lacks():
+    """Ruling C: DDD is left out on the last date only, named with its reason and shares; that
+    date's readout equals a strict readout of the same prices with DDD not held that day, and
+    the earlier dates equal the full strict readout. Fails on the parent commit (no partial)."""
+    px, late, dates, book, groups = _late_book()
+    P = _positions(dates, book)
+    ro = ER.readout(late, P, groups, window=W, lags=L, partial=True)
+    ex = ro.excluded
+    assert list(ex["symbol"]) == ["DDD"] and list(ex["date"]) == [dates[-1]] and ex["shares"].iloc[0] == book["DDD"]
+    assert ex["reason"].iloc[0] == f"no close on {dates[-1].date()} (its price history ends {dates[-2].date()})"
+    rest = {k: v for k, v in book.items() if k != "DDD"}
+    direct = ER.readout(late, pd.concat([_positions(dates[:-1], book), _positions(dates[-1:], rest)]),
+                        groups, window=W, lags=L)
+    for name in ("exposure", "by_group", "betas", "factor_defs", "factor_pnl", "total_vol"):
+        pd.testing.assert_frame_equal(getattr(ro, name), getattr(direct, name), check_exact=True)
+    full = ER.readout(px, P, groups, window=W, lags=L)
+    for name in ("exposure", "total_vol"):
+        a, b = getattr(ro, name), getattr(full, name)
+        pd.testing.assert_frame_equal(a[a["date"] < dates[-1]].reset_index(drop=True),
+                                      b[b["date"] < dates[-1]].reset_index(drop=True), check_exact=True)
+    # the last date's factor P&L is E(t-1) x f(t), and t-1's book had DDD: it equals the full one
+    fa, fb = ro.factor_pnl, full.factor_pnl
+    pd.testing.assert_frame_equal(fa.reset_index(drop=True), fb.reset_index(drop=True), check_exact=True)
+
+
+def test_partial_mode_with_no_held_name_having_its_inputs_raises():
+    px, dates, book, groups = _two_group_book()
+    late = px[~(px["ticker"].isin(list(book)) & (px["date"] == dates[-1]))]
+    with pytest.raises(ER.NoInputsError, match=f"no held name has every input the readout needs on {dates[-1].date()}"):
+        ER.readout(late, _positions(dates, book), groups, window=W, lags=L, partial=True)
+
+
+def test_partial_mode_still_raises_on_a_missing_factor_etf():
+    """A factor ETF is not a held name: every exposure needs it, so its gap is never partial."""
+    px, dates, book, groups = _two_group_book()
+    late = px[~((px["ticker"] == "MUB") & (px["date"] == dates[-1]))]
+    with pytest.raises(ER.ReadoutError, match="factor ETF returns"):
+        ER.readout(late, _positions(dates, book), groups, window=W, lags=L, partial=True)
+    gap = px[~((px["ticker"] == "MUB") & (px["date"] == SESS[145]))]       # inside every date's window
+    assert len(gap) == len(px) - 1
+    with pytest.raises(ER.ReadoutError, match="factor ETF returns on the window"):
+        ER.readout(gap, _positions(dates, book), groups, window=W, lags=L, partial=True)
+
+
+def test_partial_mode_names_a_name_with_no_history_and_one_too_short_for_its_window():
+    px, dates, book, groups = _two_group_book()
+    short_from = SESS[150 - W // 2]
+    cut = px[(px["ticker"] != "CCC") & ~((px["ticker"] == "AAA") & (px["date"] < short_from))]
+    ro = ER.readout(cut, _positions(dates, book), groups, window=W, lags=L, partial=True)
+    why = ro.excluded.groupby("symbol")["reason"].first()
+    assert set(ro.excluded["symbol"]) == {"AAA", "CCC"} and len(ro.excluded) == 2 * len(dates)
+    assert why["CCC"] == "no price history in the fetch"
+    assert "missing return(s) in its" in why["AAA"] and str(short_from.date()) in why["AAA"]
+
+
+def test_the_strict_default_is_unchanged_by_a_late_name():
+    """The default refuses exactly as before the ruling, and a strict readout has no `excluded`
+    frame (the CLI and research paths never see one). Fails on the parent commit only at the
+    `excluded` line; the refusal is a pin."""
+    px, late, dates, book, groups = _late_book()
+    with pytest.raises(ER.ReadoutError, match=f"no close on {dates[-1].date()} for \\['DDD'\\]"):
+        ER.readout(late, _positions(dates, book), groups, window=W, lags=L)
+    assert ER.readout(px, _positions(dates, book), groups, window=W, lags=L).excluded is None
+
+
+def test_fetch_each_keeps_a_late_held_name_only_in_partial_mode(monkeypatch):
+    import sys
+    import types
+    asof = SESS[-1].date()
+    fake = types.SimpleNamespace(Ticker=lambda tk: _FakeTicker(SESS[:-1] if tk == "LATE" else SESS))
+    monkeypatch.setitem(sys.modules, "yfinance", fake)
+    px, cg, failed = ER.fetch_each(["IEF", "LATE"], SESS[0].date(), asof, required=("IEF",))
+    assert set(failed) == {"LATE"} and "not the asof session" in failed["LATE"]     # the default: as before
+    assert set(px["ticker"]) == {"IEF"}
+    px, cg, failed = ER.fetch_each(["IEF", "LATE"], SESS[0].date(), asof, required=("IEF",), partial=True)
+    assert failed == {} and set(px["ticker"]) == {"IEF", "LATE"}
+    assert px.loc[px["ticker"] == "LATE", "date"].max() == SESS[-2] and px.loc[px["ticker"] == "IEF", "date"].max() == SESS[-1]
+    fake.Ticker = lambda tk: _FakeTicker(SESS[:-1])          # a late factor ETF stays strict
+    with pytest.raises(ER.ReadoutError, match="IEF: the last yfinance row"):
+        ER.fetch_each(["IEF", "LATE"], SESS[0].date(), asof, required=("IEF",), partial=True)
+    with pytest.raises(ER.ReadoutError, match="not the asof session"):
+        ER.fetch_yf(["LATE"], SESS[0].date(), asof)          # fetch_yf's own default unchanged
+
+
 def test_c4_without_a_lag_raises_naming_the_rule(monkeypatch):
     R = _c4_returns()
     px = _px_from_returns(R)

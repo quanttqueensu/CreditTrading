@@ -422,7 +422,9 @@ WHAT IT REFUSES (raises, naming what is missing; never a default)
     (`ops/schedule/nyse_calendar.py`), a duplicate row, a non-finite or non-positive close,
     a negative dividend, a non-zero ETF capital gain;
   * a held name or a factor ETF with a missing return anywhere in its window, or with fewer
-    sessions than the window needs; a close missing on a positions date;
+    sessions than the window needs; a close missing on a positions date (for a held name,
+    in the default strict mode; the report job's partial mode leaves it out, named: PARTIAL,
+    below);
   * a split on a held name after the first positions date (the cached close would no
     longer match the share count), and a split the guard reads as already adjusted;
   * a positions file with a duplicate (date, symbol), a non-finite share count, a date
@@ -434,6 +436,31 @@ WHAT IT REFUSES (raises, naming what is missing; never a default)
   * any write under data/ (CLAUDE.md landmine 9), or of a file git could see in the
     repository that encloses the target (from a linked worktree, that can be the main
     checkout): the outputs carry the caller's positions, and this repository is public.
+
+PARTIAL: THE REPORT JOB'S MODE (team lead, 2026-11-10)
+----------------------------------------------------
+The daily P&L job (scripts/ops/pnl_report.py) runs at 20:30 ET, and a held name's same-day
+close is not always served by then (HYT lags, CLAUDE.md landmine 6). Before this ruling that
+made the job's whole factor block UNMEASURED. Where it was enforced: `fetch_yf` raises when
+a ticker's last row is not the asof session, `fetch_each` then drops every row of that
+ticker into `failed`, and the job refused the block for any held name in `failed`; past the
+fetch, `readout` raises on a missing close on a positions date and `fit_window` on a held
+name with no price column or a missing return in its window. The ruling: read the held
+names that have every input the computation needs, mark the block PARTIAL, and name the
+rest. So, behind explicit parameters that every research path and the CLI leave at False:
+  * `fetch_each(partial=True)` keeps a ticker that is not `required` and whose rows stop
+    before the asof, with the rows it has, validated up to its own last session. A required
+    ticker (a factor ETF) stays strict and raises.
+  * `readout(partial=True)` reads each held name on each date it has every input for: a
+    price history, a finite close on the date, and a finite return on every session of its
+    beta window. A name without one is left out of that date's exposure, value, groups and
+    betas, and recorded in `Readout.excluded` (date, symbol, shares, reason). So a name
+    whose close is late only today is read on every earlier date and left out today; the
+    factor P&L of today, E(yesterday) x f(today), keeps it. If no held name has its inputs
+    on a date, `NoInputsError` (a ReadoutError) is raised: there is no book to read. A
+    factor ETF's missing return still raises as in strict mode.
+With both at False (the default) nothing above runs and the outputs are byte-identical to
+the strict build's (the proof is in the commit that added this).
 
 TWO BOOKS (team lead, 2026-11-09)
 ---------------------------------
@@ -624,6 +651,11 @@ class ReadoutError(RuntimeError):
 
 class LookaheadError(ReadoutError):
     """A window reached the date it is used on (H7)."""
+
+
+class NoInputsError(ReadoutError):
+    """`readout(partial=True)`: no held name has every input on a date (module docstring,
+    PARTIAL), so there is no book to read and the caller's block stays UNMEASURED."""
 
 
 REVIEW_RULE = (
@@ -928,10 +960,12 @@ def validate_prices(px: pd.DataFrame, asof: dt.date) -> None:
                 f"({len(missing)}), extra {[d.date().isoformat() for d in extra[:5]]} ({len(extra)})")
 
 
-def fetch_yf(tickers, start: dt.date, asof: dt.date) -> tuple[pd.DataFrame, dict]:
+def fetch_yf(tickers, start: dt.date, asof: dt.date, *, through_asof: bool = True) -> tuple[pd.DataFrame, dict]:
     """Keyless yfinance `Ticker.history(auto_adjust=False, actions=True)` for each ticker,
     start..asof. Returns the long frame and a note of which tickers carry a Capital Gains
-    column. An exception propagates; nothing is written then."""
+    column. An exception propagates; nothing is written then. `through_asof` False is
+    `fetch_each(partial=True)`'s only (module docstring, PARTIAL): a ticker whose last row is
+    before the asof is returned as it is instead of raising; a row after it still raises."""
     import yfinance as yf
     frames, cg = [], {}
     for tk in sorted(set(tickers)):
@@ -959,21 +993,28 @@ def fetch_yf(tickers, start: dt.date, asof: dt.date) -> tuple[pd.DataFrame, dict
             "close": h["Close"].to_numpy(float), "adj_close": h["Adj Close"].to_numpy(float),
             "dividend": h["Dividends"].to_numpy(float), "split": h["Stock Splits"].to_numpy(float)}))
         last = frames[-1]["date"].max().date()
-        if last != asof:
+        if (last != asof) if through_asof else (last > asof):
             raise ReadoutError(f"{tk}: the last yfinance row is {last}, not the asof session {asof}")
     px = pd.concat(frames, ignore_index=True).sort_values(["ticker", "date"]).reset_index(drop=True)
     return px, cg
 
 
-def fetch_each(tickers, start: dt.date, asof: dt.date, *, required=()) -> tuple[pd.DataFrame, dict, dict]:
+def fetch_each(tickers, start: dt.date, asof: dt.date, *, required=(),
+               partial: bool = False) -> tuple[pd.DataFrame, dict, dict]:
     """`fetch_yf` and `validate_prices` one ticker at a time: (px, cg, failed). A ticker that
     fails is put in `failed` with the reason (THE C4 LAG RULE names such exclusions) and
-    the fetch goes on, except a `required` ticker (a factor ETF), whose failure raises."""
+    the fetch goes on, except a `required` ticker (a factor ETF), whose failure raises.
+
+    `partial` (default False, which the CLI and every research path keep; True from the daily
+    report job only, team lead 2026-11-10, module docstring PARTIAL): a ticker that is not
+    `required` and whose rows stop before `asof` is kept with the rows it has, validated up to
+    its own last session, so that `readout(partial=True)` can read it on the dates it has."""
     frames, cg, failed = [], {}, {}
     for tk in sorted(set(tickers)):
+        late_ok = partial and tk not in required
         try:
-            one, c = fetch_yf([tk], start, asof)
-            validate_prices(one, asof)
+            one, c = fetch_yf([tk], start, asof, through_asof=False) if late_ok else fetch_yf([tk], start, asof)
+            validate_prices(one, one["date"].max().date() if late_ok else asof)
         except Exception as e:
             if tk in required:
                 raise
@@ -1334,15 +1375,44 @@ class Readout:
     window: int
     lags: int
     fs: FactorSet = CORE
+    excluded: pd.DataFrame | None = None   # partial mode only: (date, symbol, shares, reason) left out
+
+
+def _missing_input(s: str, t, C: pd.DataFrame, R: pd.DataFrame, sessions: pd.DatetimeIndex,
+                   window: int, lags: int) -> str | None:
+    """Why held name s cannot be read on t in partial mode, or None when it has every input the
+    computation needs (module docstring, PARTIAL): a price history, a finite close on t (its
+    value), and a finite return on every session of its beta window, strictly before t."""
+    if s not in C.columns:
+        return "no price history in the fetch"
+    have = C[s].dropna()
+    if not np.isfinite(float(C.at[t, s])):
+        if len(have) and t > have.index.max():
+            return f"no close on {t.date()} (its price history ends {have.index.max().date()})"
+        if len(have) and t < have.index.min():
+            return f"no close on {t.date()} (its price history starts {have.index.min().date()})"
+        return f"no close on {t.date()}"
+    y_dates, _ = window_rows(sessions, t, window, lags)
+    bad = int((~np.isfinite(R.loc[y_dates, s].to_numpy(float))).sum())
+    if bad:
+        return (f"{bad} missing return(s) in its {window}-session window before {t.date()} (its price "
+                f"history starts {have.index.min().date()})")
+    return None
 
 
 def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: int | None = None,
-            lags: int | None = None, vol_target: float | None = None, fs: FactorSet = CORE) -> Readout:
+            lags: int | None = None, vol_target: float | None = None, fs: FactorSet = CORE,
+            partial: bool = False) -> Readout:
     """Exposures on every positions date, and the factor P&L on every positions date whose
     previous session is also a positions date (E(t-1) x f(t), and the lag-distributed
     second method). `window`, `lags` and `vol_target` default to the book's (`fs`); a book
     whose lag rule has not run raises rather than guess a lag. The line's multiplier is
-    always the book's own (`fs.multiplier`, team lead, 2026-11-10)."""
+    always the book's own (`fs.multiplier`, team lead, 2026-11-10).
+
+    `partial` (default False: the strict readout, unchanged; True from the daily report job
+    only, team lead 2026-11-10, module docstring PARTIAL): a held name without every input on
+    a date is left out of that date and recorded in `excluded`, and a date on which no held
+    name has its inputs raises NoInputsError."""
     window = fs.window if window is None else window
     vol_target = fs.vol_target if vol_target is None else vol_target
     if lags is None:
@@ -1372,9 +1442,18 @@ def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: 
 
     fits, values, eqs = {}, {}, {}
     ex_rows, grp_rows, beta_rows, def_rows, tv_rows = [], [], [], [], []
+    excluded_rows = []
     for t in dates:
         Pt = P[P["date"] == t].set_index("symbol")
         held = list(Pt.index[Pt["shares"] != 0])
+        if partial:
+            why = {s: _missing_input(s, t, C, R, sessions, window, lags) for s in held}
+            gone = [s for s in held if why[s] is not None]
+            if held and len(gone) == len(held):
+                raise NoInputsError(f"no held name has every input the readout needs on {t.date()}: "
+                                    + "; ".join(f"{s} ({why[s]})" for s in gone))
+            excluded_rows += [dict(date=t, symbol=s, shares=float(Pt.at[s, "shares"]), reason=why[s]) for s in gone]
+            held = [s for s in held if why[s] is None]
         close = C.loc[t, held] if held else pd.Series(dtype=float)
         if held and not np.isfinite(close.to_numpy(float)).all():
             raise ReadoutError(f"no close on {t.date()} for {list(close[~np.isfinite(close)].index)}")
@@ -1442,7 +1521,9 @@ def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: 
     return Readout(exposure=pd.concat(ex_rows, ignore_index=True),
                    by_group=pd.DataFrame(grp_rows), betas=pd.DataFrame(beta_rows),
                    factor_defs=pd.DataFrame(def_rows), factor_pnl=pd.DataFrame(pnl_rows),
-                   total_vol=pd.DataFrame(tv_rows), window=window, lags=lags, fs=fs)
+                   total_vol=pd.DataFrame(tv_rows), window=window, lags=lags, fs=fs,
+                   excluded=(pd.DataFrame(excluded_rows, columns=["date", "symbol", "shares", "reason"])
+                             if partial else None))
 
 
 # --------------------------------------------------------------------------- plateau check

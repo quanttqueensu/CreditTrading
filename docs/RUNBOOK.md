@@ -1283,9 +1283,15 @@ report units' measured peaks are in 8.10) should be cut to the measured peak wit
 after the first week. The job calls yfinance for NAVs, dividends and prices (keyless); the
 VM must be able to reach Yahoo. A missing NAV (a fund not published by 20:30) makes the NAV
 and discount parts UNMEASURED for that name-day, named, and leaves hold, fill, fees and
-the reconciliation complete. A held name yfinance cannot serve makes the factor block
-UNMEASURED, naming it; the attribution above it stays. A book with no Dimson lag (C4,
-until its rule has produced one) has a factor block UNMEASURED, naming the rule.
+the reconciliation complete. A held name yfinance has not served by the job's run (a late
+same-day close; HYT lags, CLAUDE.md landmine 6), or cannot serve at all, makes the factor
+block PARTIAL, not UNMEASURED (team lead, 2026-11-10): the other held names are read, the
+names left out are listed with the reason and their share of the book's gross, and every
+reading and REVIEW flag on the partial book says PARTIAL; `risk_daily` shows that block as a
+WATCH naming the share. A factor ETF without its price, or no held name with its inputs,
+makes the block UNMEASURED, naming it; the attribution above it stays either way. A book
+with no Dimson lag (C4, until its rule has produced one) has a factor block UNMEASURED,
+naming the rule.
 
 **Rollback.** As 8.10: on a rollback to a tag older than this section, first
 `sudo systemctl disable --now quantt-{cef,c4}-pnl.timer`, then
