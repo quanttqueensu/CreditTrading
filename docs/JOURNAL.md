@@ -419,3 +419,7 @@ from a named source; [doc] copied from a named note.
 - **Checked as an artifact.** Every eligible ex-date had volume, the ex-day drop is 1.08 times the distribution, and the effect is larger in the most liquid funds. It is not stale prices.
 - **Not shown by the gross figure.** Each event is worth 20 to 30bp, about a round trip through the spread; the shorts need borrow that paper does not charge; capacity is about $1–3M. It clears Explore, and the shadow book is the next build.
 - **Shadow.** Two more books from 2026-11-10, $1M each, on 91 funds: `cef_exdate_after` and `cef_exdate_before_after` (`results/report/EVIDENCE_LOG.md` E-2026-11-10-08). Their ex-dates are stored by the day first seen. Three shadow books now run on the VM.
+
+**Earnings drift on a wide universe, 2026-11-11** (`results/report/EVIDENCE_LOG.md` E-2026-11-11-01).
+- **Research.** Drift after quarterly earnings on the 1,500 largest US stocks, IBES surprises and CRSP on R2 to 2025-12-31: the pre-specified book has a gross Sharpe of 0.21 (t 1.09); a variant sorted on the announcement move, chosen after looking, 0.73 [V: `results/ideas/2026-11-11_pead_wide.md`]. Not promoted.
+- **Built.** `scripts/research/stage_ibes_surprises.py` stages the surprises outside the repository.
