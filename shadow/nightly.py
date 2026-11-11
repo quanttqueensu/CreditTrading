@@ -26,6 +26,7 @@ import datetime as dt
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -52,8 +53,12 @@ def _refresh(book: Book, state: Path) -> list:
     failed = []
     env = {**os.environ, "SHADOW_STATE_DIR": str(state)}
     for cmd in book.refresh:
+        # A book file writes `python3`; it must mean THIS interpreter. Under systemd the
+        # PATH's python3 is the system one, which has none of the packages (the VM's venv
+        # is reached only through the unit's SHADOW_PYTHON).
+        argv = [sys.executable if cmd[0] == "python3" else cmd[0], *cmd[1:]]
         try:
-            r = subprocess.run(list(cmd), cwd=engine.REPO, env=env, timeout=REFRESH_TIMEOUT_S)
+            r = subprocess.run(argv, cwd=engine.REPO, env=env, timeout=REFRESH_TIMEOUT_S)
             if r.returncode != 0:
                 failed.append((" ".join(cmd), r.returncode))
         except (OSError, subprocess.TimeoutExpired) as e:
