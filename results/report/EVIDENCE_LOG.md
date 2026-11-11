@@ -4168,3 +4168,13 @@ that adds it does not exist when it is written.
 - source: `results/ideas/2026-11-11_pead_wide.md` @ `8c8bfe5`; `results/ideas/pead_wide/results.json` @ `8c8bfe5`
 - supports: §3, §4
 - status: current. One run of each reproducer; not independently re-derived. The event-time table and the variant are printed by `results/ideas/pead_wide/event_time.py` and stored only in the card
+
+### E-2026-11-11-02 · Ruling: the desk is event-driven and special situations as well as systematic, in any asset class, and every idea hunt looks for niche verticals there
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-11
+- figures:
+  - none (a ruling)
+- source: `docs/SYSTEM.md` @ `e02abb1` (§5, the 2026-11-11 block); `docs/MISSION.md` @ `e02abb1` (§5, the block dated 2026-11-11); `.claude/skills/hunt/SKILL.md` @ `e02abb1`
+- supports: §2, §5
+- status: current. The team lead's instruction in the session of 2026-11-11. It adds to the 2026-11-09 ruling (E-2026-11-09-01) and changes nothing else in it. The seed list in `docs/MISSION.md` is hypotheses; none is tested

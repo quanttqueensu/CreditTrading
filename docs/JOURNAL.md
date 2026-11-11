@@ -423,3 +423,6 @@ from a named source; [doc] copied from a named note.
 **Earnings drift on a wide universe, 2026-11-11** (`results/report/EVIDENCE_LOG.md` E-2026-11-11-01).
 - **Research.** Drift after quarterly earnings on the 1,500 largest US stocks, IBES surprises and CRSP on R2 to 2025-12-31: the pre-specified book has a gross Sharpe of 0.21 (t 1.09); a variant sorted on the announcement move, chosen after looking, 0.73 [V: `results/ideas/2026-11-11_pead_wide.md`]. Not promoted.
 - **Built.** `scripts/research/stage_ibes_surprises.py` stages the surprises outside the repository.
+
+**Event-driven and special situations added to the mission, 2026-11-11** (`results/report/EVIDENCE_LOG.md` E-2026-11-11-02).
+- **Ruled.** The team lead: the desk is event-driven and special situations as well as systematic, in any asset class, and hunts look for niche verticals there. `docs/SYSTEM.md` §5 records it; `docs/MISSION.md` §5 has the seed list; `/hunt` requires it.
