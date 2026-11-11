@@ -3982,3 +3982,13 @@ that adds it does not exist when it is written.
 - source: `scripts/cef/live_attribution.py` @ `c8bf828`; `scripts/ops/alpaca_read.py` @ `2bf1d4d`; `scripts/ops/pnl_report.py` @ `60dee01`
 - supports: §4, §5
 - status: built on branch reports-attribution, no PR yet (it opens after PR #65 merges); not installed; the reader has never read a live account
+
+### E-2026-11-10-52 · Rulings on the daily report job: the review line carries each book's sizing multiplier, an unreconciled report fails its run, and a late price makes the factor block partial, not unmeasured
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - none (rulings, put to the team lead on 2026-11-10 after the build's review: the factor review line is REVIEW_FRACTION x vol_target_annual x sizing_multiplier, from each book's own spec, because the account holds the multiplier times the unit book (this changes the core's readout as well); a report whose rebuild does not reconcile to Alpaca's official equity exits 5 after writing its files; a held name with no same-day price is left out and named, and the factor block reads PARTIAL with the missing share of gross; NAV timing at 20:30 is accepted as built; C4 keeps L = 2; the runner client's redirect finding goes to the code's owner (PR #79))
+- source: `scripts/cef/exposure_readout.py` @ `774fd52`; `scripts/ops/pnl_report.py` @ `5c42757`; `scripts/ops/pnl_report.py` @ `2cd374f`; `scripts/ops/risk_daily.py` @ `2cd374f`
+- supports: §4, §5
+- status: current
