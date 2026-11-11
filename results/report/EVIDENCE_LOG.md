@@ -4196,7 +4196,7 @@ that adds it does not exist when it is written.
 - supports: §4, §5
 - status: current
 
-### E-2026-11-11-50 · Ruling and method: both specs' sizing-multiplier notes now name the report job's factor readout among their readers; no value and no spec id changed, and C4's three sha-pinned artifacts were regenerated and match exactly
+### E-2026-11-11-50 · Ruling and method: both specs' sizing-multiplier notes now name the report job's factor readout among their readers; no value and no spec id changed, and C4's three sha-pinned artifacts were regenerated and match except their spec sha256 and run-time fields
 - kind: method
 - era: ALPACA
 - date: 2026-11-11
