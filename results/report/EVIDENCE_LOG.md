@@ -4132,6 +4132,28 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: built, PR open, not merged or installed; the ACT push needs the team lead's two vault secrets (docs/RUNBOOK.md 8.11); drawdown read marked for follow-up on PR #55
 
+### E-2026-11-09-60 · CEF trial 55's three pre-activation fixes from the owner's release-check: late_market only, a plan the buying-power fit emptied is not sent, and the drift guard compares the K-line values
+- kind: method
+- era: ALPACA
+- date: 2026-11-09
+- figures:
+  - "`thin_rule_for` refuses, at session start, any execution mode but `late_market`" [S]
+  - "a reduced plan the buying-power fit scaled to nothing (`bp_scale` orders_in > 0, orders_out 0) is not sent" [S]
+  - "A spec value may be the compose value rounded, at 3 decimals or more; any other difference fails the activation commit" [S]
+- source: `docs/RUNNER.md` @ `5eb8bf5`; `quantt/session/run.py` @ `5eb8bf5`; `quantt/session/drawdown.py` @ `5eb8bf5`; `src/deploy/tests/test_thin_k3_run_provenance.py` @ `5eb8bf5`
+- supports: §5
+- status: current (the key is not set; it trades only from its activation commit)
+
+### E-2026-11-10-51 · Method and ruling: an independent review of CEF trial 55's pre-activation fixes found the activation guard blind to the band, the gross ceiling and min_names; on the team lead's ruling all three findings are fixed before the merge
+- kind: method
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - none (a review and a fix: the guard now holds the spec's band_width, max_gross_stress and min_names to the compose run's recorded band, cap and min_names, beside m and floor; an empty plan beside a `bp_scale` record that run.py cannot write, or beside STARTED, reads UNMEASURED instead of sent; three stale passages of drawdown.py's rule are corrected. The team lead ruled on 2026-11-10: "Fix all three, then merge". Nothing here runs while no spec sets `below_min_names = "trade_eligible"`)
+- source: `src/deploy/tests/test_thin_k3_run_provenance.py` @ `0c5d747` (fixed by this commit); `quantt/session/drawdown.py` @ `0c5d747` (fixed by this commit); `results/cef/prereg_thin_te4/compose.py` @ `0c5d747`
+- supports: §5
+- status: current
+
 ### E-2026-11-09-50 · Rulings: a daily VM report for both paper books, the P&L attribution and factor readout; C4's factors are equity, term, credit and preferred with equity as headline; report only, read through the broker key with read-only code
 - kind: ruling
 - era: ALPACA
