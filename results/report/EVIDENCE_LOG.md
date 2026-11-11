@@ -4099,3 +4099,13 @@ that adds it does not exist when it is written.
 - source: `docs/RUNNER.md` @ `5eb8bf5`; `quantt/session/run.py` @ `5eb8bf5`; `quantt/session/drawdown.py` @ `5eb8bf5`; `src/deploy/tests/test_thin_k3_run_provenance.py` @ `5eb8bf5`
 - supports: §5
 - status: current (the key is not set; it trades only from its activation commit)
+
+### E-2026-11-10-51 · Method and ruling: an independent review of CEF trial 55's pre-activation fixes found the activation guard blind to the band, the gross ceiling and min_names; on the team lead's ruling all three findings are fixed before the merge
+- kind: method
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - none (a review and a fix: the guard now holds the spec's band_width, max_gross_stress and min_names to the compose run's recorded band, cap and min_names, beside m and floor; an empty plan beside a `bp_scale` record that run.py cannot write, or beside STARTED, reads UNMEASURED instead of sent; three stale passages of drawdown.py's rule are corrected. The team lead ruled on 2026-11-10: "Fix all three, then merge". Nothing here runs while no spec sets `below_min_names = "trade_eligible"`)
+- source: `src/deploy/tests/test_thin_k3_run_provenance.py` @ `0c5d747` (fixed by this commit); `quantt/session/drawdown.py` @ `0c5d747` (fixed by this commit); `results/cef/prereg_thin_te4/compose.py` @ `0c5d747`
+- supports: §5
+- status: current

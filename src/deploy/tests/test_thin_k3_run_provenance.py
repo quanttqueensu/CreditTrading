@@ -118,7 +118,12 @@ def _dig(rec, path):
 
 def compose_value_drift(spec: dict, rec: dict, name: str) -> list:
     """The owner's release-check of 78e3483 (2026-11-09): beyond the run length, the four K-lines
-    and the m and floor the compose run measured them at must be the spec's. A line may be the
+    and the m and floor the compose run measured them at must be the spec's. So must the band,
+    the gross ceiling and min_names (the independent review of PR #69, 2026-11-10): compose.py
+    reads all five from the frozen spec and records them under `spec` (pre-registration §6.3),
+    and a stop measured on another band, ceiling or set of reduced sessions is a level nobody
+    measured for this book. compose records neither the universe nor the panel date, so those
+    cannot be checked here. A line may be the
     compose value rounded, at MIN_DECIMALS or more, as the pre-registration quotes them (0.956);
     any other difference is a stop set at a level nobody measured."""
     problems, risk, frozen = [], spec.get("risk") or {}, spec.get("frozen") or {}
@@ -139,7 +144,10 @@ def compose_value_drift(spec: dict, rec: dict, name: str) -> list:
             problems.append(f"risk.{key} is {want!r}; {name} records {where} {got!r}, which "
                             f"is {round(got, places)!r} at that precision")
     for label, have, path in (("frozen.sizing_multiplier", frozen.get("sizing_multiplier"), ("spec", "m")),
-                              ("frozen.below_min_names_floor", frozen.get("below_min_names_floor"), ("spec", "floor"))):
+                              ("frozen.below_min_names_floor", frozen.get("below_min_names_floor"), ("spec", "floor")),
+                              ("frozen.band_width", frozen.get("band_width"), ("spec", "band")),
+                              ("frozen.max_gross_stress", frozen.get("max_gross_stress"), ("spec", "cap")),
+                              ("frozen.min_names", frozen.get("min_names"), ("spec", "min_names"))):
         got = _dig(rec, path)
         if got is None or have is None or got != have:
             problems.append(f"{label} is {have!r}; {name} measured its lines at "
@@ -219,11 +227,12 @@ def _spec(*names, run=3, lines=LINES, run_note=NOTE_RUN):
         risk[f"_{k}_note"] = f"derived by compose.py: {cite} §E"
     return {"risk": risk, "frozen": {"below_min_names": "trade_eligible",
                                       "below_min_names_floor": 4, "max_gross_stress": 1.8,
-                                      "sizing_multiplier": 1.3}}
+                                      "sizing_multiplier": 1.3, "band_width": 0.048,
+                                      "min_names": 6}}
 
 
-# The record a compose run writes for LINES, at the spec's m and floor.
-GOOD = {"spec": {"id": "test", "m": 1.3, "floor": 4},
+# The record a compose run writes for LINES, at the spec's m, floor, band, ceiling and min_names.
+GOOD = {"spec": {"id": "test", "m": 1.3, "band": 0.048, "cap": 1.8, "min_names": 6, "floor": 4},
         "in_episode": {"D_E": {"252": {"D_E": 0.10515826}},
                        "persistence": {"max_w": {"max": 0.95570082},
                                        "net": {"p99": 0.24831940, "max": 0.83333286}}}}
@@ -265,8 +274,14 @@ def test_the_guard_fails_a_compose_run_that_records_no_k_line(tmp_path, key, pat
 
 
 @pytest.mark.parametrize("path,label", [(("spec", "m"), "frozen.sizing_multiplier"),
-                                        (("spec", "floor"), "frozen.below_min_names_floor")])
+                                        (("spec", "floor"), "frozen.below_min_names_floor"),
+                                        (("spec", "band"), "frozen.band_width"),
+                                        (("spec", "cap"), "frozen.max_gross_stress"),
+                                        (("spec", "min_names"), "frozen.min_names")])
 def test_the_guard_fails_a_compose_run_at_another_m_or_floor(tmp_path, path, label):
+    """m and floor: the owner's release-check of 78e3483. band, cap and min_names: the
+    independent review of PR #69 (2026-11-10), which passed a spec with each moved; those three
+    cases fail on 0c5d747, whose guard compared only m and floor."""
     (tmp_path / "compose_2026-12-01.json").write_text(json.dumps(
         {**_bump(path, 2), "k3_run_sessions": 3}))
     bad = k3_run_drift(_spec("compose_2026-12-01.json"), tmp_path)

@@ -281,11 +281,48 @@ def test_a_reduced_plan_the_buying_power_fit_scaled_to_nothing_was_not_sent(
 
 
 def test_an_empty_plan_without_a_fit_still_means_the_account_held_its_targets():
-    """A PIN (9ca0b44 reads it the same): no `bp_scale`, or a fit that had nothing to take out."""
+    """A PIN (9ca0b44 reads it the same): no `bp_scale` key at all."""
     day = {"plan": {"orders": [], "execution": "late_market"}, "started": False, "send": None}
     assert ddm._send_state(M.SESSION, day)[0] is True
-    day["plan"]["bp_scale"] = {"factor": 1.0, "binding": None, "orders_in": 0, "orders_out": 0}
-    assert ddm._send_state(M.SESSION, day)[0] is True
+
+
+@pytest.mark.parametrize("fit", [
+    {"factor": 1.0, "binding": None, "orders_in": 0, "orders_out": 0},
+    {"factor": 0.5, "binding": "buying_power", "orders_in": 5, "orders_out": 3},
+    {"factor": 0.0, "binding": "buying_power", "orders_in": -1, "orders_out": 0},
+    {"factor": 0.0, "binding": "buying_power", "orders_in": 2, "orders_out": 5}])
+def test_an_empty_plan_beside_a_fit_record_run_py_cannot_write_is_unmeasured(fit):
+    """The independent review of PR #69 (2026-11-10): run.py writes `bp_scale` only for a decide
+    that had orders and makes the fitted set the plan's orders, so beside an empty plan only
+    orders_in > 0 with orders_out 0 can be its own record. Each of these read SENT ("already held
+    its targets") on 0c5d747."""
+    day = {"plan": {"orders": [], "execution": "late_market", "bp_scale": fit},
+           "started": False, "send": None}
+    with pytest.raises(ddm.Unmeasured, match="contradict each other"):
+        ddm._send_state(M.SESSION, day)
+
+
+@pytest.mark.parametrize("fit", [None, {"orders_in": True, "orders_out": False}])
+def test_an_empty_plan_with_a_null_or_bool_fit_record_is_malformed(fit):
+    """The independent review of PR #69 (2026-11-10): run.py never writes a null `bp_scale` or a
+    bool count. On 0c5d747 the null read SENT and the bools read not sent."""
+    day = {"plan": {"orders": [], "execution": "late_market", "bp_scale": fit},
+           "started": False, "send": None}
+    with pytest.raises(ddm.Unmeasured, match="malformed `bp_scale`"):
+        ddm._send_state(M.SESSION, day)
+
+
+@pytest.mark.parametrize("started,why", [(True, "contradict each other"),
+                                         (None, "was not read")])
+def test_a_fit_emptied_plan_beside_started_or_an_unread_started_is_unmeasured(started, why):
+    """The independent review of PR #69 (2026-11-10): STARTED precedes the first order of a set
+    (CLAUDE.md order-path rule 2), so a set with no orders never starts; on 0c5d747 this branch
+    never looked at STARTED and read both as not sent."""
+    fit = {"factor": 0.0, "binding": "buying_power", "orders_in": 5, "orders_out": 0}
+    day = {"plan": {"orders": [], "execution": "late_market", "bp_scale": fit},
+           "started": started, "send": None}
+    with pytest.raises(ddm.Unmeasured, match=why):
+        ddm._send_state(M.SESSION, day)
 
 
 @pytest.mark.parametrize("fit", ["x", {"orders_in": 2}, {"orders_in": "2", "orders_out": 0}])
