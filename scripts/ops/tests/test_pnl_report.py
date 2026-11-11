@@ -201,6 +201,29 @@ def test_the_c4_report_uses_its_own_factors_and_family_split(tmp_path, monkeypat
     assert any("REVIEW_FRACTION" in ln and "vol target 0.06" in ln for ln in f["lines"])
 
 
+@pytest.mark.parametrize("book", ["cef", "c4"])
+def test_the_report_shows_the_line_with_its_three_inputs_and_reads_flags_against_it(tmp_path, book):
+    """Ruling A (team lead, 2026-11-10): the line is REVIEW_FRACTION x vol_target_annual x
+    sizing_multiplier, each from the book's own spec, and the JSON and the text carry all three
+    beside it; every flag is c/target against REVIEW_FRACTION x m. Fails on the parent commit
+    (no multiplier, no `review_line`)."""
+    rep, _ = run(tmp_path, book=book)
+    fs = ER.factor_set(book)
+    f = rep["factor"]
+    assert f["status"] == "OK"
+    rl = f["review_line"]
+    assert rl["review_fraction"] == ER.REVIEW_FRACTION and rl["vol_target_annual"] == fs.vol_target
+    assert rl["sizing_multiplier"] == fs.sizing_multiplier and rl["multiplier_applied"] == fs.multiplier
+    assert rl["value"] == pytest.approx(ER.REVIEW_FRACTION * fs.vol_target * fs.multiplier, rel=1e-15)
+    assert rl["of_target"] == pytest.approx(ER.REVIEW_FRACTION * fs.multiplier, rel=1e-15)
+    m = "1 (key absent: the unit book)" if fs.sizing_multiplier is None else f"{fs.sizing_multiplier:.4g}"
+    assert f["lines"][0].count(f"x vol target {fs.vol_target:.4g} x sizing multiplier {m} = {rl['value']:.4g}") == 1
+    for k, x in f["factors"].items():
+        assert x["review"] == ("REVIEW" if x["contrib_of_target"] > rl["of_target"] else "within"), k
+    on_disk = json.loads((tmp_path / book / "reports" / "pnl" / f"{ASOF}.json").read_text())
+    assert on_disk["factor"]["review_line"] == rl
+
+
 def test_a_review_breach_shows_in_the_report_and_is_report_only(tmp_path):
     rep, _ = run(tmp_path)
     muni = rep["factor"]["factors"]["MUNI"]

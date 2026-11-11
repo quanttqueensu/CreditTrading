@@ -1217,7 +1217,9 @@ What it reports, per book, for the session just closed and cumulative from the b
 first trade (read from the account's own fills, never written anywhere): official P&L
 (Alpaca EOD history), hold split into NAV part and discount part, fill cost, fees,
 distributions, then factor exposure at the last close against the review line
-(REVIEW_FRACTION x the book's own vol target, read from its spec), headline first, by
+(REVIEW_FRACTION x vol_target_annual x sizing_multiplier, each read from the book's own
+spec, the multiplier since the team lead's ruling of 2026-11-10 because the account holds m
+x the unit book; the report prints the three inputs beside the line), headline first, by
 muni/taxable (core) or by family (C4). The rebuild must reconcile to official to the
 cent, or the report says so at its top (overall status UNRECONCILED, not OK). **A breach of a review line is report-only: it
 appears in the report and sends NOTHING** (no push, no ACT, no halt, no trade; team lead,

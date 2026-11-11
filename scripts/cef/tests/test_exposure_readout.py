@@ -238,18 +238,21 @@ def test_exposure_is_signed_shares_times_close_times_beta():
 
 
 def test_review_flag_fires_above_the_line_on_a_short_exposure_and_not_below():
-    """The line is REVIEW_FRACTION x the vol target. Equity is chosen so the short MUNI
-    exposure sits just above it, then just below it."""
+    """The line is REVIEW_FRACTION x the vol target x the book's sizing multiplier (team lead,
+    2026-11-10; the fit's book is the core's). Equity is chosen so the short MUNI exposure
+    sits just above it, then just below it."""
     fit = _fit_with(BETAS, VOLS)
     value = pd.Series({"LNG": 0.0, "SHT": -25_000.0})        # MUNI E = -37,500
-    line = ER.REVIEW_FRACTION * ER.VOL_TARGET
+    line = ER.CORE.review_line
+    assert line == ER.REVIEW_FRACTION * ER.VOL_TARGET * ER.CORE.multiplier
     E_muni = -25_000.0 * 1.5
     eq_at_line = abs(E_muni) * VOLS["MUNI"] / line
     above = ER.exposures(fit, value, equity=eq_at_line * 0.99).set_index("factor")
     below = ER.exposures(fit, value, equity=eq_at_line * 1.01).set_index("factor")
     assert above.at["MUNI", "review"] == "REVIEW"
     assert below.at["MUNI", "review"] == "within"
-    assert above.at["MUNI", "contrib_of_target"] > ER.REVIEW_FRACTION > below.at["MUNI", "contrib_of_target"]
+    m = ER.CORE.multiplier
+    assert above.at["MUNI", "contrib_of_target"] > ER.REVIEW_FRACTION * m > below.at["MUNI", "contrib_of_target"]
 
 
 def test_review_line_follows_the_vol_target_it_is_given():
@@ -257,9 +260,26 @@ def test_review_line_follows_the_vol_target_it_is_given():
     value = pd.Series({"LNG": 0.0, "SHT": -25_000.0})
     eq = 100_000.0
     c = 37_500 / eq * VOLS["MUNI"]                            # 0.0075
-    lo = ER.exposures(fit, value, eq, vol_target=c / ER.REVIEW_FRACTION * 1.01).set_index("factor")
-    hi = ER.exposures(fit, value, eq, vol_target=c / ER.REVIEW_FRACTION * 0.99).set_index("factor")
+    m = ER.CORE.multiplier
+    lo = ER.exposures(fit, value, eq, vol_target=c / ER.REVIEW_FRACTION / m * 1.01).set_index("factor")
+    hi = ER.exposures(fit, value, eq, vol_target=c / ER.REVIEW_FRACTION / m * 0.99).set_index("factor")
     assert lo.at["MUNI", "review"] == "within" and hi.at["MUNI", "review"] == "REVIEW"
+
+
+def test_review_line_follows_the_multiplier_it_is_given():
+    """Ruling A (team lead, 2026-11-10): the line is REVIEW_FRACTION x vol target x m. With the
+    vol target fixed, a multiplier just below c / (REVIEW_FRACTION x target) flags and one just
+    above does not; c/target is the same number either way (it stays over the target). Fails
+    on the parent commit, whose `exposures` had no multiplier."""
+    fit = _fit_with(BETAS, VOLS)
+    value = pd.Series({"LNG": 0.0, "SHT": -25_000.0})
+    eq = 100_000.0
+    c = 37_500 / eq * VOLS["MUNI"]
+    m_at = c / (ER.REVIEW_FRACTION * ER.VOL_TARGET)
+    hi = ER.exposures(fit, value, eq, multiplier=m_at * 0.99).set_index("factor")
+    lo = ER.exposures(fit, value, eq, multiplier=m_at * 1.01).set_index("factor")
+    assert hi.at["MUNI", "review"] == "REVIEW" and lo.at["MUNI", "review"] == "within"
+    assert hi.at["MUNI", "contrib_of_target"] == lo.at["MUNI", "contrib_of_target"] == pytest.approx(c / ER.VOL_TARGET)
 
 
 def test_no_equity_means_unmeasured_never_a_default_capital():
@@ -1194,7 +1214,9 @@ def test_the_c4_review_line_moves_with_c4s_own_spec_not_the_cores(tmp_path, monk
     read from C4's spec (team lead, 2026-11-09). Both specs hold the same target today, so a
     build that read the core's constant passed every other test (review, 2026-11-09); here C4's
     spec is moved alone, and the line, c/target and a REVIEW flag must move with it. Replace
-    `float(f["vol_target_annual"])` in `factor_set` with `VOL_TARGET` and this test fails."""
+    `float(f["vol_target_annual"])` in `factor_set` with `VOL_TARGET` and this test fails.
+    Since 2026-11-10 the line also carries C4's own sizing multiplier (the next test); the
+    equity here is placed against the whole line, so this one still moves the target alone."""
     R = _c4_returns()
     px = _px_from_returns(R)
     dates = list(SESS[150:152])
@@ -1202,9 +1224,9 @@ def test_the_c4_review_line_moves_with_c4s_own_spec_not_the_cores(tmp_path, monk
     base = _c4_fs()
     probe = ER.readout(px, _positions(dates, held, equity=250_000.0), C4_NAMES, window=W, fs=base)
     c0 = probe.exposure.query("factor == 'EQUITY'").iloc[0]["contrib_frac"]
-    # Equity set so that EQUITY sits between the two lines: above REVIEW_FRACTION x the spec's
-    # target, below REVIEW_FRACTION x (the spec's target x 4/3). contrib_frac is linear in 1/equity.
-    aim = ER.REVIEW_FRACTION * base.vol_target * 7 / 6
+    # Equity set so that EQUITY sits between the two lines: above the spec's line, below the
+    # line with the spec's target x 4/3. contrib_frac is linear in 1/equity.
+    aim = base.review_line * 7 / 6
     P = _positions(dates, held, equity=250_000.0 * c0 / aim)
     alt = tmp_path / "c4.json"
     spec = json.loads(ER.C4_SPEC.read_text())
@@ -1222,6 +1244,167 @@ def test_the_c4_review_line_moves_with_c4s_own_spec_not_the_cores(tmp_path, monk
     assert after["review"] == "within"
     # and the core's own set never read the C4 spec it was handed nothing about
     assert ER.factor_set("cef").vol_target == ER.VOL_TARGET
+
+
+# --------------------------------------------------------------------------- ruling A (team lead,
+# 2026-11-10): the line is REVIEW_FRACTION x vol_target_annual x sizing_multiplier, both books
+
+def _outcome(fn, frozen):
+    """("value", v) or ("raises", message): the registry raises ValueError, the copy
+    ReadoutError, and both must say the same thing."""
+    try:
+        return ("value", fn(frozen))
+    except (ValueError, ER.ReadoutError) as e:
+        return ("raises", str(e))
+
+
+SIZING_CASES = {
+    "absent": {}, "null": {"sizing_multiplier": None}, "float": {"sizing_multiplier": 1.3},
+    "int": {"sizing_multiplier": 2}, "with-its-note": {"sizing_multiplier": 1.26, "_sizing_multiplier_note": "x"},
+    "zero": {"sizing_multiplier": 0}, "negative": {"sizing_multiplier": -1.0},
+    "string": {"sizing_multiplier": "1.3"}, "bool": {"sizing_multiplier": True},
+    "nan": {"sizing_multiplier": float("nan")}, "inf": {"sizing_multiplier": float("inf")},
+    "list": {"sizing_multiplier": [1.3]}, "misspelt": {"sizing_multiplyer": 1.3},
+    "plural": {"sizing_multipliers": 1.3}, "no-underscores": {"sizingmultiplier": 1.3},
+    "as-a-comment": {"_sizing_multiplier": 1.3}, "a-misspelt-note": {"_sizing_multiplyer_note": "x"},
+    "dashed": {"sizing-multiplier": 1.3}, "unrelated-keys": {"vol_target_annual": 0.06, "band_width": 0.048},
+}
+
+
+@pytest.mark.parametrize("frozen", list(SIZING_CASES.values()), ids=list(SIZING_CASES))
+def test_the_sizing_multiplier_copy_equals_the_registrys(frozen):
+    """The licence for the copy (`sizing_multiplier` docstring): the runner's parse,
+    src/deploy/registry.cef_sizing_multiplier, cannot be imported here, so the two must agree
+    on every kind of input, value or message. Fails on the parent commit (no copy)."""
+    from src.deploy.registry import cef_sizing_multiplier
+    assert _outcome(ER.sizing_multiplier, frozen) == _outcome(cef_sizing_multiplier, frozen)
+
+
+def test_the_sizing_multiplier_copy_equals_the_registrys_on_both_live_specs():
+    from src.deploy.registry import cef_sizing_multiplier
+    for path in ("ops/specs/cef_discount.frozen.json", "ops/specs/c4_families.frozen.json"):
+        frozen = json.loads((ER.REPO / path).read_text())["frozen"]
+        assert _outcome(ER.sizing_multiplier, frozen) == _outcome(cef_sizing_multiplier, frozen), path
+
+
+def test_each_books_line_is_the_fraction_x_its_own_target_x_its_own_multiplier():
+    """Each book's line from its own spec file, read here from disk and parsed by the runner's
+    function: never a number written in this test. Fails on the parent commit."""
+    from src.deploy.registry import cef_sizing_multiplier
+    for book, path in (("cef", "ops/specs/cef_discount.frozen.json"), ("c4", "ops/specs/c4_families.frozen.json")):
+        frozen = json.loads((ER.REPO / path).read_text())["frozen"]
+        fs = ER.factor_set(book)
+        m = cef_sizing_multiplier(frozen)
+        assert fs.sizing_multiplier == m and fs.multiplier == (1.0 if m is None else m), book
+        assert fs.vol_target == frozen["vol_target_annual"], book
+        assert fs.review_line == pytest.approx(ER.REVIEW_FRACTION * frozen["vol_target_annual"] * fs.multiplier,
+                                               rel=1e-15), book
+
+
+def test_the_c4_line_moves_with_c4s_own_multiplier_alone(tmp_path, monkeypatch):
+    """Extends the pin above (R5, 76ab3c7) to ruling A: C4's spec's sizing_multiplier is moved
+    alone (target untouched), and C4's line, and a REVIEW flag, move with it while c/target
+    does not; with the key deleted the line is the unit line, REVIEW_FRACTION x target; a
+    malformed value refuses. The core's set never moves. Fails on the parent commit, whose
+    line had no multiplier."""
+    R = _c4_returns()
+    px = _px_from_returns(R)
+    dates = list(SESS[150:152])
+    held = {"AAA": 2000.0, "BBB": -1000.0, "CCC": 500.0}
+    base = _c4_fs()
+    core_line = ER.factor_set("cef").review_line
+    probe = ER.readout(px, _positions(dates, held, equity=250_000.0), C4_NAMES, window=W, fs=base)
+    c0 = probe.exposure.query("factor == 'EQUITY'").iloc[0]["contrib_frac"]
+    aim = base.review_line * 7 / 6                    # above C4's line, below it with m x 4/3
+    P = _positions(dates, held, equity=250_000.0 * c0 / aim)
+    spec = json.loads(ER.C4_SPEC.read_text())
+
+    def with_frozen(edit):
+        doc = json.loads(json.dumps(spec))
+        edit(doc["frozen"])
+        alt = tmp_path / f"c4_{len(list(tmp_path.iterdir()))}.json"
+        alt.write_text(json.dumps(doc))
+        monkeypatch.setattr(ER, "C4_SPEC", alt)
+        return _c4_fs()
+
+    before = ER.readout(px, P, C4_NAMES, window=W, fs=base).exposure.query("factor == 'EQUITY'").iloc[0]
+    assert before["contrib_frac"] == pytest.approx(aim) and before["review"] == "REVIEW"
+
+    moved = with_frozen(lambda f: f.__setitem__("sizing_multiplier", base.multiplier * 4 / 3))
+    assert moved.vol_target == base.vol_target and moved.multiplier == pytest.approx(base.multiplier * 4 / 3)
+    assert moved.review_line == pytest.approx(base.review_line * 4 / 3)
+    after = ER.readout(px, P, C4_NAMES, window=W, fs=moved).exposure.query("factor == 'EQUITY'").iloc[0]
+    assert after["contrib_frac"] == pytest.approx(before["contrib_frac"])
+    assert after["contrib_of_target"] == pytest.approx(before["contrib_of_target"])   # still over the target
+    assert after["review"] == "within"
+
+    unit = with_frozen(lambda f: f.pop("sizing_multiplier"))
+    assert unit.sizing_multiplier is None and unit.multiplier == 1.0
+    assert unit.review_line == ER.REVIEW_FRACTION * base.vol_target
+    row = ER.readout(px, P, C4_NAMES, window=W, fs=unit).exposure.query("factor == 'EQUITY'").iloc[0]
+    assert row["review"] == ("REVIEW" if row["contrib_frac"] > unit.review_line else "within")
+    assert "absent (the unit book, 1)" in unit.line_inputs()
+
+    with pytest.raises(ER.ReadoutError, match="must be a number"):
+        with_frozen(lambda f: f.__setitem__("sizing_multiplier", "1.26"))
+    assert ER.factor_set("cef") is ER.CORE and ER.CORE.review_line == core_line
+
+
+def _fresh_readout_module(monkeypatch, edit):
+    """A second copy of this module, loaded while scripts/cef/spec.py's spec document has its
+    frozen block edited: how the core's set reads the core's spec at load (ER is untouched)."""
+    import importlib.util
+    import sys
+    from scripts.cef import spec as SP
+    doc = json.loads(json.dumps(SP.spec()))
+    edit(doc["frozen"])
+    monkeypatch.setattr(SP, "_SPEC", doc)
+    name = "exposure_readout_reloaded_for_a_test"
+    spec = importlib.util.spec_from_file_location(name, ER.__file__)
+    mod = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, name, mod)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_the_cores_line_moves_with_the_cores_own_multiplier_alone(monkeypatch):
+    """Ruling A for the core: its spec's sizing_multiplier moved alone moves its line (and a
+    MUNI flag) and nothing else; deleted, the line is the unit line; malformed, the module
+    refuses to load. A literal in place of the spec's value fails here. Fails on the parent
+    commit, where the core's set had no multiplier."""
+    m0 = ER.CORE.multiplier
+    moved = _fresh_readout_module(monkeypatch, lambda f: f.__setitem__("sizing_multiplier", m0 * 4 / 3))
+    assert moved.CORE.multiplier == pytest.approx(m0 * 4 / 3)
+    assert moved.CORE.review_line == pytest.approx(ER.CORE.review_line * 4 / 3)
+    assert moved.CORE.vol_target == ER.CORE.vol_target and moved.CORE.window == ER.CORE.window
+
+    px, dates, book, groups = _two_group_book()
+    probe = ER.readout(px, _positions(dates, book), groups, window=W, lags=L)
+    c0 = probe.exposure.query("factor == 'MUNI'").iloc[0]["contrib_frac"]
+    aim = ER.CORE.review_line * 7 / 6
+    P = _positions(dates, book, equity=100_000.0 * c0 / aim)
+    a = ER.readout(px, P, groups, window=W, lags=L).exposure.query("factor == 'MUNI'").iloc[0]
+    b = moved.readout(px, P, groups, window=W, lags=L).exposure.query("factor == 'MUNI'").iloc[0]
+    assert a["contrib_frac"] == pytest.approx(aim) and b["contrib_frac"] == pytest.approx(aim)
+    assert a["review"] == "REVIEW" and b["review"] == "within"
+
+    unit = _fresh_readout_module(monkeypatch, lambda f: f.pop("sizing_multiplier"))
+    assert unit.CORE.sizing_multiplier is None and unit.CORE.review_line == ER.REVIEW_FRACTION * ER.VOL_TARGET
+    with pytest.raises(RuntimeError, match="must be a number"):
+        _fresh_readout_module(monkeypatch, lambda f: f.__setitem__("sizing_multiplier", "1.3"))
+
+
+def test_the_summary_prints_the_line_and_its_three_inputs():
+    """Ruling A: a reader of summary.md sees the line and what it is made of. Fails on the
+    parent commit, which printed the target and the fraction only."""
+    px, dates, book, groups = _two_group_book()
+    ro = ER.readout(px, _positions(dates, book), groups, window=W, lags=L)
+    md = ER.summary_md(ro, {"asof": "x", "fetched_at_utc": "y"})
+    fs = ER.CORE
+    assert f"The line for book cef: {fs.line_inputs()} a year" in md
+    assert (f"REVIEW_FRACTION {ER.REVIEW_FRACTION} x vol_target_annual {fs.vol_target:.4g} x sizing_multiplier "
+            in fs.line_inputs()) and fs.line_inputs().endswith(f"= {fs.review_line:.6g}")
+    assert "x sizing_multiplier" in ER.REVIEW_RULE and ER.REVIEW_RULE in md
 
 
 def test_c4_without_a_lag_raises_naming_the_rule(monkeypatch):

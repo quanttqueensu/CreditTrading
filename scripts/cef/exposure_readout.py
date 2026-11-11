@@ -370,8 +370,10 @@ far as they go: the first analyse run on the account's positions wrote its outpu
 after that commit, and the only earlier analyse run used invented three-name positions
 [V: file times, 2026-11-02]. Any change to the rule lands in a commit of its own, before
 any reading made under it.
-  On each date t, a factor k whose c_k(t) exceeds REVIEW_FRACTION x vol_target_annual goes
-  to the team lead's review. vol_target_annual is read from the frozen spec at run time.
+  On each date t, a factor k whose c_k(t) exceeds REVIEW_FRACTION x vol_target_annual x
+  sizing_multiplier goes to the team lead's review (the multiplier since the team lead's
+  ruling of 2026-11-10, THE LINE IS ON THE ACCOUNT'S SCALE, below). Both are read from the
+  book's own frozen spec at run time.
   NOTHING IS EVER HEDGED, TRADED OR RESIZED AUTOMATICALLY. Without an equity figure for t
   the rule is UNMEASURED on t. It is never evaluated against a default capital.
 
@@ -386,11 +388,32 @@ time and reads the vol target from the spec; the 0.10 is a rule, not a measureme
     LOANS 2.7% a year [V: derive, 2026-11-02]: a MUNI beta of 0.10 carries about a third
     of the risk of a CREDIT beta of 0.10. So the bar is applied to
     each factor rescaled to the book's own vol target: beta x sigma_k / vol_target <= 0.10,
-    which is c_k <= 0.10 x vol_target.
+    which is c_k <= 0.10 x vol_target. For the account the book's own vol target is
+    vol_target_annual x sizing_multiplier (team lead, 2026-11-10; below).
   * Read another way, a factor at the line explains 0.10^2 = 1% of the target variance on
     its own, or correlates 0.10 with a book at its target.
   * Beside it the readout prints D4's literal reading |e_k| > 0.10 and the exposure's t, so
     the team lead can see whether a flag is size or noise. Neither is part of the rule.
+
+THE LINE IS ON THE ACCOUNT'S SCALE (team lead, 2026-11-10)
+  The line is REVIEW_FRACTION x vol_target_annual x sizing_multiplier, each read at run
+  time from the book's own frozen spec (the core's through scripts/cef/spec.py, C4's from
+  ops/specs/c4_families.frozen.json). WHY: the spec's `_sizing_multiplier_note` says the
+  account holds m x the unit book and that vol_target_annual stays on the unit book's
+  scale, so the account's effective ex-ante target is vol_target_annual x m. This readout
+  measures the account's real positions (its shares at its closes, over its equity), so
+  its line belongs on that scale. Before the ruling the line sat on the unit book's scale,
+  and a book running at its effective target read m times closer to the line than it was.
+  WHAT MOVES: the line, and the REVIEW flags and review counts read against it. What does
+  not: E, e, sigma, c, t, c/target and total/target (both still over vol_target_annual),
+  the betas and the factor P&L. So the flag is c/target > REVIEW_FRACTION x m, and every
+  output prints the line's three inputs beside it. The multiplier is parsed by
+  `sizing_multiplier`, a COPY of src/deploy/registry.cef_sizing_multiplier, the runner's
+  own parse: absent or null is the unit book (m = 1, what the runner then holds, not a
+  default invented here), and a malformed value or a near-miss spelling of the key raises.
+  It is a copy because this module imports nothing from src/ (the test of what it is not
+  pins that); a test holds the two equal on valid, absent, null, malformed and misspelt
+  inputs, as live_attribution's copy of data_books.c4_nav_symbols is held.
 
 WHAT IT REFUSES (raises, naming what is missing; never a default)
 -----------------------------------------------------------------
@@ -425,8 +448,9 @@ split by family (equity_domestic, equity_sector, equity_covered_call, preferred,
 multi_asset; C4's spec's frozen.level_signal.family_of) as the core's is split muni
 against taxable. C4's method is the core's: the same lag rule, declared in its own
 commit before any C4 result is read; the rolling z_window sessions strictly before t;
-the review line at REVIEW_FRACTION x C4's own vol_target_annual, read from its spec at
-run time. Zero trials, no counter moved. `FactorSet` holds what differs and the
+the review line at REVIEW_FRACTION x C4's own vol_target_annual x C4's own
+sizing_multiplier (the multiplier since 2026-11-10), each read from its spec at run time.
+Zero trials, no counter moved. `FactorSet` holds what differs and the
 functions take it, defaulting to the core's, so the core's outputs do not move; the
 proof is a byte diff on a synthetic positions file before and after this change.
 Until C4's lag rule has run, `factor_set("c4").dimson_lags` is None and `analyse
@@ -535,6 +559,7 @@ if str(REPO) not in sys.path:
 from ops.schedule import nyse_calendar as NYSE  # noqa: E402  (stdlib only)
 from scripts.cef.data_guards import guard_split_basis, split_basis_check  # noqa: E402  (numpy/pandas only)
 from scripts.cef.spec import SPEC_ID, UNIVERSE, VOL_TARGET, Z_WINDOW  # noqa: E402  (a JSON read)
+from scripts.cef.spec import spec as _core_spec_doc  # noqa: E402  (the same JSON read, whole)
 
 NY = ZoneInfo("America/New_York")
 DATA_DIR = REPO / "data"
@@ -592,18 +617,92 @@ TOL_CLOSE = 0.005
 TOL_DIV = 0.0006
 TOL_TR_BP = 1.0
 
+# Defined before anything that can raise at import (CORE parses the core's spec below).
+class ReadoutError(RuntimeError):
+    """Missing, inconsistent or refused input. The message names what."""
+
+
+class LookaheadError(ReadoutError):
+    """A window reached the date it is used on (H7)."""
+
+
 REVIEW_RULE = (
     "A factor whose ex-ante vol contribution c_k(t) = |E_k(t)/equity(t)| x sigma_k(t) exceeds "
-    "REVIEW_FRACTION x vol_target_annual (the frozen spec's, read at run time) goes to the team "
-    "lead's review. Nothing is ever hedged, traded or resized automatically. With no equity for "
-    "t the rule is UNMEASURED on t.")
+    "REVIEW_FRACTION x vol_target_annual x sizing_multiplier (each the book's own frozen spec's, "
+    "read at run time; an absent sizing_multiplier is the unit book, 1; team lead, 2026-11-10) goes "
+    "to the team lead's review. Nothing is ever hedged, traded or resized automatically. With no "
+    "equity for t the rule is UNMEASURED on t.")
+
+# The account sizing key and its near-miss distance: src/deploy/registry.py's CEF_SIZING_KEY
+# and CEF_C4_NEAR, copied with `sizing_multiplier` below (a test holds the copies equal).
+SIZING_KEY = "sizing_multiplier"
+SIZING_NEAR = 2
+
+
+def _osa_distance(a: str, b: str) -> int:
+    """A COPY of src/deploy/registry._osa_distance (optimal-string-alignment edit distance:
+    insertions, deletions, substitutions and adjacent transpositions, each costing 1), for
+    `sizing_multiplier`'s near-miss check."""
+    d = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        d[i][0] = i
+    for j in range(len(b) + 1):
+        d[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+    return d[len(a)][len(b)]
+
+
+def sizing_multiplier(frozen: dict) -> float | None:
+    """The book's `sizing_multiplier` as the runner parses it: a float, or None when the key
+    is absent or null, which the runner reads as the unit book (module docstring, THE LINE
+    IS ON THE ACCOUNT'S SCALE; team lead, 2026-11-10).
+
+    A COPY OF src/deploy/registry.cef_sizing_multiplier, with the same messages, raising
+    ReadoutError where the registry raises ValueError. It cannot be imported: this module
+    imports nothing from src/ (`test_module_holds_no_order_code_no_keys_and_no_live_path_import`),
+    and the registry's own import closure reaches the strategy sleeve. A test holds the two
+    equal on valid, absent, null, malformed and misspelt inputs, so a change to the runner's
+    parse that is not made here fails a test rather than moving one line silently.
+    Refused, as there: a bool, a string or any non-number, NaN or inf, zero or below, and a
+    frozen key that looks like a misspelling of it (a misspelt key would read as the unit
+    book while the spec reads as raised)."""
+    note = f"_{SIZING_KEY}_note"
+    for key in frozen:
+        if not isinstance(key, str) or key in (SIZING_KEY, note):
+            continue
+        stem = key.strip().lower().replace("-", "_").replace(" ", "_").strip("_")
+        if stem.endswith("_note"):
+            stem = stem[:-len("_note")].strip("_")
+        if (stem == SIZING_KEY or stem.replace("_", "") == SIZING_KEY.replace("_", "")
+                or _osa_distance(stem, SIZING_KEY) <= SIZING_NEAR):
+            raise ReadoutError(
+                f"cef_discount frozen key {key!r} looks like a misspelling of "
+                f"{SIZING_KEY!r}; the sleeve would ignore it and size the book at 1.0. "
+                f"Spell it {SIZING_KEY!r}, or delete it (absent is today's book)")
+    if SIZING_KEY not in frozen or frozen[SIZING_KEY] is None:
+        return None
+    v = frozen[SIZING_KEY]
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise ReadoutError(f"cef_discount {SIZING_KEY} must be a number, got {v!r} "
+                           f"({type(v).__name__})")
+    if not math.isfinite(float(v)) or not float(v) > 0.0:
+        raise ReadoutError(f"cef_discount {SIZING_KEY} {v!r} must be a finite number above 0 "
+                           f"(a multiple of the unit book; 1.0 is today's size)")
+    return float(v)
 
 
 @dataclass(frozen=True)
 class FactorSet:
     """One book's factor model and the frozen values the readout reads for it (module
     docstring, TWO BOOKS). `factors` is in Gram-Schmidt order; `headline` is the factor the
-    report leads with; `dimson_lags` is None until the book's lag rule has been run."""
+    report leads with; `dimson_lags` is None until the book's lag rule has been run;
+    `sizing_multiplier` is the spec's as `sizing_multiplier()` parses it, None when the key
+    is absent (team lead, 2026-11-10: the review line carries it)."""
     book: str
     factors: tuple
     headline: str
@@ -613,6 +712,7 @@ class FactorSet:
     universe: tuple
     dimson_lags: int | None
     group_split: str          # "muni": muni against taxable (cef); "family": by family (c4)
+    sizing_multiplier: float | None
     groups_path: str = ""     # what the group labels come from, printed in summary.md
 
     @property
@@ -627,9 +727,30 @@ class FactorSet:
     def indicative(self) -> tuple:
         return tuple(k for k in self.names if k != self.headline)
 
+    @property
+    def multiplier(self) -> float:
+        """m, the account's multiple of the unit book: the spec's sizing_multiplier, or 1.0
+        when the key is absent, because the runner then holds the unit book exactly
+        (src/deploy/registry.cef_sizing_multiplier: absent is today's book). Not a default
+        chosen here: it is what the account holds."""
+        return 1.0 if self.sizing_multiplier is None else self.sizing_multiplier
 
+    @property
+    def review_line(self) -> float:
+        """REVIEW_FRACTION x vol_target_annual x m, the line c_k is compared with (team lead,
+        2026-11-10; module docstring, THE LINE IS ON THE ACCOUNT'S SCALE)."""
+        return REVIEW_FRACTION * self.vol_target * self.multiplier
+
+    def line_inputs(self) -> str:
+        """The line and its three inputs, in words, for every output that shows the line."""
+        m = "absent (the unit book, 1)" if self.sizing_multiplier is None else f"{self.sizing_multiplier:.4g}"
+        return (f"REVIEW_FRACTION {REVIEW_FRACTION} x vol_target_annual {self.vol_target:.4g} x "
+                f"sizing_multiplier {m} = {self.review_line:.6g}")
+
+
+# The core's multiplier, from the frozen spec scripts/cef/spec.py read (H14: never a literal).
 CORE = FactorSet("cef", FACTORS, "MUNI", SPEC_ID, VOL_TARGET, WINDOW, tuple(UNIVERSE), DIMSON_LAGS, "muni",
-                 "data/cef/cef_universe.csv")
+                 sizing_multiplier(_core_spec_doc()["frozen"]), "data/cef/cef_universe.csv")
 
 # C4's factors (team lead, 2026-11-09), in Gram-Schmidt order, general to specific. EQUITY is
 # the headline; TERM, CREDIT and PREFERRED are indicative, as the core's non-headline
@@ -677,16 +798,9 @@ def factor_set(book: str) -> FactorSet:
         f = c4_frozen()
         return FactorSet("c4", C4_FACTORS, C4_HEADLINE, json.loads(C4_SPEC.read_text()).get("spec_id", "<unknown>"),
                          float(f["vol_target_annual"]), int(f["z_window"]), tuple(f["universe"]),
-                         C4_DIMSON_LAGS, "family", "ops/specs/c4_families.frozen.json level_signal.family_of")
+                         C4_DIMSON_LAGS, "family", sizing_multiplier(f),
+                         "ops/specs/c4_families.frozen.json level_signal.family_of")
     raise ReadoutError(f"unknown book {book!r} (books: cef, c4)")
-
-
-class ReadoutError(RuntimeError):
-    """Missing, inconsistent or refused input. The message names what."""
-
-
-class LookaheadError(ReadoutError):
-    """A window reached the date it is used on (H7)."""
 
 
 # --------------------------------------------------------------------------- refusals
@@ -1097,12 +1211,17 @@ def fit_window(R: pd.DataFrame, sessions: pd.DatetimeIndex, t, names, *,
 
 
 def exposures(fit: WindowFit, value: pd.Series, equity: float | None,
-              vol_target: float = VOL_TARGET, review_fraction: float = REVIEW_FRACTION) -> pd.DataFrame:
+              vol_target: float = VOL_TARGET, review_fraction: float = REVIEW_FRACTION,
+              multiplier: float | None = None) -> pd.DataFrame:
     """One row per factor: E (dollars), e (fraction of equity), sigma, c, the review flag.
 
     `value` is shares x close per held name, SIGNED (a short is negative). The rule is
     REVIEW_RULE; with `equity` None every fraction and the flag are UNMEASURED (NaN and the
-    string), never computed against a default capital."""
+    string), never computed against a default capital. The line is review_fraction x
+    vol_target x `multiplier` (team lead, 2026-11-10); `multiplier` None reads the fit's own
+    book's (`fit.fs.multiplier`, from that book's spec), never a number written here.
+    c/target stays c / vol_target, so the flag reads c/target > review_fraction x m."""
+    m = fit.fs.multiplier if multiplier is None else multiplier
     names = list(fit.beta_sum.index)
     v = value.reindex(names)
     if v.isna().any():
@@ -1125,7 +1244,7 @@ def exposures(fit: WindowFit, value: pd.Series, equity: float | None,
             e = float(E[k]) / equity
             c = abs(e) * sig
             frac = c / vol_target
-            flag = "REVIEW" if c > review_fraction * vol_target else "within"
+            flag = "REVIEW" if c > review_fraction * vol_target * m else "within"
         rows.append(dict(date=fit.t, factor=k, exposure_usd=float(E[k]), exposure_frac=e,
                          factor_vol=sig, contrib_usd=c_usd, contrib_frac=c, contrib_of_target=frac,
                          d4_literal_breach=(None if equity is None else abs(e) > D4_BETA_BAR),
@@ -1222,7 +1341,8 @@ def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: 
     """Exposures on every positions date, and the factor P&L on every positions date whose
     previous session is also a positions date (E(t-1) x f(t), and the lag-distributed
     second method). `window`, `lags` and `vol_target` default to the book's (`fs`); a book
-    whose lag rule has not run raises rather than guess a lag."""
+    whose lag rule has not run raises rather than guess a lag. The line's multiplier is
+    always the book's own (`fs.multiplier`, team lead, 2026-11-10)."""
     window = fs.window if window is None else window
     vol_target = fs.vol_target if vol_target is None else vol_target
     if lags is None:
@@ -1262,7 +1382,7 @@ def readout(px: pd.DataFrame, positions: pd.DataFrame, groups: dict, *, window: 
         eq = float(Pt["equity"].iloc[0]) if have_eq else None
         fit = fit_window(R, sessions, t, held, window=window, lags=lags, fs=fs)
         fits[t], values[t], eqs[t] = fit, value, eq
-        ex = exposures(fit, value, eq, vol_target=vol_target)
+        ex = exposures(fit, value, eq, vol_target=vol_target, multiplier=fs.multiplier)
         ex_rows.append(ex)
         E = ex.set_index("factor")["exposure_usd"]
         tv = total_factor_vol(fit, E)
@@ -1488,7 +1608,9 @@ def summary_md(ro: Readout, meta: dict, plateau: list | None = None) -> str:
     ruling = ("(team lead, 2026-11-03; module docstring, THE TEAM LEAD'S RULING)" if fs.book == "cef"
               else "(team lead, 2026-11-09; module docstring, TWO BOOKS)")
     L = ["# Exposure readout (report only; zero trials)", "",
-         f"- spec: `{fs.spec_id}`; vol_target_annual {fs.vol_target:.4g} (read at run time)",
+         f"- spec: `{fs.spec_id}`; vol_target_annual {fs.vol_target:.4g}; sizing_multiplier "
+         f"{'absent (the unit book, 1)' if fs.sizing_multiplier is None else f'{fs.sizing_multiplier:.4g}'} "
+         "(both read at run time)",
          f"- window {ro.window} sessions strictly before each date; Dimson lags 0..{ro.lags}; "
          f"factors {', '.join(f'{f}={e}' for f, e in fs.factors)}, Gram-Schmidt in that order",
          f"- price cache: yfinance, asof {meta.get('asof')}, fetched {meta.get('fetched_at_utc')}",
@@ -1497,7 +1619,10 @@ def summary_md(ro: Readout, meta: dict, plateau: list | None = None) -> str:
          "### Review rule (declared before the first reading; it applies to every factor)", "",
          REVIEW_RULE,
          f"REVIEW_FRACTION = {REVIEW_FRACTION} (D4's beta bar on factors rescaled to the vol "
-         "target; module docstring). Nothing is hedged automatically.", ""]
+         "target; module docstring). Nothing is hedged automatically.",
+         f"The line for book {fs.book}: {fs.line_inputs()} a year, so c/target above "
+         f"{REVIEW_FRACTION * fs.multiplier:.4g} goes to review (team lead, 2026-11-10: the account holds "
+         "m x the unit book, and this readout measures the account).", ""]
     ex = ro.exposure
     L += [f"### {H} against the rule", ""] + _rule_lines(ex, (H,))
     L += ["", f"### {H} per date: exposure, vol contribution, review flag", ""] + _per_date_lines(ex, (H,))

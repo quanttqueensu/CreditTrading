@@ -38,8 +38,11 @@ One section for the session just closed and one cumulative from the book's first
 (derived from the account's fills, never a date written here): official P&L (Alpaca EOD
 history, the P&L of record, docs/SYSTEM.md section 5), hold split into NAV part and
 discount part, fill cost, fees, distributions, then factor exposure at the last close
-against the review line (REVIEW_FRACTION x the book's own vol target from its spec) with
-the headline first and the by-family (C4) or muni/taxable (core) split.
+against the review line (REVIEW_FRACTION x vol_target_annual x sizing_multiplier, each from
+the book's own spec; the multiplier since the team lead's ruling of 2026-11-10, because the
+account holds m x the unit book and the readout measures the account) with the line's three
+inputs printed beside it, the headline first and the by-family (C4) or muni/taxable (core)
+split.
 
 THE RECONCILIATION IS STILL THE POINT. Every session's rebuild (hold + fill + fees) must
 equal the official EOD change to the cent. If it does not, the report says so loudly: the
@@ -304,7 +307,10 @@ def _factor_unmeasured(why: str, fs: ER.FactorSet) -> dict:
 def _factor_report(ro, fs: ER.FactorSet, book: str) -> dict:
     """The exposure at the last close and the review history. A review-line breach is a word
     in this report and nothing else: it pushes nothing and sets no severity (team lead,
-    2026-11-09: report-only)."""
+    2026-11-09: report-only). The line is REVIEW_FRACTION x vol_target_annual x
+    sizing_multiplier (team lead, 2026-11-10), and the JSON's `review_line` carries the value
+    and its three inputs, so a reader sees what the flags were read against; c/target stays
+    over vol_target_annual, and the header line says the line in those units too."""
     ex = ro.exposure
     last = ex["date"].max()
     today = ex[ex["date"] == last].set_index("factor")
@@ -318,8 +324,14 @@ def _factor_report(ro, fs: ER.FactorSet, book: str) -> dict:
     history = {k: {"review_dates": int(ex[(ex["factor"] == k) & (ex["review"] == "REVIEW")]["date"].nunique()),
                    "dates": int(ex[ex["factor"] == k]["date"].nunique())} for k in order}
     tv = ro.total_vol.set_index("date").loc[last]
+    mult = "1 (key absent: the unit book)" if fs.sizing_multiplier is None else f"{fs.sizing_multiplier:.4g}"
+    review_line = {"value": fs.review_line, "review_fraction": ER.REVIEW_FRACTION,
+                   "vol_target_annual": fs.vol_target, "sizing_multiplier": fs.sizing_multiplier,
+                   "multiplier_applied": fs.multiplier, "of_target": ER.REVIEW_FRACTION * fs.multiplier,
+                   "spec_id": fs.spec_id, "ruling": "team lead, 2026-11-10: the line includes the sizing multiplier"}
     lines = [f"Factor exposure at the close of {pd.Timestamp(last).date()} (headline {fs.headline}, "
-             f"line = REVIEW_FRACTION {ER.REVIEW_FRACTION} x vol target {fs.vol_target:.4g} of book {book}; "
+             f"line = REVIEW_FRACTION {ER.REVIEW_FRACTION} x vol target {fs.vol_target:.4g} x sizing multiplier "
+             f"{mult} = {fs.review_line:.4g}, i.e. c/target {review_line['of_target']:.3f}, of book {book}; "
              f"window {ro.window} sessions strictly before each date, Dimson lags 0..{ro.lags}): "
              f"gross {float(tv['gross_usd']):,.0f} USD, net {float(tv['net_usd']):+,.0f} USD, total factor "
              f"vol {float(tv['total_of_target']):.3f} of target"]
@@ -358,6 +370,7 @@ def _factor_report(ro, fs: ER.FactorSet, book: str) -> dict:
         lines.append("Cumulative factor P&L (book, E(t-1) x f(t), model reading): "
                      + ", ".join(f"{k} {v:+,.2f}" for k, v in pnl.items()))
     return {"status": "OK", "asof": pd.Timestamp(last).date().isoformat(), "headline": fs.headline,
+            "review_line": review_line,
             "factors": factors, "history": history, "split": split, "factor_pnl": pnl, "lines": lines,
             "gross_usd": float(tv["gross_usd"]), "net_usd": float(tv["net_usd"]),
             "total_of_target": float(tv["total_of_target"])}
