@@ -1,0 +1,226 @@
+"""scripts/ops/risk_daily.py: the wrappers reproduce the readers, and an ACT is never silent.
+
+Fixtures are synthetic state directories; nothing opens a socket. Every test fails on
+origin/main, which has no scripts/ops/risk_daily.py.
+"""
+from __future__ import annotations
+
+import csv
+import datetime as dt
+import json
+from pathlib import Path
+
+import pytest
+
+from quantt.session import drawdown as dd
+from scripts.ops import risk_daily as r
+from scripts.ops import report_notify as rn
+
+ASOF = dt.date(2026, 11, 5)
+SPEC = {"spec_id": "x.v1", "risk": {"halve_drawdown": 0.12, "kill_drawdown": 0.18},
+        "frozen": {"max_gross_stress": 1.9, "sizing_multiplier": 1.26}}
+
+
+def write_csv(path: Path, header, rows):
+    with open(path, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(header)
+        w.writerows(rows)
+
+
+@pytest.fixture
+def state(tmp_path):
+    st = tmp_path / "quantt_state" / "cef"
+    st.mkdir(parents=True)
+    days = [ASOF - dt.timedelta(days=k) for k in (4, 3, 2, 1, 0)]
+    equity = [100000, 100500, 100200, 99800, 100100]
+    write_csv(st / "eod_equity.csv", ["date", "equity", "change_usd", "read_at_utc"],
+              [[d.isoformat(), e, "", "x"] for d, e in zip(days, equity)])
+    write_csv(st / "equity.csv", ["date", "equity", "last_equity", "cash", "long_market_value", "short_market_value",
+                                  "n_positions", "read_at_utc"],
+              [[d.isoformat(), e + 50, e, 0, 0, 0, 3, "x"] for d, e in zip(days, equity)])
+    write_csv(st / "scores.csv", ["date", "book", "verdict", "traded", "n_orders", "n_filled", "auction_pnl_usd"],
+              [[d.isoformat(), "cef", "PASS", "True", 5, 5, "12.00"] for d in days])
+    write_csv(st / "tca.csv", ["date", "book", "n_orders", "n_full", "fill_rate_shares", "slip_bp_all"],
+              [[ASOF.isoformat(), "cef", 5, 5, "1.0000", "4.20"]])
+    d = st / "data" / ASOF.isoformat()
+    d.mkdir(parents=True)
+    positions = [{"symbol": "HQH", "market_value": "-20000", "qty": "-1000", "side": "short"},
+                 {"symbol": "AAA", "market_value": "30000", "qty": "1000", "side": "long"},
+                 {"symbol": "BBB", "market_value": "-10000", "qty": "-500", "side": "short"},
+                 {"symbol": "CCC", "market_value": "5000", "qty": "100", "side": "long"}]
+    (d / "account.json").write_text(json.dumps({
+        "account": {"equity": "100000", "maintenance_margin": "30000"},
+        "positions": {"qty": {"HQH": -1000}, "raw": positions}}))
+    pd = st / ASOF.isoformat()
+    pd.mkdir()
+    (pd / "plan.json").write_text(json.dumps({"status": "decided", "orders": [{"symbol": "AAA"}],
+                                              "refusals": [], "notes": {}, "targets": {"AAA": {}}}))
+    return st
+
+
+def test_drawdown_block_reproduces_the_reader_byte_for_byte(state):
+    rec = dd.check(state, SPEC, ASOF, dd.REPORT)
+    b = r.drawdown_block(state, SPEC, ASOF)
+    assert b["data"]["reading"]["drawdown"] == rec["reading"]["drawdown"]
+    assert [ln for ln in b["lines"] if ln in dd.lines(rec)] == dd.lines(rec)
+
+
+def test_drawdown_block_acts_on_a_breached_line(state):
+    write_csv(state / "eod_equity.csv", ["date", "equity", "change_usd", "read_at_utc"],
+              [["2026-11-03", 100000, "", "x"], [ASOF.isoformat(), 85000, "", "x"]])
+    b = r.drawdown_block(state, SPEC, ASOF)
+    assert b["status"] == r.ACT and b["lines"][0].startswith("ACT: HALVE line reached")
+
+
+def test_drawdown_block_acts_on_a_stale_row_and_says_so_and_carries_the_followup(state):
+    write_csv(state / "eod_equity.csv", ["date", "equity", "change_usd", "read_at_utc"],
+              [["2026-11-03", 100000, "", "x"], ["2026-11-04", 85000, "", "x"]])
+    b = r.drawdown_block(state, SPEC, ASOF)
+    assert b["status"] == r.ACT and "(stale)" in b["lines"][0]
+    assert any("stale" in ln and "2026-11-04" in ln for ln in b["lines"])
+    assert r.FOLLOWUP_DRAWDOWN in b["lines"]
+
+
+def test_a_missing_input_is_unmeasured_and_named(tmp_path):
+    st = tmp_path / "empty"
+    st.mkdir()
+    rep, code = r.run_report("cef", st, ASOF, now_utc=dt.datetime(2026, 11, 6, 3, 15, tzinfo=dt.timezone.utc))
+    assert code == 0
+    b = rep["blocks"]
+    assert b["pnl"]["status"] == r.UNMEASURED and "eod_equity.csv" in " ".join(b["pnl"]["lines"])
+    assert b["drawdown"]["status"] == r.UNMEASURED and "eod_equity.csv" in " ".join(b["drawdown"]["lines"])
+    assert b["kill_rules"]["status"] == r.UNMEASURED and "scores.csv" in " ".join(b["kill_rules"]["lines"])
+    assert b["exposure"]["status"] == r.UNMEASURED and "account.json" in " ".join(b["exposure"]["lines"])
+    assert b["data_qa"]["status"] == r.UNMEASURED
+    assert b["stops"]["status"] == r.UNMEASURED and "SCRATCH" in " ".join(b["stops"]["lines"])
+    assert (st / "reports" / "risk" / f"{ASOF}.md").is_file()
+
+
+def test_stops_block_passes_stops_py_output_through_verbatim(tmp_path):
+    out = "core account x1.3 (from 2013-06-25): R1 D_R 10.14% (...) | R2 -3.06% | R3 12.07%\n"
+    f = tmp_path / "stops_output.txt"
+    f.write_text(out)
+    b = r.stops_block("cef", {"frozen": {"sizing_multiplier": 1.3}}, f)
+    assert b["status"] == r.INFO and b["lines"][1:] == [out.strip()] and b["data"]["stdout"] == out
+    assert "not tonight" in b["lines"][0]
+
+
+def test_stops_block_is_unmeasured_and_names_the_missing_series(tmp_path):
+    b = r.stops_block("c4", {"frozen": {"sizing_multiplier": 1.26}}, None)
+    assert b["status"] == r.UNMEASURED and "SCRATCH" in b["lines"][0] and "stops.py" in b["lines"][0]
+    assert "--only c4" in b["lines"][0]
+    b2 = r.stops_block("c4", {"frozen": {"sizing_multiplier": 1.26}}, tmp_path / "absent.txt")
+    assert b2["status"] == r.UNMEASURED
+
+
+def test_concentration_figures_on_a_fixture():
+    raw = [{"symbol": "HQH", "market_value": "-20000", "side": "short"},
+           {"symbol": "AAA", "market_value": "30000", "side": "long"},
+           {"symbol": "BBB", "market_value": "-10000", "side": "short"},
+           {"symbol": "CCC", "market_value": "5000", "side": "long"}]
+    c = r.concentration(raw, 100000.0, {"HQH": "health", "AAA": "health", "BBB": "muni"})
+    assert c["largest"] == {"symbol": "AAA", "share": 0.30, "signed": 0.30, "side": "long"}
+    assert c["top3_share"] == pytest.approx(0.60)
+    assert {x["symbol"]: x["share"] for x in c["per_name"]} == {"AAA": 0.30, "HQH": 0.20, "BBB": 0.10, "CCC": 0.05}
+    assert c["group_share"] == {"health": pytest.approx(0.5), "muni": pytest.approx(0.1), "unknown": pytest.approx(0.05)}
+
+
+def test_exposure_block_reports_gross_net_and_concentration_and_never_acts(state, monkeypatch):
+    monkeypatch.setattr(r, "group_map", lambda b: ({}, None))
+    b = r.exposure_block("cef", state, SPEC, ASOF)
+    assert b["status"] == r.INFO
+    assert b["data"]["gross"] == pytest.approx(0.65) and b["data"]["net"] == pytest.approx(0.05)
+    assert b["data"]["maintenance_to_equity"] == pytest.approx(0.30)
+    assert b["data"]["concentration"]["largest"]["symbol"] == "AAA"
+    assert any("Concentration is measured" in ln for ln in b["lines"])
+
+
+def test_exposure_watch_within_a_declared_distance_of_the_cap(state, monkeypatch):
+    monkeypatch.setattr(r, "group_map", lambda b: ({}, None))
+    spec = {**SPEC, "frozen": {"max_gross_stress": 0.66}}
+    assert r.exposure_block("cef", state, spec, ASOF)["status"] == r.WATCH
+
+
+def test_kill_rule_a_fires_at_60_sessions_with_a_negative_sharpe(state, monkeypatch):
+    days = [ASOF - dt.timedelta(days=k) for k in range(70, -1, -1)]
+    write_csv(state / "scores.csv", ["date", "book", "verdict", "traded", "n_orders", "n_filled", "auction_pnl_usd"],
+              [[d.isoformat(), "cef", "PASS", "True", 5, 5, "0"] for d in days])
+    eq = [100000 - 10 * i for i in range(len(days))]
+    write_csv(state / "eod_equity.csv", ["date", "equity", "change_usd", "read_at_utc"],
+              [[d.isoformat(), e, "", "x"] for d, e in zip(days, eq)])
+    b = r.kill_rules_block("cef", state, {"frozen": {}}, ASOF)
+    assert b["status"] == r.ACT and any(ln.startswith("ACT: core kill rule (a)") for ln in b["lines"])
+
+
+def test_kill_rule_is_not_due_before_60_sessions(state):
+    b = r.kill_rules_block("cef", state, {"frozen": {}}, ASOF)
+    assert b["status"] == r.INFO and any("not due (5/60)" in ln for ln in b["lines"])
+
+
+def test_c4_kill_rules_are_unmeasured_and_named_until_their_inputs_exist(state):
+    b = r.kill_rules_block("c4", state, {"frozen": {}}, ASOF)
+    text = " ".join(b["lines"])
+    assert "not due (5/120)" in text and "h11_reference" in text and "L1" in text
+
+
+def test_data_qa_flag_on_a_held_name_is_a_watch(state):
+    p = state / "reports" / "data_qa"
+    p.mkdir(parents=True)
+    (p / f"{ASOF}.json").write_text(json.dumps({"status": "FLAG", "checks": {"Q2": {"flags": [
+        {"check": "Q2", "ticker": "AAA", "date": str(ASOF), "rule": "NAV move", "held": True}]}}}))
+    b = r.data_qa_block(state, ASOF)
+    assert b["status"] == r.WATCH and "AAA" in b["lines"][0]
+
+
+def test_a_fired_stop_with_no_channel_exits_non_zero_and_says_so(state, capsys):
+    write_csv(state / "eod_equity.csv", ["date", "equity", "change_usd", "read_at_utc"],
+              [["2026-11-03", 100000, "", "x"], [ASOF.isoformat(), 80000, "", "x"]])
+    rep, code = r.run_report("cef", state, ASOF, now_utc=dt.datetime(2026, 11, 6, 3, 15, tzinfo=dt.timezone.utc),
+                             send=lambda s, b: "not configured -- add ALERT_SMTP_USER and ALERT_SMTP_PASS")
+    assert code == rn.EXIT_ACT_UNDELIVERED and code != 0
+    err = capsys.readouterr().err
+    assert "ACT: notification NOT delivered: not configured" in err
+    assert rep["severity"] == r.ACT
+    assert any(ln.startswith("ACT: notification NOT delivered: not configured") for ln in rep["act_lines"])
+    md = (state / "reports" / "risk" / f"{ASOF}.md").read_text()
+    assert "ACT: notification NOT delivered: not configured" in md
+
+
+def test_a_fired_stop_with_a_channel_is_delivered_and_exits_zero(state):
+    write_csv(state / "eod_equity.csv", ["date", "equity", "change_usd", "read_at_utc"],
+              [["2026-11-03", 100000, "", "x"], [ASOF.isoformat(), 80000, "", "x"]])
+    sent = []
+    rep, code = r.run_report("cef", state, ASOF, now_utc=dt.datetime(2026, 11, 6, 3, 15, tzinfo=dt.timezone.utc),
+                             send=lambda s, b: sent.append((s, b)) or True)
+    assert code == 0 and len(sent) == 1 and "ACT" in sent[0][0] and rep["notification"]["delivered"] is True
+
+
+def test_no_act_means_no_notification_at_all(state):
+    sent = []
+    _, code = r.run_report("cef", state, ASOF, now_utc=dt.datetime(2026, 11, 6, 3, 15, tzinfo=dt.timezone.utc),
+                           send=lambda s, b: sent.append(1) or True)
+    assert code == 0 and sent == []
+
+
+def test_notify_test_reports_delivery_and_writes_no_report(tmp_path, capsys):
+    st = tmp_path / "quantt_state" / "cef"
+    st.mkdir(parents=True)
+    assert r.main(["--book", "cef", "--state-dir", str(st), "--notify-test"], send=lambda s, b: True) == 0
+    assert not (st / "reports").exists()
+    rc = r.main(["--book", "cef", "--state-dir", str(st), "--notify-test"], send=lambda s, b: "not configured")
+    assert rc == rn.EXIT_ACT_UNDELIVERED and "NOT delivered: not configured" in capsys.readouterr().err
+
+
+def test_a_raising_channel_is_recorded_not_a_crash():
+    res = rn.notify_act(["ACT: x"], book="cef", asof=ASOF, report_path="p",
+                        send=lambda s, b: (_ for _ in ()).throw(OSError("smtp down")))
+    assert res["delivered"] is False and "smtp down" in res["reason"]
+
+
+def test_a_blocks_own_bug_is_unmeasured_and_the_others_still_run(state, monkeypatch):
+    monkeypatch.setattr(r, "pnl_block", lambda *a: (_ for _ in ()).throw(ValueError("bad row")))
+    rep, code = r.run_report("cef", state, ASOF, now_utc=dt.datetime(2026, 11, 6, 3, 15, tzinfo=dt.timezone.utc))
+    assert rep["blocks"]["pnl"]["status"] == r.UNMEASURED and "ValueError" in rep["blocks"]["pnl"]["lines"][0]
+    assert rep["blocks"]["exposure"]["status"] != r.UNMEASURED
+    assert code == 0

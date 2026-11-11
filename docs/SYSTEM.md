@@ -710,6 +710,15 @@ Answered interactively on 2026-11-08, after the evening check of 2026-11-05 ran 
 | The corporate-action gate | **"Start the fix."** Fix the bond-ISIN misread, bring the three unresolved rows to the team lead to re-rule, then return both books to `halt` through a release |
 | HALVE/KILL's read at the 22:00 decide (UNMEASURED every session: `EVIDENCE_LOG` E-2026-11-03-41) | **"Fix the read, stay report-only."** The freshest-row rule ruled for te4's K0: the as-of's own EOD row if it exists, else D−1 labelled stale. Nothing acts on it. Turning HALVE/KILL on is a later ruling |
 
+### Team lead, 2026-11-08 — the nightly check as built (PR #65)
+
+| question | decision |
+|---|---|
+| Where does the nightly check live? (it lived only in an open session, ran three days late on 2026-11-05, and the 11-06 plans sent unread: E-2026-11-08-03) | **A VM timer**: `scripts/ops/data_qa.py` before the decide and `scripts/ops/risk_daily.py` after it, per book, report-only (`docs/RUNBOOK.md` 8.11) |
+| What pushes? | **ACT only**: a pre-registered stop that has fired. Everything else stays in the journal. With no channel the report records `ACT: notification NOT delivered` and exits non-zero |
+| Per-name concentration | **"Measure it, change nothing."** Largest name, top-3 and per-name share of NAV in the risk report; it never raises severity |
+| The drawdown read at 22:15, when that day's EOD row is not written | **The freshest row**: the as-of's own row if it exists, else D−1, labelled stale. Until PR #55 merges (`drawdown.read_through`) the report reads `drawdown.check` as it stands and marks the line for follow-up |
+
 ### Team lead, 2026-11-05 — the band at the measured cost, and post-then-cross
 
 Ruled on 2026-11-05 and relayed by the coordinating session, on `results/cef/BAND_COST_REDERIVATION_2026-11-05.md`
