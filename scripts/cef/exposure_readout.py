@@ -1252,7 +1252,7 @@ def fit_window(R: pd.DataFrame, sessions: pd.DatetimeIndex, t, names, *,
 
 
 def exposures(fit: WindowFit, value: pd.Series, equity: float | None,
-              vol_target: float = VOL_TARGET, review_fraction: float = REVIEW_FRACTION,
+              vol_target: float | None = None, review_fraction: float = REVIEW_FRACTION,
               multiplier: float | None = None) -> pd.DataFrame:
     """One row per factor: E (dollars), e (fraction of equity), sigma, c, the review flag.
 
@@ -1261,7 +1261,14 @@ def exposures(fit: WindowFit, value: pd.Series, equity: float | None,
     string), never computed against a default capital. The line is review_fraction x
     vol_target x `multiplier` (team lead, 2026-11-10); `multiplier` None reads the fit's own
     book's (`fit.fs.multiplier`, from that book's spec), never a number written here.
-    c/target stays c / vol_target, so the flag reads c/target > review_fraction x m."""
+    c/target stays c / vol_target, so the flag reads c/target > review_fraction x m.
+
+    `vol_target` None reads the same book's (`fit.fs.vol_target`), so both defaults come from
+    one book and a caller cannot read one book's line with another's vol target. Until the
+    independent review of PR #82 (2026-11-11) its default was the core's VOL_TARGET while the
+    multiplier's was the fit's book's. `readout`, the one production caller, passes both, so
+    the change moves no output (the strict readout is byte-identical across it)."""
+    vt = fit.fs.vol_target if vol_target is None else vol_target
     m = fit.fs.multiplier if multiplier is None else multiplier
     names = list(fit.beta_sum.index)
     v = value.reindex(names)
@@ -1284,8 +1291,8 @@ def exposures(fit: WindowFit, value: pd.Series, equity: float | None,
         else:
             e = float(E[k]) / equity
             c = abs(e) * sig
-            frac = c / vol_target
-            flag = "REVIEW" if c > review_fraction * vol_target * m else "within"
+            frac = c / vt
+            flag = "REVIEW" if c > review_fraction * vt * m else "within"
         rows.append(dict(date=fit.t, factor=k, exposure_usd=float(E[k]), exposure_frac=e,
                          factor_vol=sig, contrib_usd=c_usd, contrib_frac=c, contrib_of_target=frac,
                          d4_literal_breach=(None if equity is None else abs(e) > D4_BETA_BAR),

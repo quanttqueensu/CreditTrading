@@ -282,6 +282,27 @@ def test_review_line_follows_the_multiplier_it_is_given():
     assert hi.at["MUNI", "contrib_of_target"] == lo.at["MUNI", "contrib_of_target"] == pytest.approx(c / ER.VOL_TARGET)
 
 
+def test_the_vol_target_default_is_the_fits_own_book_like_the_multiplier():
+    """Nit of the independent review of PR #82 (2026-11-11): `exposures` took its default
+    multiplier from the fit's book (`fit.fs`) but its default vol target from the core's
+    VOL_TARGET, so a caller could read one book's line with two books' parameters. Both now
+    come from `fit.fs`. A fit whose book's vol target is twice the core's shows it: called
+    with no vol target, the readings equal those with the book's own passed explicitly, and
+    MUNI's c/target is over that book's target. Fails on the parent commit."""
+    import dataclasses
+    other = dataclasses.replace(ER.CORE, book="other", vol_target=2 * ER.VOL_TARGET, sizing_multiplier=None)
+    fit = dataclasses.replace(_fit_with(BETAS, VOLS), fs=other)
+    value = pd.Series({"LNG": 0.0, "SHT": -25_000.0})
+    eq = 100_000.0
+    c = 37_500 / eq * VOLS["MUNI"]
+    ex = ER.exposures(fit, value, eq).set_index("factor")
+    explicit = ER.exposures(fit, value, eq, vol_target=other.vol_target, multiplier=other.multiplier).set_index("factor")
+    pd.testing.assert_frame_equal(ex, explicit)
+    assert ex.at["MUNI", "contrib_of_target"] == pytest.approx(c / other.vol_target)
+    assert ex.at["MUNI", "review"] == ("REVIEW" if c > ER.REVIEW_FRACTION * other.vol_target * other.multiplier
+                                       else "within")
+
+
 def test_no_equity_means_unmeasured_never_a_default_capital():
     fit = _fit_with(BETAS, VOLS)
     ex = ER.exposures(fit, pd.Series({"LNG": 5_000.0, "SHT": -25_000.0}), equity=None)
