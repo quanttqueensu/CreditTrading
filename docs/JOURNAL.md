@@ -419,3 +419,8 @@ from a named source; [doc] copied from a named note.
 - **Checked as an artifact.** Every eligible ex-date had volume, the ex-day drop is 1.08 times the distribution, and the effect is larger in the most liquid funds. It is not stale prices.
 - **Not shown by the gross figure.** Each event is worth 20 to 30bp, about a round trip through the spread; the shorts need borrow that paper does not charge; capacity is about $1–3M. It clears Explore, and the shadow book is the next build.
 - **Shadow.** Two more books from 2026-11-10, $1M each, on 91 funds: `cef_exdate_after` and `cef_exdate_before_after` (`results/report/EVIDENCE_LOG.md` E-2026-11-10-08). Their ex-dates are stored by the day first seen. Three shadow books now run on the VM.
+
+**A security fix to the broker client** (`results/report/EVIDENCE_LOG.md` E-2026-11-10-09).
+- **Found.** The Alpaca client's GET and order POST, and the probe's GET, followed HTTP redirects. `requests` keeps custom headers on a redirect to another host, so a 3xx would have sent both key headers wherever it pointed. Another session's review found the same fault in its report reader and passed it on at the team lead's request. There is no evidence a redirect was ever served.
+- **Fixed, not released.** Every session that carries the keys now refuses any redirect (`quantt.broker.alpaca.refuse_redirects`), and a 3xx raises naming its status; on the order POST it is the ambiguous case, never a resend. The tests run `requests`' own redirect code against a recording transport: 22 fail on the old code.
+- **Prod.** Unchanged until the team lead's next release.
