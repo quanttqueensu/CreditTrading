@@ -101,13 +101,17 @@ def client_for(server, tmp_path, book="cef"):
 
 
 class _Sess:
-    """The minimum `requests.Session` shape AlpacaClient uses."""
+    """The minimum `requests.Session` shape AlpacaClient uses. `allow_redirects`: PR #79
+    (2026-11-10) makes AlpacaClient pass allow_redirects=False on every call, and a fake
+    without the keyword raises TypeError there. The fake server never redirects, so the value
+    changes nothing it answers; accepting it keeps this equality proof valid on either side of
+    that merge."""
 
     def __init__(self, server):
         self.server = server
         self.headers = {}
 
-    def get(self, url, params=None, timeout=None):
+    def get(self, url, params=None, timeout=None, allow_redirects=True):
         return self.server.get(url, params=params, timeout=timeout)
 
 
