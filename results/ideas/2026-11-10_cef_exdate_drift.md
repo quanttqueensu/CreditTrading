@@ -1,6 +1,6 @@
 # Idea card — the ex-date cycle in closed-end funds
 
-**Slug:** `cef_exdate_drift` · **Written:** 2026-11-10 · **Status:** EXPLORE, cleared; shadow build next ·
+**Slug:** `cef_exdate_drift` · **Written:** 2026-11-10 · **Status:** SHADOW from 2026-11-10 (`shadow/books/cef_exdate_after.json`, `cef_exdate_before_after.json`) ·
 **Reproducer:** `python3 scripts/research/stage_crsp_cefs.py`, then `python3 results/ideas/cef_exdate_drift/explore.py`
 · **Panel:** every closed-end fund on CRSP (R2 mirror), 1,123 funds with dead ones included, last date
 **2025-12-31**. 73,741 eligible ex-dates, about 2,842 a year.
@@ -88,10 +88,15 @@ pre-specified) [V: `results/ideas/cef_exdate_drift/variants.json`]:
 - **Correlation with C4**, which already earns part of its P&L in this window, is not
   measured here.
 
-## Next
+## On shadow
 
-Build the shadow book: a nightly panel of closes for the listed closed-end funds and their
-declared ex-dates from Alpaca's corporate-actions feed, with the feed's lead time measured
-first. Run the pre-specified form and the long-before, short-after form side by side.
+Two books at $1M each, from 2026-11-10, on the 91 funds this desk already lists
+(`shadow/universes/cef_v1.csv`), not the 576 a day of the test: the pre-specified form and the
+long-before, short-after form, side by side. Declared ex-dates come from Alpaca's
+corporate-actions feed and are stored by the day we first saw them, so a decision can only
+use an ex-date the desk already knew. Measured 2026-11-10: 76 of the 91 funds had a future
+ex-date listed [V: `python3 -m shadow.fetch.exdates cef_v1`]. On the last session before the
+start, 82 funds were eligible and 6 were in their post-ex window. With 91 funds the books
+will be noisier than the test.
 
 ![equity curve](cef_exdate_drift/equity.png)
