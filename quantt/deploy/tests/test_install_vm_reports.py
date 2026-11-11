@@ -365,3 +365,20 @@ def test_a_book_install_refuses_while_a_pnl_job_runs(rw, capsys):
     rw.cmds.active["quantt-c4-pnl.service"] = "active"
     rc, out = rw.run("--apply", capsys=capsys)
     assert rc == 2 and "quantt-c4-pnl.service" in out and "report job" in out
+
+
+def test_the_reports_help_names_the_pnl_units_and_their_key_services(capsys, monkeypatch):
+    """Finding 4 of the independent review of PR #82 (2026-11-11): the `--reports` help said it
+    installs "the report-only data-QA and risk units", but it also installs each book's pnl
+    unit and the two pnl key services, which read each book's Alpaca key from the vault. The
+    help now names them, from the constants the install renders. Fails on the parent commit."""
+    monkeypatch.setenv("COLUMNS", "1000")            # one line: argparse would wrap at hyphens
+    with pytest.raises(SystemExit) as e:
+        iv.main(["--help"])
+    assert e.value.code == 0
+    out = " ".join(capsys.readouterr().out.split())
+    assert "the data-QA, risk and pnl units of each book (cef, c4)" in out
+    assert ("the two pnl key services quantt-reports-cef-pnl-keys.service and quantt-reports-c4-pnl-keys.service, "
+            "which read each book's Alpaca key from the vault") in out
+    assert f"the alert secret service {iv.REPORT_SECRET_UNIT}" in out
+    assert "data-QA and risk units instead" not in out

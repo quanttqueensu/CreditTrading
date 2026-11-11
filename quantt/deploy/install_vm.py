@@ -2163,9 +2163,17 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
     ap.add_argument("--book", choices=sorted(VM_BOOKS), default=BOOK,
                     help=f"whose units to install (default {BOOK}, the core; {C4_BOOK} installs "
                          f"C4's own units beside the core's and touches none of them)")
+    # The help names every unit --reports writes. It once said "the report-only data-QA and
+    # risk units" after the pnl units and their key services were added, which read each
+    # book's Alpaca key from the vault (independent review of PR #82, 2026-11-11); the names
+    # come from the same constants the install renders, so they cannot drift from it.
     ap.add_argument("--reports", action="store_true",
-                    help="install the report-only data-QA and risk units instead of a book's; "
-                         "touches no session unit (docs/RUNBOOK.md 8.11)")
+                    help=(f"install the report-only units instead of a book's: the data-QA, risk and pnl "
+                          f"units of each book ({', '.join(REPORT_BOOKS)}), the alert secret service "
+                          f"{REPORT_SECRET_UNIT}, and the two pnl key services "
+                          f"{' and '.join(REPORT_PNL_KEY_UNITS[b] for b in REPORT_BOOKS)}, which read each "
+                          f"book's Alpaca key from the vault into a tmpfs env file of its own; touches no "
+                          f"session unit (docs/RUNBOOK.md 8.11, 8.12)"))
     ap.add_argument("--eod-from", default=None, metavar="YYYY-MM-DD",
                     help=f"REQUIRED with --book {C4_BOOK}, no default: the date its paper "
                          f"account was first funded (the team lead's)")
