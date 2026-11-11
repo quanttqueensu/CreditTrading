@@ -480,7 +480,7 @@ REPORT_BOOKS = (BOOK, C4_BOOK)
 REPORT_KINDS = {"dataqa": "scripts.ops.data_qa", "risk": "scripts.ops.risk_daily"}
 REPORT_SCHEDULE = {("dataqa", BOOK): (21, 45), ("dataqa", C4_BOOK): (21, 50),
                    ("risk", BOOK): (22, 15), ("risk", C4_BOOK): (22, 20)}
-REPORT_MEMORY_MAX = "450M"               # data_qa c4 peak 220 MB (2x that); measured 2026-11-08 (RUNBOOK 8.10)
+REPORT_MEMORY_MAX = "450M"               # data_qa c4 peak 220 MB (2x that); measured 2026-11-08 (RUNBOOK 8.11)
 REPORT_TIMEOUT_S = 480                   # ends before the next :00/:30 session slot
 REPORT_TEMPLATES = {"dataqa": "quantt-report-dataqa.service.tmpl",
                     "risk": "quantt-report-risk.service.tmpl",
@@ -1996,7 +1996,7 @@ def build_report_plan(*, tag: str, vault: str, layout: Layout, python: Path, ena
     steps.append(Step("read back from systemd that every report timer that should run is active", read_back))
     warnings.append(f"the ACT push needs the vault secrets {[s for s, _ in REPORT_SECRET_MAP]} (the team lead's "
                     f"step): until they exist, {REPORT_SECRET_UNIT} fails on each try and a fired stop "
-                    f"exits non-zero with `ACT: notification NOT delivered` (docs/RUNBOOK.md 8.10)")
+                    f"exits non-zero with `ACT: notification NOT delivered` (docs/RUNBOOK.md 8.11)")
     notes.append(f"timers enabled now: {', '.join(enabled) or 'none'}; running now: {', '.join(running) or 'none'}")
     return Plan(notes, warnings, steps, rendered, run_state)
 
@@ -2079,7 +2079,7 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
                          f"C4's own units beside the core's and touches none of them)")
     ap.add_argument("--reports", action="store_true",
                     help="install the report-only data-QA and risk units instead of a book's; "
-                         "touches no session unit (docs/RUNBOOK.md 8.10)")
+                         "touches no session unit (docs/RUNBOOK.md 8.11)")
     ap.add_argument("--eod-from", default=None, metavar="YYYY-MM-DD",
                     help=f"REQUIRED with --book {C4_BOOK}, no default: the date its paper "
                          f"account was first funded (the team lead's)")
