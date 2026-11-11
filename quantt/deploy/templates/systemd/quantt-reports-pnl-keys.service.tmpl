@@ -5,7 +5,7 @@
 # hand-edit the installed copy.
 #
 # THE SECRETS (${KEY_ID_SECRET}, ${SECRET_SECRET}) ARE THE ONES THIS BOOK'S OWN KEY SERVICE
-# ALREADY USES (docs/RUNBOOK.md 8.11); no new vault secret is created for this unit. Its env
+# ALREADY USES (docs/RUNBOOK.md 8.12); no new vault secret is created for this unit. Its env
 # file is separate from the book's runner key file and from the SMTP alert env file, and only
 # quantt-${BOOK}-pnl.service reads it; the dataqa and risk units stay key-free. It holds
 # this one book's keys and nothing else. Reached through Wants= (never Requires=): a failed

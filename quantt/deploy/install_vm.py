@@ -473,14 +473,14 @@ EOD_FROM_ENV = "QUANTT_EOD_FROM"         # quantt/collect/collect.py EOD_FROM_EN
 # so a bug cannot write into data/ or git; MemoryMax= measured peak with margin;
 # TimeoutStartSec= so it cannot run into the next slot. A failed report job is its own
 # `failed` unit and touches nothing else.
-# The P&L report kind (team lead, 2026-11-09; docs/RUNBOOK.md 8.11): the third
+# The P&L report kind (team lead, 2026-11-09; docs/RUNBOOK.md 8.12): the third
 # job per book, scripts/ops/pnl_report.py (20:30 cef, 20:35 c4). It reads the
 # account, so it needs a broker key, through a GET-only reader; the key comes from
 # the vault at run time into a tmpfs env file of ITS OWN, one per book, written by its
 # own secret service. The dataqa and risk units stay key-free (a test pins it), and the
 # SMTP alert env file stays separate. A failed key fetch fails its pnl unit, named in
 # that report, and nothing else.
-REPORT_PNL_MEMORY_MAX = "900M"           # a guess, not a measurement: read `systemctl show quantt-c4-pnl -p MemoryPeak` after a first run (RUNBOOK 8.11)
+REPORT_PNL_MEMORY_MAX = "900M"           # a guess, not a measurement: read `systemctl show quantt-c4-pnl -p MemoryPeak` after a first run (RUNBOOK 8.12)
 REPORT_SECRET_UNIT = "quantt-reports-secret.service"
 REPORT_RUNTIME_DIR = "quantt-reports"
 REPORT_ENV_FILE = Path("/run") / REPORT_RUNTIME_DIR / "alert.env"
@@ -494,7 +494,7 @@ REPORT_SCHEDULE = {("dataqa", BOOK): (21, 45), ("dataqa", C4_BOOK): (21, 50),
                    # stamp, clear of the 21:40 collect. 20:30 is the session timer's idle
                    # tick (it decides nothing at that hour); the job takes no lock.
                    ("pnl", BOOK): (20, 30), ("pnl", C4_BOOK): (20, 35)}
-REPORT_MEMORY_MAX = "450M"               # data_qa c4 peak 220 MB (2x that); measured 2026-11-08 (RUNBOOK 8.10)
+REPORT_MEMORY_MAX = "450M"               # data_qa c4 peak 220 MB (2x that); measured 2026-11-08 (RUNBOOK 8.11)
 REPORT_TIMEOUT_S = 480                   # ends before the next :00/:30 session slot
 REPORT_TEMPLATES = {"dataqa": "quantt-report-dataqa.service.tmpl",
                     "risk": "quantt-report-risk.service.tmpl",
@@ -2078,11 +2078,11 @@ def build_report_plan(*, tag: str, vault: str, layout: Layout, python: Path, ena
     steps.append(Step("read back from systemd that every report timer that should run is active", read_back))
     warnings.append(f"the ACT push needs the vault secrets {[s for s, _ in REPORT_SECRET_MAP]} (the team lead's "
                     f"step): until they exist, {REPORT_SECRET_UNIT} fails on each try and a fired stop "
-                    f"exits non-zero with `ACT: notification NOT delivered` (docs/RUNBOOK.md 8.10)")
+                    f"exits non-zero with `ACT: notification NOT delivered` (docs/RUNBOOK.md 8.11)")
     warnings.append(f"the pnl units read each book's own Alpaca key from the vault into their own tmpfs env file "
                     f"{sorted(str(v.env_file) for v in REPORT_PNL_KEYS.values())} (the same secrets the books' key "
                     f"services already use: {[s for k in REPORT_PNL_KEYS.values() for s, _ in k.secret_map]}); "
-                    f"the dataqa and risk units stay key-free (docs/RUNBOOK.md 8.11)")
+                    f"the dataqa and risk units stay key-free (docs/RUNBOOK.md 8.12)")
     notes.append(f"timers enabled now: {', '.join(enabled) or 'none'}; running now: {', '.join(running) or 'none'}")
     return Plan(notes, warnings, steps, rendered, run_state)
 
@@ -2165,7 +2165,7 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
                          f"C4's own units beside the core's and touches none of them)")
     ap.add_argument("--reports", action="store_true",
                     help="install the report-only data-QA and risk units instead of a book's; "
-                         "touches no session unit (docs/RUNBOOK.md 8.10)")
+                         "touches no session unit (docs/RUNBOOK.md 8.11)")
     ap.add_argument("--eod-from", default=None, metavar="YYYY-MM-DD",
                     help=f"REQUIRED with --book {C4_BOOK}, no default: the date its paper "
                          f"account was first funded (the team lead's)")

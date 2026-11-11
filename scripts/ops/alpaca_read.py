@@ -29,7 +29,7 @@ the runner either), with four properties:
   * KEYS FROM THE PROCESS ENVIRONMENT ONLY (`AlpacaReader.from_environment`):
     `ALPACA_<BOOK>_KEY_ID` / `_SECRET_KEY`, which systemd loads with
     `EnvironmentFile=` from the tmpfs file the secret service wrote
-    (`install_vm --reports`, docs/RUNBOOK.md 8.11). This module opens no key file
+    (`install_vm --reports`, docs/RUNBOOK.md 8.12). This module opens no key file
     and no `config/.env`, and names no variable but those two. A missing key raises
     naming the variable; it never prints a value, and `_scrub` removes both values
     from every message `_get` builds. The one message `_scrub` could not reach is
@@ -343,7 +343,7 @@ class AlpacaReader:
         if missing:
             raise MissingCredential(f"book {book!r}: {', '.join(missing)} not set in the process "
                                     f"environment. The report job reads each book's own keys from the "
-                                    f"run-time env file systemd loads (docs/RUNBOOK.md 8.11); no other "
+                                    f"run-time env file systemd loads (docs/RUNBOOK.md 8.12); no other "
                                     f"book's key is substituted.")
         return cls(book, key_id=env[kid_name], secret=env[sec_name], **kw)
 

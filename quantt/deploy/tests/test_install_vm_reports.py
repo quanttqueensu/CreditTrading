@@ -330,7 +330,7 @@ def test_a_pnl_unit_that_would_hide_a_non_zero_exit_is_refused(rw, capsys):
         (d / rel).write_text(t.replace("\nNice=10\n", "\nNice=10\nSuccessExitStatus=4 5\n", 1))
     rw.commit_and_tag("v2", change)
     (rw.dev / rel).write_text((REAL_REPO / rel).read_text())          # tree restored, tag not
-    rc, out = rw.run("--apply", tag="v2", capsys=capsys)               # the core at v2 first (8.11)
+    rc, out = rw.run("--apply", tag="v2", capsys=capsys)               # the core at v2 first (8.12)
     assert rc == 0, out
     rc, out = rw.reports("--apply", tag="v2", capsys=capsys)
     assert rc == 2 and "fails its checks" in out and "SuccessExitStatus" in out, out

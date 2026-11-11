@@ -10,7 +10,7 @@ live_attribution.py`). The team lead ordered it as a daily VM job for BOTH paper
 the core and C4: official P&L, hold split into NAV part and discount part, fill cost,
 fees and distributions, then factor exposure against the review line. This is that job.
 It runs on a timer (20:30 ET core, 20:35 ET C4), after the 20:00 EOD stamp and clear of
-the 21:40 collect, through `install_vm --reports` (kind `pnl`, docs/RUNBOOK.md 8.11).
+the 21:40 collect, through `install_vm --reports` (kind `pnl`, docs/RUNBOOK.md 8.12).
 
 WHAT IT IS AND IS NOT
 ---------------------
@@ -53,7 +53,7 @@ diagnosis, and are labelled unreconciled. Since the team lead's ruling of 2026-1
 also exits EXIT_UNRECONCILED (5), a failed unit, AFTER the report files are written (EXIT
 CODES, below); before it the code was 0.
 
-EXIT CODES (team lead, 2026-11-10; docs/RUNBOOK.md 8.11)
+EXIT CODES (team lead, 2026-11-10; docs/RUNBOOK.md 8.12)
   0  EXIT_OK: the attribution ran and reconciled to the cent on every session. The factor
      block may still be PARTIAL or UNMEASURED: a factor gap costs only its own block.
   2  EXIT_REFUSED: refused before anything was read or written (no --state-dir and no

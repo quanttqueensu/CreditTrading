@@ -1137,7 +1137,59 @@ Every guard in this section applies to C4 too. The team lead's steps, from the
 vault secrets to the arming go, are in
 `results/ops/C4_DRY_RUN_CHECKLIST_2026-10-29.md`.
 
-### 8.10 The nightly report-only checks (data QA and risk)
+### 8.10 The shadow-book runner on the VM (2026-11-09)
+
+A second, separate thing on the VM: simulated books on live data, which send no order
+(`results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md`; `docs/SYSTEM.md` §5, 2026-11-09). It
+is **not prod and not a release**. It is a clone under its own unix user, `quantt-shadow` (not `shadow`: Ubuntu has a system group of that name, which guards the password file), that
+follows the branch `shadow`, so a new book is a commit to that branch.
+
+| what | prod | the shadow runner |
+|---|---|---|
+| user and home | `quantt`, `/home/quantt` | `quantt-shadow`, `/home/quantt-shadow` |
+| code | a clone at a release tag | `/home/quantt-shadow/quantt-shadow`, following the branch `shadow` |
+| state | `quantt_state/<book>` | `/home/quantt-shadow/shadow_state` |
+| key file | `/run/quantt/alpaca.env` | `/run/quantt-shadow/alpaca.env`: a copy of the core account's key, for reading prices |
+| units | `quantt-cef-*`, `quantt-c4-*` | `quantt-shadow-secret.service`, `quantt-shadow.service`, `quantt-shadow.timer` |
+| schedule (New York) | section 8.3 | 18:50 and 20:50 Monday to Friday, 07:20 Tuesday to Saturday |
+
+**Install (the team lead, once; it needs sudo).** Outside prod's windows (not 15:45–16:00,
+17:25–17:40 or 22:00–01:00, and not at :10 or :40 past an hour); the script refuses while a
+prod job runs. The branch `shadow` must exist on GitHub first.
+
+```bash
+curl -fsSLo install_shadow_vm.sh \
+  https://raw.githubusercontent.com/quanttqueensu/CreditTrading/shadow/shadow/deploy/install_shadow_vm.sh
+less install_shadow_vm.sh            # read it before running it as root
+sudo bash install_shadow_vm.sh --vault <vault-name> --enable
+```
+
+**Check it once by hand:**
+
+```bash
+sudo systemctl start quantt-shadow-secret.service && sudo systemctl start quantt-shadow.service
+sudo tail -n 20 /home/quantt-shadow/logs/nightly.out.log /home/quantt-shadow/logs/nightly.err.log
+systemctl list-timers 'quantt-shadow*'
+```
+
+With no book file on the branch the run prints "no enabled book" and exits 0. The page for
+every book is `/home/quantt-shadow/shadow_state/SCOREBOARD.md`.
+
+**Stop it:** `sudo systemctl disable --now quantt-shadow.timer`. Nothing else depends on it.
+
+**What the separate user does not protect against.** The vault is read through the VM's own
+identity, which every local user can reach. File permissions keep shadow code out of prod's
+state and key file, and they cover accidents; they do not stop code on the `shadow` branch
+from asking the vault for a secret. Control who can push to that branch.
+
+**Installed 2026-11-10, 11:12 New York**, by an agent at the team lead's request ("can u run
+it"), in the gap between prod's jobs; it took 22 seconds [V: the run's own output]. The first
+attempt, at 10:12, stopped at its first step and created nothing, because the user was then
+named `shadow`. **Still not measured:** the job's memory peak (systemd reported none for the
+first run), so the unit's `MemoryMax` remains a guess to read against later runs. **If `requirements.txt` changes on the branch, the nightly run refuses** until
+this script is re-run.
+
+### 8.11 The nightly report-only checks (data QA and risk)
 
 Team lead, 2026-11-08: the nightly check is owned by a VM timer, and pushes a
 notification only when a stop fires. Everything else stays in the journal
@@ -1172,7 +1224,7 @@ has stopped the timers, and it never stops or starts a report timer.
 **Reading.** `sudo tail -n 60 /home/quantt/quantt_state/cef/logs/{dataqa,risk}.out.log`
 and the dated reports under `<state>/reports/`. A report that cannot measure a block
 says UNMEASURED and names what is missing (on the VM today: `stops.py`'s fit series;
-the attribution and factor blocks read the daily P&L job's report (8.11) and are
+the attribution and factor blocks read the daily P&L job's report (8.12) and are
 UNMEASURED until it has run; the drawdown reader's freshest-row rule waits on PR #55).
 
 **Severity.** INFO stays in the file; WATCH is a line near a limit or a data-QA flag on a held name; ACT is a
@@ -1203,7 +1255,7 @@ this code has never sent from the VM, so the test above is the first proof.
 report unit files: an older installer's C4 scan names any other `quantt-` unit file as
 "no unit any book installs" and refuses.
 
-### 8.11 The daily P&L attribution and factor readout (report only)
+### 8.12 The daily P&L attribution and factor readout (report only)
 
 Team lead, 2026-11-09: a daily VM report for BOTH paper books, the P&L attribution and
 the exposure readout. It is a third report kind under `--reports` (beside dataqa and
@@ -1260,7 +1312,7 @@ no import path from the job reaches order-sending code. The job takes no lock, a
 touches nothing else.
 
 **Install** (the team lead's step, after the release is installed; the same command as
-8.10, which also installs and updates the dataqa and risk units):
+8.11, which also installs and updates the dataqa and risk units):
 
 ```bash
 qi --tag <tag> --vault <vault-name> --reports                     # dry run: every check, every unit
@@ -1279,7 +1331,7 @@ systemctl show quantt-cef-pnl -p MemoryPeak    # MemoryMax=900M is a guess, not 
 ```
 
 `MemoryMax=900M` (a generous first setting: the job has not been measured on the VM; the
-report units' measured peaks are in 8.10) should be cut to the measured peak with margin
+report units' measured peaks are in 8.11) should be cut to the measured peak with margin
 after the first week. The job calls yfinance for NAVs, dividends and prices (keyless); the
 VM must be able to reach Yahoo. A missing NAV (a fund not published by 20:30) makes the NAV
 and discount parts UNMEASURED for that name-day, named, and leaves hold, fill, fees and
@@ -1293,7 +1345,7 @@ makes the block UNMEASURED, naming it; the attribution above it stays either way
 with no Dimson lag (C4, until its rule has produced one) has a factor block UNMEASURED,
 naming the rule.
 
-**Rollback.** As 8.10: on a rollback to a tag older than this section, first
+**Rollback.** As 8.11: on a rollback to a tag older than this section, first
 `sudo systemctl disable --now quantt-{cef,c4}-pnl.timer`, then
 `sudo systemctl stop quantt-reports-{cef,c4}-pnl-keys.service` (its key material goes
 with its runtime directory), and delete the two pnl service files, the two pnl timer files
