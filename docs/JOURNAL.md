@@ -413,3 +413,7 @@ from a named source; [doc] copied from a named note.
 - **Research.** On 1,123 CEFs from CRSP (dead funds included, to 2025-12-31), a fund falls about 30bp relative to other funds over the three sessions after its ex-date, after rising about 22bp over the three before. The pre-specified book (short after, long the rest) has a gross Sharpe of 4.18, positive in every era [V: `results/ideas/2026-11-10_cef_exdate_drift.md`].
 - **Checked as an artifact.** Every eligible ex-date had volume, the ex-day drop is 1.08 times the distribution, and the effect is larger in the most liquid funds. It is not stale prices.
 - **Not shown by the gross figure.** Each event is worth 20 to 30bp, about a round trip through the spread; the shorts need borrow that paper does not charge; capacity is about $1–3M. It clears Explore, and the shadow book is the next build.
+
+**Earnings drift on a wide universe, 2026-11-11** (`results/report/EVIDENCE_LOG.md` E-2026-11-11-01).
+- **Research.** Drift after quarterly earnings on the 1,500 largest US stocks, IBES surprises and CRSP on R2 to 2025-12-31: the pre-specified book has a gross Sharpe of 0.21 (t 1.09); a variant sorted on the announcement move, chosen after looking, 0.73 [V: `results/ideas/2026-11-11_pead_wide.md`]. Not promoted.
+- **Built.** `scripts/research/stage_ibes_surprises.py` stages the surprises outside the repository.
