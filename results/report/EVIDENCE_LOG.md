@@ -4153,3 +4153,13 @@ that adds it does not exist when it is written.
 - source: `src/deploy/tests/test_thin_k3_run_provenance.py` @ `0c5d747` (fixed by this commit); `quantt/session/drawdown.py` @ `0c5d747` (fixed by this commit); `results/cef/prereg_thin_te4/compose.py` @ `0c5d747`
 - supports: §5
 - status: current
+
+### E-2026-11-11-02 · Ruling: the desk is event-driven and special situations as well as systematic, in any asset class, and every idea hunt looks for niche verticals there
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-11
+- figures:
+  - none (a ruling)
+- source: `docs/SYSTEM.md` @ `e02abb1` (§5, the 2026-11-11 block); `docs/MISSION.md` @ `e02abb1` (§5, the block dated 2026-11-11); `.claude/skills/hunt/SKILL.md` @ `e02abb1`
+- supports: §2, §5
+- status: current. The team lead's instruction in the session of 2026-11-11. It adds to the 2026-11-09 ruling (E-2026-11-09-01) and changes nothing else in it. The seed list in `docs/MISSION.md` is hypotheses; none is tested
