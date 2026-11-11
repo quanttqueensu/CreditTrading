@@ -4104,6 +4104,18 @@ that adds it does not exist when it is written.
 - supports: §3, §4
 - status: current. One run of the reproducer and one of the robustness checks; not independently re-derived. The by-liquidity and trading-volume checks were run in the session and their figures are in the card, not in a stored file
 
+### E-2026-11-10-08 · Method: the two ex-date shadow books start on 91 funds, with declared ex-dates stored by the day they were first seen
+- kind: method
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - 91 funds in the universe, built from files already in the repository; 91 of 91 returned prices [S]
+  - 76 of the 91 had a future ex-date listed in Alpaca's corporate-actions feed on 2026-11-10 [S]
+  - on 2026-11-09, 82 funds were eligible and 6 were in their post-ex window; the pre-specified book would hold 76 long and 6 short [S]
+- source: `results/ideas/2026-11-10_cef_exdate_drift.md` @ `852a0ab` (its "On shadow" section is added by this commit); `shadow/signals/cef_exdate.py` @ `852a0ab` (added by this commit); `shadow/fetch/exdates.py` @ `852a0ab` (added by this commit)
+- supports: §4, §5
+- status: current. The counts are from one live run of the fetchers on the laptop, not stored in the repository. Every figure these books produce will be SIMULATED
+
 ### E-2026-11-11-01 · Result: earnings drift on the 1,500 largest US stocks is present but small; the pre-specified book has a gross Sharpe of 0.21 and is not promoted
 - kind: result
 - era: ALPACA
