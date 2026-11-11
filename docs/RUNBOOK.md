@@ -1226,6 +1226,24 @@ appears in the report and sends NOTHING** (no push, no ACT, no halt, no trade; t
 2026-11-09). `risk_daily`'s attribution and factor blocks read this job's JSON and stay
 UNMEASURED, named, when the job has not run.
 
+**Exit codes** (team lead, 2026-11-10; `scripts/ops/pnl_report.py`, EXIT CODES). The report
+files are written before the job exits, whatever the code, and `risk_daily` reads them the
+same way after any code (its own timer; nothing ties it to this unit's result: an
+unreconciled report is its WATCH).
+
+| code | meaning | the report says |
+|---|---|---|
+| 0 | the attribution ran and reconciled to the cent on every session (the factor block may still be PARTIAL or UNMEASURED) | OK or PARTIAL |
+| 2 | refused before reading or writing anything: no state directory, or one under data/ or visible to git | (no report) |
+| 4 | incomplete: no broker read (no key, a failed read) or the attribution refused | UNMEASURED, naming why |
+| 5 | unreconciled: on some session the rebuild does not equal Alpaca's official EOD change to the cent | UNRECONCILED, naming the session and the residual |
+| 1 | an uncaught exception (a bug); the report may not have been written | - |
+
+A run that is both incomplete and unreconciled exits 4: nothing could be reconciled. The
+pnl unit carries no `SuccessExitStatus` (the installer refuses a rendered unit that has
+one), so 4 and 5 both show as a failed `quantt-<book>-pnl.service`; read the report before
+the unit's log.
+
 **Keys (the only secrets these units touch).** The pnl jobs read the account, so they
 need the account's Alpaca key, and read it from the vault at run time, never from a file
 in the repo or on disk: each book has its own secret service

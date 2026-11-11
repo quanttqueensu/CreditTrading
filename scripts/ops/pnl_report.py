@@ -49,8 +49,27 @@ equal the official EOD change to the cent. If it does not, the report says so lo
 overall status is UNRECONCILED, in the report's headline and on the job's stdout line, not
 OK, with the line that names the session and the residual at the top; the JSON's
 `reconciled` is false, and `risk_daily` shows WATCH; the attribution rows still print, for
-diagnosis, and are labelled unreconciled. The exit code stays 0 for it: the job did run,
-and a failed unit means the report could not be produced.
+diagnosis, and are labelled unreconciled. Since the team lead's ruling of 2026-11-10 the unit
+also exits EXIT_UNRECONCILED (5), a failed unit, AFTER the report files are written (EXIT
+CODES, below); before it the code was 0.
+
+EXIT CODES (team lead, 2026-11-10; docs/RUNBOOK.md 8.11)
+  0  EXIT_OK: the attribution ran and reconciled to the cent on every session. The factor
+     block may still be PARTIAL or UNMEASURED: a factor gap costs only its own block.
+  2  EXIT_REFUSED: refused before anything was read or written (no --state-dir and no
+     QUANTT_STATE_DIR, or a state directory under data/ or visible to git).
+  4  EXIT_INCOMPLETE: no broker read (no key, a failed read) or the attribution refused;
+     the report says UNMEASURED and names why.
+  5  EXIT_UNRECONCILED: the attribution ran, and on at least one session the rebuild
+     (hold + fill + fees) does not equal Alpaca's official EOD change to the cent; the
+     report's status is UNRECONCILED.
+  A run that is both incomplete and unreconciled exits 4: with no broker read or a refused
+  attribution nothing was reconciled, so the reconciliation is unknown, never "failed".
+  1  is Python's own, an uncaught exception: a bug, and the report may not be written.
+The report files are written before the process exits, whatever the code, so `risk_daily`
+(its own timer, no dependency on this unit) reads the same JSON after a 4 or a 5 as after a
+0. The rendered unit carries no SuccessExitStatus (install_vm's expected_report_service
+admits none), so 4 and 5 both show as a failed unit in `systemctl`.
 
 A MISSING INPUT IS UNMEASURED, NAMED, NEVER INFERRED (CLAUDE.md, no silent fallbacks).
   * no broker key, a failed broker read, or an attribution refusal: the report says
@@ -99,7 +118,9 @@ from scripts.ops.data_qa import ET, expected_day, write_atomic  # noqa: E402
 
 BOOKS = ("cef", "c4")
 EXIT_OK = 0
+EXIT_REFUSED = 2                   # refused before reading or writing anything (main)
 EXIT_INCOMPLETE = 4                # no broker read or the attribution refused: the unit fails, the file says why
+EXIT_UNRECONCILED = 5              # the rebuild missed the official EOD change on a session (team lead, 2026-11-10)
 RESIDUAL_CENT = Fraction(1, 200)   # half a cent: "to the cent" per session (live_attribution's residual)
 EOD_LOOKBACK_DAYS = 1100           # far enough back to reach any account's funding date
 SINCE_PAD_DAYS = 7                 # sessions before the first funded point, so fetch can show it was flat
@@ -378,6 +399,22 @@ def _factor_report(ro, fs: ER.FactorSet, book: str) -> dict:
 
 # ---------------------------------------------------------------- the report
 
+def exit_code(*, incomplete: bool, reconciled) -> int:
+    """The unit's exit code (module docstring, EXIT CODES; team lead, 2026-11-10).
+
+    Incomplete outranks unreconciled: with no broker read or a refused attribution nothing
+    was reconciled, so `reconciled` is unknown there, never false. A completed attribution
+    always says True or False; anything else is a bug here and raises, rather than exit 0
+    for a reconciliation nobody checked."""
+    if incomplete:
+        return EXIT_INCOMPLETE
+    if reconciled is True:
+        return EXIT_OK
+    if reconciled is False:
+        return EXIT_UNRECONCILED
+    raise ValueError(f"a completed attribution has reconciled={reconciled!r}, not True or False")
+
+
 def safe_nav_fetcher(gaps: list, book: str):
     """yfinance NAVs (`live_attribution.yf_navs`, at `book`'s own NAV symbols), or no rows on
     a failure, named: a fund's NAV may not be published yet and yfinance can be down; the split
@@ -446,8 +483,10 @@ def _keep_yfinance_cache_under(out_dir: Path, gaps: list) -> None:
 
 def run_report(book: str, state: Path, asof: dt.date, *, now_utc=None, reader=None, groups=None,
                nav_fetcher=None, dist_check_fetcher=None, price_fetcher=None) -> tuple[dict, int]:
-    """One book's report: writes `<state>/reports/pnl/<asof>.{md,json}`. Returns (report, code).
-    A directory under data/ or visible to git raises before anything is read or written."""
+    """One book's report: writes `<state>/reports/pnl/<asof>.{md,json}`. Returns (report, code),
+    the code by `exit_code` and decided only after both files are written (module docstring,
+    EXIT CODES). A directory under data/ or visible to git raises before anything is read or
+    written."""
     now = now_utc or dt.datetime.now(dt.timezone.utc)
     out_dir = state / "reports" / "pnl"
     LA._refuse_data_dir(out_dir)
@@ -457,7 +496,7 @@ def run_report(book: str, state: Path, asof: dt.date, *, now_utc=None, reader=No
         _keep_yfinance_cache_under(out_dir, gaps)
     nav_f = nav_fetcher or safe_nav_fetcher(gaps, book)
     div_f = dist_check_fetcher or safe_dist_fetcher(gaps)
-    code = EXIT_OK
+    incomplete = False
     att: dict
     res = inp = None
     try:
@@ -468,7 +507,7 @@ def run_report(book: str, state: Path, asof: dt.date, *, now_utc=None, reader=No
         res, inp = att.pop("_res"), att.pop("_inp")
         gaps += att.pop("gaps")
     except Exception as e:                       # a failed read or refusal: this report's failure, named
-        code = EXIT_INCOMPLETE
+        incomplete = True
         att = {"status": UNMEASURED, "why": f"{type(e).__name__}: {e}",
                "lines": [f"Attribution UNMEASURED: {type(e).__name__}: {e}"], "session": None, "cumulative": None,
                "reconciled": None}
@@ -492,7 +531,8 @@ def run_report(book: str, state: Path, asof: dt.date, *, now_utc=None, reader=No
            "note": "report only; zero trials; a review-line breach sends nothing"}
     write_atomic(out_dir / f"{asof.isoformat()}.json", json.dumps(rep, indent=1, default=str))
     write_atomic(out_dir / f"{asof.isoformat()}.md", render_md(rep))
-    print(f"pnl_report {book} {asof}: {status}; wrote {out_dir / f'{asof.isoformat()}.md'}")
+    code = exit_code(incomplete=incomplete, reconciled=att.get("reconciled"))   # after both files exist
+    print(f"pnl_report {book} {asof}: {status}; exit {code}; wrote {out_dir / f'{asof.isoformat()}.md'}")
     return rep, code
 
 
@@ -505,14 +545,14 @@ def main(argv=None, *, now_utc=None, reader=None) -> int:
     state = a.state_dir or (Path(os.environ["QUANTT_STATE_DIR"]) if os.environ.get("QUANTT_STATE_DIR") else None)
     if state is None:
         print("REFUSED: no --state-dir and no QUANTT_STATE_DIR", file=sys.stderr)
-        return 2
+        return EXIT_REFUSED
     now = now_utc or dt.datetime.now(dt.timezone.utc)
     asof = a.asof or expected_day(now.astimezone(ET))
     try:
         _, code = run_report(a.book, state, asof, now_utc=now, reader=reader)
     except LA.AttributionError as e:             # a refused directory: nothing was read or written
         print(f"REFUSED: {e}", file=sys.stderr)
-        return 2
+        return EXIT_REFUSED
     return code
 
 

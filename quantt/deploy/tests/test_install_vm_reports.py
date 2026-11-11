@@ -303,6 +303,39 @@ def test_the_pnl_key_services_cannot_write_the_clone(rw, capsys):
     assert "ReadOnlyPaths" not in smtp and "PYTHONDONTWRITEBYTECODE" not in smtp
 
 
+def test_the_pnl_units_let_a_non_zero_exit_fail_the_unit(rw, capsys):
+    """Pin (passes before and after; team lead, 2026-11-10): pnl_report exits 5 on an
+    UNRECONCILED report and 4 when incomplete, and nothing in the rendered pnl units may turn
+    either into a success: no SuccessExitStatus, no ignored ExecStart, nothing run after it."""
+    rc, out = rw.reports("--apply", capsys=capsys)
+    assert rc == 0, out
+    for book in ("cef", "c4"):
+        body = [ln for ln in rw.layout.unit_path(f"quantt-{book}-pnl.service").read_text().splitlines()
+                if not ln.startswith("#")]
+        assert not [ln for ln in body if ln.startswith(("SuccessExitStatus", "RestartPreventExitStatus", "Restart",
+                                                        "OnFailure", "ExecStartPost", "ExecStopPost"))], body
+        execs = [ln for ln in body if ln.startswith("ExecStart")]
+        assert len(execs) == 1 and execs[0].split("=", 1)[1][:1] not in "-@:+!", execs
+
+
+def test_a_pnl_unit_that_would_hide_a_non_zero_exit_is_refused(rw, capsys):
+    """Pin, the other side: a pnl template at the tag that adds SuccessExitStatus fails the
+    installer's checks (expected_report_service admits none), so a 4 or a 5 cannot be
+    silenced by a template edit either."""
+    rel = f"{iv.TEMPLATE_DIR}/{iv.REPORT_TEMPLATES['pnl']}"
+
+    def change(d):
+        t = (d / rel).read_text()
+        assert "\nNice=10\n" in t
+        (d / rel).write_text(t.replace("\nNice=10\n", "\nNice=10\nSuccessExitStatus=4 5\n", 1))
+    rw.commit_and_tag("v2", change)
+    (rw.dev / rel).write_text((REAL_REPO / rel).read_text())          # tree restored, tag not
+    rc, out = rw.run("--apply", tag="v2", capsys=capsys)               # the core at v2 first (8.11)
+    assert rc == 0, out
+    rc, out = rw.reports("--apply", tag="v2", capsys=capsys)
+    assert rc == 2 and "fails its checks" in out and "SuccessExitStatus" in out, out
+
+
 def test_the_dataqa_and_risk_units_stay_key_free_and_smtp_is_only_for_risk(rw, capsys):
     rc, out = rw.reports("--apply", capsys=capsys)
     assert rc == 0, out

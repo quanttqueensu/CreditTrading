@@ -286,16 +286,74 @@ def test_an_unknown_name_costs_only_its_nav_named(monkeypatch):
 def test_an_unreconciled_session_is_said_loudly(tmp_path, capsys):
     """The ruling is "else say so loudly": the overall status, in the report's headline and
     on the job's stdout line, not only in a body line. Fails on the parent commit, whose
-    overall status was OK. The exit code stays 0 (see the module docstring)."""
+    overall status was OK. The exit code is EXIT_UNRECONCILED since the team lead's ruling of
+    2026-11-10 (it was 0; module docstring, EXIT CODES)."""
     rep, code = run(tmp_path, reader=FakeReader(tamper={TRADED[1]: 5.0}))
     att = rep["attribution"]
-    assert att["reconciled"] is False and code == P.EXIT_OK
+    assert att["reconciled"] is False and code == P.EXIT_UNRECONCILED
     assert any(ln.startswith("RECONCILIATION FAILED") and TRADED[1].isoformat() in ln for ln in att["lines"])
     assert rep["status"] == P.UNRECONCILED
     md = (tmp_path / "cef" / "reports" / "pnl" / f"{ASOF}.md").read_text()
     assert "RECONCILIATION FAILED" in md
     assert "Overall: **UNRECONCILED**" in md and md.index("**RECONCILIATION FAILED") < md.index("## Attribution")
     assert "UNRECONCILED" in capsys.readouterr().out
+
+
+def test_an_unreconciled_report_is_written_then_the_unit_exits_non_zero(tmp_path, capsys):
+    """Ruling B (team lead, 2026-11-10): an UNRECONCILED report exits EXIT_UNRECONCILED, a code
+    of its own, and only after both report files exist; risk_daily, on its own timer, then
+    reads that same JSON and shows its WATCH, as before. Fails on the parent commit (exit 0)."""
+    rep, code = run(tmp_path, reader=FakeReader(tamper={TRADED[1]: 5.0}))
+    assert code == P.EXIT_UNRECONCILED
+    assert code not in (P.EXIT_OK, P.EXIT_REFUSED, P.EXIT_INCOMPLETE, 1)
+    out = tmp_path / "cef" / "reports" / "pnl"
+    on_disk = json.loads((out / f"{ASOF}.json").read_text())
+    assert on_disk["status"] == P.UNRECONCILED and on_disk["attribution"]["reconciled"] is False
+    assert "Overall: **UNRECONCILED**" in (out / f"{ASOF}.md").read_text()
+    assert f"UNRECONCILED; exit {P.EXIT_UNRECONCILED}" in capsys.readouterr().out
+    from scripts.ops import risk_daily as RD
+    a = RD.attribution_block("cef", tmp_path / "cef", ASOF)
+    assert a["status"] == RD.WATCH and a["data"]["reconciled"] is False
+    assert any(ln.startswith("RECONCILIATION FAILED") and TRADED[1].isoformat() in ln for ln in a["lines"])
+
+
+def test_a_reconciled_report_exits_zero_even_with_a_factor_gap(tmp_path):
+    """Pin (passes before and after ruling B): reconciled is 0, and a factor block that could
+    not be measured costs only that block, never the exit code."""
+    rep, code = run(tmp_path)
+    assert code == P.EXIT_OK == 0 and rep["attribution"]["reconciled"] is True
+
+    def broken(tickers, start, asof):
+        return pd.DataFrame(), {}, {"AAA": "x", "BBB": "y"}
+    rep, code = run(tmp_path, price_fetcher=broken)
+    assert code == P.EXIT_OK and rep["factor"]["status"] == P.UNMEASURED and rep["status"] == "PARTIAL"
+
+
+def test_an_incomplete_run_exits_4_even_when_the_account_would_not_reconcile(tmp_path):
+    """Ruling B's precedence: incomplete (4) outranks unreconciled (5), because with no fills
+    read nothing was reconciled. The account below would not reconcile (its equity is
+    tampered), but its fills cannot be read. End to end this is a pin (the parent exits 4 as
+    well); the table test below fails on the parent."""
+    class DeadFills(FakeReader):
+        def activities_fills(self, date):
+            raise AR.AlpacaHTTPError("GET /v2/account/activities/FILL failed after 5 attempts", status=500)
+    rep, code = run(tmp_path, reader=DeadFills(tamper={TRADED[1]: 5.0}))
+    assert code == P.EXIT_INCOMPLETE and rep["status"] == P.UNMEASURED
+    assert rep["attribution"]["reconciled"] is None and "AlpacaHTTPError" in rep["attribution"]["why"]
+    assert (tmp_path / "cef" / "reports" / "pnl" / f"{ASOF}.json").is_file()
+
+
+def test_the_exit_code_table():
+    """The module docstring's EXIT CODES, as a function (team lead, 2026-11-10). Fails on the
+    parent commit (no `exit_code`, no EXIT_UNRECONCILED)."""
+    assert P.exit_code(incomplete=False, reconciled=True) == P.EXIT_OK == 0
+    assert P.exit_code(incomplete=False, reconciled=False) == P.EXIT_UNRECONCILED == 5
+    assert P.exit_code(incomplete=True, reconciled=None) == P.EXIT_INCOMPLETE == 4
+    assert P.exit_code(incomplete=True, reconciled=False) == P.EXIT_INCOMPLETE          # 4 wins
+    assert P.exit_code(incomplete=True, reconciled=True) == P.EXIT_INCOMPLETE
+    with pytest.raises(ValueError, match="not True or False"):
+        P.exit_code(incomplete=False, reconciled=None)                                # never a quiet 0
+    assert len({P.EXIT_OK, P.EXIT_REFUSED, P.EXIT_INCOMPLETE, P.EXIT_UNRECONCILED, 1}) == 5   # 1: a crash
 
 
 def test_a_reconciled_report_is_not_called_unreconciled_when_the_factor_block_is_missing(tmp_path):
