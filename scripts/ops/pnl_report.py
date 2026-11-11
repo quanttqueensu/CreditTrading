@@ -93,6 +93,14 @@ A MISSING INPUT IS UNMEASURED, NAMED, NEVER INFERRED (CLAUDE.md, no silent fallb
     out with the reason and their share of the book's gross, and labels every reading and
     REVIEW flag PARTIAL (`build_factor`). A factor ETF without its price, or no held name
     with its inputs: UNMEASURED, naming it. The attribution above it is unaffected either way.
+    PARTIAL is about the as-of close only (independent review of PR #82, 2026-11-11): a name
+    left out on an earlier date alone is a named note in the block's history, and the block
+    is OK, because the job re-reads from the first trade every night and a fund yfinance no
+    longer serves (merged, renamed) would otherwise keep every later night PARTIAL.
+  * a book that holds nothing at the as-of close: the factor block is FLAT (independent
+    review of PR #82, 2026-11-11). Nothing is held, so nothing is exposed; the block reads no
+    exposure, no flag and no PARTIAL for that close, and never shows an earlier close's
+    reading as the as-of one. Its history since the first trade is labelled with its dates.
   * a book whose Dimson lag rule has no answer: the factor block says UNMEASURED and why.
 
 NO LOOKAHEAD (H7). The attribution uses fills and closes of the sessions it reports, the
@@ -131,6 +139,7 @@ EOD_LOOKBACK_DAYS = 1100           # far enough back to reach any account's fund
 SINCE_PAD_DAYS = 7                 # sessions before the first funded point, so fetch can show it was flat
 UNMEASURED = "UNMEASURED"
 UNRECONCILED = "UNRECONCILED"      # an overall status: the rebuild missed the official change on a session
+FLAT = "FLAT"                      # a factor-block status: nothing held at the as-of close (`_factor_flat`)
 
 
 def _usd(x) -> str:
@@ -314,52 +323,104 @@ def build_factor(book: str, res, inp, *, groups: dict, asof: dt.date, price_fetc
     equity), the one source here that has every held name's close on the date, so the
     numerator and denominator come from one source. The block stays UNMEASURED, as before,
     when a factor ETF has no price at the last close, or when on some date no held name has
-    its inputs (there is no book to read)."""
+    its inputs (there is no book to read).
+
+    THE BLOCK IS READ AT THE ATTRIBUTION'S CLOSE, `res.asof`, AND AT NO OTHER (independent
+    review of PR #82, 2026-11-11). `positions_frame` drops flat rows, so on a night the book
+    holds nothing at that close the readout's last date is the previous HELD close. Before
+    this review the block then printed that close's exposure and flags under status OK (a
+    book flat on 2026-01-22 showed "MUNI ... REVIEW" read at 01-21, and risk_daily passed it
+    as INFO), and when a name had also been left out on an earlier date the PARTIAL share
+    was read against the as-of close's gross, 0, and raised, so the block said UNMEASURED
+    with a ReadoutError. The core is flat on many thin sessions, so both were common. Now a
+    book with no position at that close gets the FLAT block (`_factor_flat`): nothing to
+    expose, no flag, no PARTIAL, its history labelled with its dates; and `_factor_report`
+    refuses a readout whose last date is not that close."""
     fs = ER.factor_set(book)
-    if fs.dimson_lags is None:
-        return _factor_unmeasured(f"book {book} has no Dimson lag: its lag rule has not produced one "
-                                  "(scripts/cef/exposure_readout.py, THE C4 LAG RULE)", fs)
     first = min(f.date for f in inp.fills)
     last = dt.date.fromisoformat(res.asof.isoformat())
     P = positions_frame(res, inp, first, last)
-    if P.empty:
-        return _factor_unmeasured(f"no positions at any close in {first}..{last}", fs)
+    if not (P["date"] == last.isoformat()).any():  # nothing held at the as-of close: FLAT, never a prior reading
+        return _factor_flat(book, fs, P, groups=groups, first=first, last=last, asof=asof,
+                            price_fetcher=price_fetcher)
+    if fs.dimson_lags is None:
+        return _factor_unmeasured(f"book {book} has no Dimson lag: its lag rule has not produced one "
+                                  "(scripts/cef/exposure_readout.py, THE C4 LAG RULE)", fs)
+    try:
+        ro, failed = _read(fs, P, groups, first=first, asof=asof, price_fetcher=price_fetcher, etf_close_on=last)
+    except _NotRead as e:
+        return _factor_unmeasured(str(e), fs)
+    return _factor_report(ro, fs, book, last, partial=partial_info(ro, res, failed, last),
+                          excluded=exclusions(ro, failed))
+
+
+class _NotRead(Exception):
+    """A named reason the factor readout has no reading (a factor ETF without its price, no held
+    name with its inputs): the block's UNMEASURED line, or a flat block's history line. A bug
+    is not one of these and propagates."""
+
+
+def _read(fs: ER.FactorSet, P: pd.DataFrame, groups: dict, *, first: dt.date, asof: dt.date, price_fetcher,
+          etf_close_on: dt.date | None):
+    """Fetch every held name's and factor ETF's prices and read the partial readout on P.
+    Returns (readout, the fetch's failures by ticker). `etf_close_on` is the close every factor
+    ETF must have a price on (the as-of close of a held book); None for a flat book's history,
+    whose dates are all earlier and whose ETF returns `readout` checks on every window."""
     tickers = sorted(set(P["symbol"]) | set(fs.etfs))
     # 252 sessions of beta window (about 370 calendar days) plus lags before the first positions date.
     start = pd.Timestamp(first).date() - dt.timedelta(days=int(fs.window * 1.6) + 30)
     fetcher = price_fetcher or (lambda t, s, a: ER.fetch_each(t, s, a, required=fs.etfs, partial=True))
     px, _, failed = fetcher(tickers, start, asof)
     held_failed = sorted(set(failed) & set(P["symbol"]))
-    on_last = set() if px is None or not len(px) else \
-        set(px.loc[(pd.to_datetime(px["date"]) == pd.Timestamp(last)) & np.isfinite(px["close"].to_numpy(float)), "ticker"])
-    etf_gone = [e for e in fs.etfs if e not in on_last]
-    if etf_gone:                                 # every exposure needs the factors: no partial reading
-        return _factor_unmeasured(f"factor ETF price unavailable at the close of {last}: "
-                                  + "; ".join(f"{e} ({failed.get(e, 'no row on that date')})" for e in etf_gone)
-                                  + ("; held name(s) without a price history: " + "; ".join(
-                                      f"{t} ({failed[t]})" for t in held_failed) if held_failed else ""), fs)
+    if etf_close_on is not None:
+        on_last = set() if px is None or not len(px) else \
+            set(px.loc[(pd.to_datetime(px["date"]) == pd.Timestamp(etf_close_on))
+                       & np.isfinite(px["close"].to_numpy(float)), "ticker"])
+        etf_gone = [e for e in fs.etfs if e not in on_last]
+        if etf_gone:                             # every exposure needs the factors: no partial reading
+            raise _NotRead(f"factor ETF price unavailable at the close of {etf_close_on}: "
+                           + "; ".join(f"{e} ({failed.get(e, 'no row on that date')})" for e in etf_gone)
+                           + ("; held name(s) without a price history: " + "; ".join(
+                               f"{t} ({failed[t]})" for t in held_failed) if held_failed else ""))
     try:
         ro = ER.readout(px, P, groups, fs=fs, partial=True)
     except ER.NoInputsError as e:
-        return _factor_unmeasured(f"{e}" + ("; fetch: " + "; ".join(f"{t} ({failed[t]})" for t in held_failed)
-                                            if held_failed else ""), fs)
-    return _factor_report(ro, fs, book, partial=partial_info(ro, res, failed, last))
+        raise _NotRead(f"{e}" + ("; fetch: " + "; ".join(f"{t} ({failed[t]})" for t in held_failed)
+                                 if held_failed else "")) from e
+    return ro, failed
+
+
+def exclusions(ro, failed: dict) -> list[dict]:
+    """Every (date, symbol, shares, reason) the partial readout left out, in date order, each
+    reason with the fetch's own failure for that ticker when it has one."""
+    ex = ro.excluded
+    if ex is None or not len(ex):
+        return []
+    return [{"date": pd.Timestamp(r.date).date().isoformat(), "symbol": r.symbol, "shares": float(r.shares),
+             "reason": r.reason + (f" ({failed[r.symbol]})" if r.symbol in failed else "")}
+            for r in ex.sort_values(["date", "symbol"]).itertuples()]
 
 
 def partial_info(ro, res, failed: dict, last: dt.date) -> dict | None:
     """What a PARTIAL block says (team lead, 2026-11-10; `build_factor`): each held name left
-    out at the last close with its reason, the shares and its gross at the attribution's close;
-    their share of the book's gross, from the attribution's closes for every held name; and
-    every date on which a name was left out. None when every held name was read on every date.
-    A name left out that the attribution holds no close for raises: its share would be a
-    guess."""
+    out at the as-of close with its reason, the shares and its gross at the attribution's close;
+    and their share of the book's gross, from the attribution's closes for every held name.
+
+    None when every name held at the as-of close was read, even if a name was left out on an
+    earlier date (independent review of PR #82, 2026-11-11): the block's status follows the
+    as-of reading, and an earlier exclusion is a note in its history (`_factor_report`). Before
+    that review an earlier-only exclusion made the block PARTIAL, and risk_daily a WATCH,
+    every night from then on, since the job re-reads from the first trade. A name left out
+    that the attribution holds no close for raises: its share would be a guess."""
     ex = ro.excluded
     if ex is None or not len(ex):
+        return None
+    at_last = ex[ex["date"] == pd.Timestamp(last)]
+    if not len(at_last):
         return None
     nd = res.name_day[(res.name_day["date"] == last) & (res.name_day["q_end"] != 0)]
     gross = {r.symbol: abs(Fraction(r.q_end) * Fraction(r.close)) for r in nd.itertuples()}
     total = sum(gross.values(), Fraction(0))
-    at_last = ex[ex["date"] == pd.Timestamp(last)]
     missing = []
     for r in at_last.itertuples():
         if r.symbol not in gross:
@@ -367,16 +428,12 @@ def partial_info(ro, res, failed: dict, last: dt.date) -> dict | None:
                                   "position and close for it there: its share of the book's gross is unknown")
         missing.append({"symbol": r.symbol, "shares": float(r.shares), "gross_usd": float(gross[r.symbol]),
                         "reason": r.reason + (f" ({failed[r.symbol]})" if r.symbol in failed else "")})
-    if total <= 0:
+    if total <= 0:                               # a held name at a close of 0: a data error, named
         raise ER.ReadoutError(f"the attribution's gross at the close of {last} is {total}: no share can be read")
     share = float(sum((gross[m["symbol"]] for m in missing), Fraction(0)) / total)
-    dates = {}
-    for r in ex.itertuples():
-        dates.setdefault(pd.Timestamp(r.date).date().isoformat(), []).append(r.symbol)
     return {"missing": missing, "missing_gross_share": share,
             "missing_gross_basis": (f"sum of |shares x close| of the names left out over that of every held name, "
-                                    f"at the close of {last}, at the attribution's closes (Alpaca daily bars)"),
-            "partial_dates": dates}
+                                    f"at the close of {last}, at the attribution's closes (Alpaca daily bars)")}
 
 
 def _factor_unmeasured(why: str, fs: ER.FactorSet) -> dict:
@@ -384,8 +441,104 @@ def _factor_unmeasured(why: str, fs: ER.FactorSet) -> dict:
             "lines": [f"Factor exposure UNMEASURED: {why}"]}
 
 
-def _factor_report(ro, fs: ER.FactorSet, book: str, partial: dict | None = None) -> dict:
-    """The exposure at the last close and the review history. A review-line breach is a word
+def _review_line(fs: ER.FactorSet) -> dict:
+    return {"value": fs.review_line, "review_fraction": ER.REVIEW_FRACTION,
+            "vol_target_annual": fs.vol_target, "sizing_multiplier": fs.sizing_multiplier,
+            "multiplier_applied": fs.multiplier, "of_target": ER.REVIEW_FRACTION * fs.multiplier,
+            "spec_id": fs.spec_id, "ruling": "team lead, 2026-11-10: the line includes the sizing multiplier"}
+
+
+def _partial_dates(excluded: list[dict]) -> dict:
+    dates: dict = {}
+    for x in excluded:
+        dates.setdefault(x["date"], []).append(x["symbol"])
+    return dates
+
+
+def _earlier_note(earlier: list[dict], why_no_severity: str) -> str:
+    """The history's named note for names left out before the as-of close: the dates, names and
+    reasons, and why it raises no severity (independent review of PR #82, 2026-11-11)."""
+    n = len({x["date"] for x in earlier})
+    return (f"History note ({why_no_severity}): a held name was left out on {n} earlier date(s), and the "
+            f"readings on those dates are on the remaining names: "
+            + "; ".join(f"{x['date']} {x['symbol']} ({x['reason']})" for x in earlier))
+
+
+def _factor_pnl(ro, order, pdates: set) -> tuple[dict | None, int]:
+    """The book's summed factor P&L per factor, and how many of its sessions were read on a
+    PARTIAL previous-session book."""
+    fp = ro.factor_pnl
+    if not len(fp):
+        return None, 0
+    book_rows = fp[fp["scope"] == "book"]
+    pnl = {k: float(book_rows[book_rows["factor"] == k]["pnl_summed"].sum()) for k in order}
+    on_partial = int(book_rows[book_rows["prev"].map(lambda d: pd.Timestamp(d).date().isoformat()).isin(pdates)]
+                     ["date"].nunique()) if pdates else 0
+    return pnl, on_partial
+
+
+def _factor_flat(book: str, fs: ER.FactorSet, P: pd.DataFrame, *, groups: dict, first: dt.date, last: dt.date,
+                 asof: dt.date, price_fetcher) -> dict:
+    """The block for a book that holds nothing at the as-of close (independent review of PR #82,
+    2026-11-11). Status FLAT, which risk_daily shows as INFO: a flat book carries no factor
+    risk, so there is nothing to review and nothing missing.
+
+    It says so in its first line and reads nothing for that close: no exposure, no within or
+    REVIEW flag, no PARTIAL, no share. Before this review the block showed the previous held
+    close's exposure as the as-of reading, under status OK, dated but easy to miss. The
+    history since the first trade (the review-flag counts and the factor P&L over the earlier
+    held closes) is still read, and every line of it says which dates it covers; a name left
+    out on one of those dates is the history's note and raises nothing. A history that cannot
+    be read is UNMEASURED in its own line, named, and leaves the as-of reading FLAT, because
+    that reading needs no price: the book holds nothing."""
+    order = [fs.headline] + list(fs.indicative)
+    lines = [f"Factor exposure at the close of {last}: FLAT, the book holds no position at that close, so there "
+             f"is nothing to expose: no exposure, no review-line reading and no flag is read for {last}, and no "
+             f"earlier close's reading stands in for it"]
+    out = {"status": FLAT, "asof": last.isoformat(), "flat": True, "headline": fs.headline,
+           "review_line": _review_line(fs), "lines": lines, "history": None}
+    if P.empty:
+        lines.append(f"History since the first trade ({first}): no close held a position")
+        return out
+    try:
+        if fs.dimson_lags is None:
+            raise _NotRead(f"book {book} has no Dimson lag: its lag rule has not produced one "
+                           "(scripts/cef/exposure_readout.py, THE C4 LAG RULE)")
+        ro, failed = _read(fs, P, groups, first=first, asof=asof, price_fetcher=price_fetcher, etf_close_on=None)
+    except Exception as e:                       # the history's own gap, named; the as-of reading stands
+        why = str(e) if isinstance(e, _NotRead) else f"{type(e).__name__}: {e}"
+        lines.append(f"History since the first trade ({first}) UNMEASURED: {why}")
+        out["history_why"] = why
+        return out
+    ex = ro.exposure
+    held = sorted(pd.Timestamp(d).date().isoformat() for d in ex["date"].unique())
+    if held[-1] >= last.isoformat():             # positions_frame holds nothing at `last`: a bug if the readout does
+        raise ER.ReadoutError(f"a flat book's readout has a date {held[-1]} at or after its flat close {last}")
+    excluded = exclusions(ro, failed)
+    pdates = set(_partial_dates(excluded))
+    history = {k: {"review_dates": int(ex[(ex["factor"] == k) & (ex["review"] == "REVIEW")]["date"].nunique()),
+                   "dates": int(ex[ex["factor"] == k]["date"].nunique())} for k in order}
+    lines.append(f"History since the first trade ({first}), each date read at its own close: {len(held)} earlier "
+                 f"close(s) with a position, {held[0]} to {held[-1]}; REVIEW on "
+                 + ", ".join(f"{k} {history[k]['review_dates']} of {history[k]['dates']}" for k in order)
+                 + (f" ({len(pdates)} of those dates PARTIAL)" if pdates else ""))
+    pnl, on_partial = _factor_pnl(ro, order, pdates)
+    if pnl is not None:
+        through = pd.Timestamp(ro.factor_pnl["date"].max()).date().isoformat()
+        lines.append(f"Cumulative factor P&L (book, E(t-1) x f(t), model reading, sessions through {through}): "
+                     + ", ".join(f"{k} {v:+,.2f}" for k, v in pnl.items())
+                     + (f" ({on_partial} session(s) on a PARTIAL previous-session book)" if on_partial else ""))
+    if excluded:
+        lines.append(_earlier_note(excluded, f"no severity: the book holds nothing at the close of {last}"))
+    out.update(history=history, history_dates=[held[0], held[-1]], factor_pnl=pnl)
+    if excluded:
+        out.update(partial_dates=_partial_dates(excluded), earlier_exclusions=excluded)
+    return out
+
+
+def _factor_report(ro, fs: ER.FactorSet, book: str, last: dt.date, partial: dict | None = None,
+                   excluded: list[dict] | None = None) -> dict:
+    """The exposure at the as-of close and the review history. A review-line breach is a word
     in this report and nothing else: it pushes nothing and sets no severity (team lead,
     2026-11-09: report-only). The line is REVIEW_FRACTION x vol_target_annual x
     sizing_multiplier (team lead, 2026-11-10), and the JSON's `review_line` carries the value
@@ -395,12 +548,23 @@ def _factor_report(ro, fs: ER.FactorSet, book: str, partial: dict | None = None)
     With `partial` (team lead, 2026-11-10; `build_factor`) the block is PARTIAL: its first
     lines name what was left out and its share of the gross, every flag read on a partial book
     at the last close says "(PARTIAL)", in the JSON as in the text, and the review history and
-    the factor P&L say how many of their dates were partial."""
+    the factor P&L say how many of their dates were partial.
+
+    `last` is the as-of close the block is read at, and the readout's last date must be it
+    (independent review of PR #82, 2026-11-11): an earlier close's reading is never shown as
+    the as-of one (a flat book never reaches here; `_factor_flat`). `excluded` is every name
+    the readout left out on any date; those before `last`, when nothing is missing at `last`,
+    are the history's named note, and the block stays OK (that review: the status follows the
+    as-of reading)."""
     ex = ro.exposure
-    last = ex["date"].max()
+    if pd.Timestamp(ex["date"].max()) != pd.Timestamp(last):
+        raise ER.ReadoutError(f"the readout's last date {pd.Timestamp(ex['date'].max()).date()} is not the as-of "
+                              f"close {last}: an earlier close's reading is never shown as the as-of one")
+    last = pd.Timestamp(last)
+    excluded = excluded or []
     today = ex[ex["date"] == last].set_index("factor")
-    pdates = set((partial or {}).get("partial_dates", {}))
-    lab = " (PARTIAL)" if pd.Timestamp(last).date().isoformat() in pdates else ""
+    pdates = set(_partial_dates(excluded))
+    lab = " (PARTIAL)" if partial else ""
     def fac(k):
         r = today.loc[k]
         return {"exposure_usd": float(r["exposure_usd"]), "exposure_frac": float(r["exposure_frac"]),
@@ -410,16 +574,13 @@ def _factor_report(ro, fs: ER.FactorSet, book: str, partial: dict | None = None)
     factors = {k: fac(k) for k in order}
     history = {k: {"review_dates": int(ex[(ex["factor"] == k) & (ex["review"] == "REVIEW")]["date"].nunique()),
                    "dates": int(ex[ex["factor"] == k]["date"].nunique())} for k in order}
-    if partial:
+    if pdates:
         for k in order:
             history[k]["partial_dates"] = len(pdates)
     tv = ro.total_vol.set_index("date").loc[last]
     mult = "1 (key absent: the unit book)" if fs.sizing_multiplier is None else f"{fs.sizing_multiplier:.4g}"
-    review_line = {"value": fs.review_line, "review_fraction": ER.REVIEW_FRACTION,
-                   "vol_target_annual": fs.vol_target, "sizing_multiplier": fs.sizing_multiplier,
-                   "multiplier_applied": fs.multiplier, "of_target": ER.REVIEW_FRACTION * fs.multiplier,
-                   "spec_id": fs.spec_id, "ruling": "team lead, 2026-11-10: the line includes the sizing multiplier"}
-    lines = [f"Factor exposure{' PARTIAL' if partial else ''} at the close of {pd.Timestamp(last).date()} "
+    review_line = _review_line(fs)
+    lines = [f"Factor exposure{' PARTIAL' if partial else ''} at the close of {last.date()} "
              f"(headline {fs.headline}, "
              f"line = REVIEW_FRACTION {ER.REVIEW_FRACTION} x vol target {fs.vol_target:.4g} x sizing multiplier "
              f"{mult} = {fs.review_line:.4g}, i.e. c/target {review_line['of_target']:.3f}, of book {book}; "
@@ -429,26 +590,22 @@ def _factor_report(ro, fs: ER.FactorSet, book: str, partial: dict | None = None)
              f"{lab}"]
     if partial:
         miss = partial["missing"]
-        if miss:
-            lines.insert(0, f"Factor exposure PARTIAL (team lead, 2026-11-10): {len(miss)} held name(s) left out at "
-                            f"the close of {pd.Timestamp(last).date()}, without every input the readout needs, "
-                            f"{partial['missing_gross_share']:.1%} of the book's gross at the attribution's closes: "
-                            + "; ".join(f"{m['symbol']}, {m['shares']:+,.0f} shares, {m['gross_usd']:,.0f} USD gross, "
-                                        f"{m['reason']}" for m in miss)
-                            + ". The exposures, the review-line comparison and every flag at that close are on the "
-                              "remaining names, each labelled PARTIAL")
-        else:
-            lines.insert(0, f"Factor exposure PARTIAL (team lead, 2026-11-10): every held name is read at the close "
-                            f"of {pd.Timestamp(last).date()}, but a name was left out on {len(pdates)} earlier date(s)")
+        lines.insert(0, f"Factor exposure PARTIAL (team lead, 2026-11-10): {len(miss)} held name(s) left out at "
+                        f"the close of {last.date()}, without every input the readout needs, "
+                        f"{partial['missing_gross_share']:.1%} of the book's gross at the attribution's closes: "
+                        + "; ".join(f"{m['symbol']}, {m['shares']:+,.0f} shares, {m['gross_usd']:,.0f} USD gross, "
+                                    f"{m['reason']}" for m in miss)
+                        + ". The exposures, the review-line comparison and every flag at that close are on the "
+                          "remaining names, each labelled PARTIAL")
         lines.insert(1, "Dates with a name left out: " + "; ".join(f"{d} {', '.join(s)}"
-                                                                   for d, s in sorted(partial["partial_dates"].items())))
+                                                                   for d, s in sorted(_partial_dates(excluded).items())))
     for k in order:
         f = factors[k]
         tag = "headline" if k == fs.headline else "indicative"
         lines.append(f"{k} ({tag}): E {f['exposure_usd']:+,.0f} USD ({f['exposure_frac']:+.3f} of equity), c/target "
                      f"{f['contrib_of_target']:.3f}, t {f['t_stat']:+.2f}: {f['review']}; REVIEW on "
                      f"{history[k]['review_dates']} of {history[k]['dates']} date(s) so far"
-                     + (f", {len(pdates)} of them PARTIAL" if partial else ""))
+                     + (f", {len(pdates)} of them PARTIAL" if pdates else ""))
     split: dict
     if fs.group_split == "muni":
         mv = ER.muni_vs_taxable(ro)
@@ -470,23 +627,23 @@ def _factor_report(ro, fs: ER.FactorSet, book: str, partial: dict | None = None)
         lines.append(f"{fs.headline} by family{lab}: "
                      + ", ".join(f"{g} {v['exposure_usd']:+,.0f} ({v['share_of_book']:+.2f} of book)"
                                  for g, v in split["families"].items()))
-    fp = ro.factor_pnl
-    pnl = None
-    if len(fp):
-        book_rows = fp[fp["scope"] == "book"]
-        pnl = {k: float(book_rows[book_rows["factor"] == k]["pnl_summed"].sum()) for k in order}
-        on_partial = int(book_rows[book_rows["prev"].map(lambda d: pd.Timestamp(d).date().isoformat()).isin(pdates)]
-                         ["date"].nunique()) if partial else 0
+    pnl, on_partial = _factor_pnl(ro, order, pdates)
+    if pnl is not None:
         lines.append("Cumulative factor P&L (book, E(t-1) x f(t), model reading): "
                      + ", ".join(f"{k} {v:+,.2f}" for k, v in pnl.items())
                      + (f" ({on_partial} session(s) on a PARTIAL previous-session book)" if on_partial else ""))
-    out = {"status": "PARTIAL" if partial else "OK", "asof": pd.Timestamp(last).date().isoformat(),
+    earlier = [x for x in excluded if x["date"] < last.date().isoformat()]
+    if earlier and not partial:
+        lines.append(_earlier_note(earlier, f"no severity: every name held at the close of {last.date()} is read"))
+    out = {"status": "PARTIAL" if partial else "OK", "asof": last.date().isoformat(),
            "headline": fs.headline, "review_line": review_line,
             "factors": factors, "history": history, "split": split, "factor_pnl": pnl, "lines": lines,
             "gross_usd": float(tv["gross_usd"]), "net_usd": float(tv["net_usd"]),
             "total_of_target": float(tv["total_of_target"])}
     if partial:
         out.update(partial)
+    if excluded:
+        out.update(partial_dates=_partial_dates(excluded), earlier_exclusions=earlier)
     return out
 
 
@@ -618,7 +775,9 @@ def run_report(book: str, state: Path, asof: dt.date, *, now_utc=None, reader=No
     elif att.get("reconciled") is False:
         status = UNRECONCILED                    # loudest first: a factor gap is not the headline here
     else:
-        status = "OK" if factor["status"] == "OK" else "PARTIAL"
+        # FLAT is a complete reading (nothing held, nothing to expose), not a gap: OK overall
+        # (independent review of PR #82, 2026-11-11).
+        status = "OK" if factor["status"] in ("OK", FLAT) else "PARTIAL"
     rep = {"book": book, "asof": asof.isoformat(), "generated_at": now.astimezone(ET).isoformat(timespec="seconds"),
            "status": status, "attribution": att, "factor": factor, "gaps": gaps,
            "note": "report only; zero trials; a review-line breach sends nothing"}

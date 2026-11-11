@@ -306,3 +306,39 @@ def test_a_partial_block_without_its_share_says_unmeasured_never_a_number(state)
     _partial(state, missing=[{"symbol": "LATE"}])
     b = r.factor_block("cef", state, ASOF)
     assert b["status"] == r.WATCH and "share of the book's gross UNMEASURED" in b["lines"][0]
+
+
+def test_a_flat_factor_block_is_info(state):
+    """A FLAT block (the book holds nothing at the as-of close; independent review of PR #82,
+    2026-11-11) carries no factor risk: INFO, the job's lines verbatim, never an ACT. Fails on
+    the parent commit, where any status but OK and PARTIAL was UNMEASURED."""
+    _pnl(state, factor_status="FLAT")
+    b = r.factor_block("cef", state, ASOF)
+    assert b["status"] == r.INFO and b["lines"][0].startswith("MUNI (headline)")
+    rep, code = r.run_report("cef", state, ASOF, now_utc=dt.datetime(2026, 11, 6, 3, 30, tzinfo=dt.timezone.utc),
+                             send=lambda *a: True)
+    assert rep["blocks"]["factor_exposure"]["status"] == r.INFO and not rep["act_lines"]
+
+
+def test_a_partial_block_with_nothing_missing_at_the_close_is_info_not_watch(state):
+    """The severity follows the as-of reading (independent review of PR #82, 2026-11-11): a
+    PARTIAL block whose `missing` is empty (every name held at the close read, one left out only
+    on an earlier date: the JSON of a job from before the review) is INFO, saying so. Fails on
+    the parent commit, where it was a WATCH every night from then on."""
+    _partial(state, missing=[], missing_gross_share=0.0)
+    b = r.factor_block("cef", state, ASOF)
+    assert b["status"] == r.INFO and b["data"]["missing"] == []
+    assert b["lines"][0].startswith("Factor exposure: every held name read at the last close; a name was left out "
+                                    "only on an earlier date (history, no severity")
+    assert b["lines"][1].startswith("MUNI (headline)")
+
+
+def test_a_partial_block_that_does_not_say_what_was_missing_stays_a_watch_naming_it(state):
+    """A PARTIAL block with no `missing` cannot say whether the as-of reading was complete, so it
+    is never read as complete: WATCH, naming the gap. Fails on the parent commit, which read
+    the absent list as empty and said every held name was read."""
+    _partial(state, missing_gross_share=0.25)
+    b = r.factor_block("cef", state, ASOF)
+    assert b["status"] == r.WATCH and b["data"]["missing"] is None
+    assert b["lines"][0].startswith("Factor exposure PARTIAL: names left out UNMEASURED (not in the job's JSON), "
+                                    "25.0% of the book's gross")

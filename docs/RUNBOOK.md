@@ -1340,10 +1340,16 @@ same-day close; HYT lags, CLAUDE.md landmine 6), or cannot serve at all, makes t
 block PARTIAL, not UNMEASURED (team lead, 2026-11-10): the other held names are read, the
 names left out are listed with the reason and their share of the book's gross, and every
 reading and REVIEW flag on the partial book says PARTIAL; `risk_daily` shows that block as a
-WATCH naming the share. A factor ETF without its price, or no held name with its inputs,
-makes the block UNMEASURED, naming it; the attribution above it stays either way. A book
-with no Dimson lag (C4, until its rule has produced one) has a factor block UNMEASURED,
-naming the rule.
+WATCH naming the share. PARTIAL is about the as-of close only (independent review of PR #82,
+2026-11-11): a name left out only on an earlier date (a fund once held that yfinance no
+longer serves) is a named history note in an OK block, and `risk_daily` shows it as INFO. A
+book that holds nothing at the as-of close has a FLAT factor block (the same review): it
+says the book is flat and reads no exposure, flag or PARTIAL for that close, never the
+previous close's reading; its history since the first trade is labelled with its dates;
+the report's overall status is OK and `risk_daily` shows the block as INFO. A factor ETF
+without its price, or no held name with its inputs, makes the block UNMEASURED, naming it;
+the attribution above it stays either way. A book with no Dimson lag (C4, until its rule
+has produced one) has a factor block UNMEASURED, naming the rule.
 
 **Rollback.** As 8.11: on a rollback to a tag older than this section, first
 `sudo systemctl disable --now quantt-{cef,c4}-pnl.timer`, then

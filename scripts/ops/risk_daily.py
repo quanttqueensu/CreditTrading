@@ -378,7 +378,21 @@ def factor_block(book: str, state: Path, asof: dt.date) -> dict:
     it is a data gap on a held name, which the design's severity table (s2.3) already makes a
     WATCH, and a reading on part of the book should not pass as INFO. A share the job's JSON
     does not carry is said to be UNMEASURED, never filled in. Status: INFO, WATCH or
-    UNMEASURED, never ACT."""
+    UNMEASURED, never ACT.
+
+    THE SEVERITY FOLLOWS THE AS-OF READING (independent review of PR #82, 2026-11-11). WATCH
+    only when a name held at the as-of close was left out. Before that review a PARTIAL block
+    whose `missing` was empty (every name held at the close read, one left out only on an
+    earlier date) was a WATCH too, and since the job re-reads from the first trade, a fund
+    once held that yfinance no longer serves (merged, renamed) would have kept every later
+    night a WATCH. The job now writes such a block as OK with the earlier dates in a history
+    note; a PARTIAL block with an empty `missing` (a job from before the review) is INFO, and
+    says why. A PARTIAL block with no `missing` at all cannot say what was left out at the
+    close, so it stays a WATCH naming that, never read as complete.
+
+    A FLAT block (the same review: the book holds nothing at the as-of close) is INFO. A flat
+    book carries no factor risk, so there is nothing to review and nothing missing; the job's
+    first line says it is flat and that no earlier close's reading stands in."""
     rep, path = _pnl_report(state, asof)
     if rep is None:
         return _unmeasured(f"no P&L report at {path} (the 20:30 job has not written one for {asof})")
@@ -386,19 +400,23 @@ def factor_block(book: str, state: Path, asof: dt.date) -> dict:
     lines = list(fac.get("lines") or [f"factor readout UNMEASURED: {fac.get('why')}"])
     st = fac.get("status")
     if st == "PARTIAL":
-        miss = fac.get("missing") or []
+        miss = fac.get("missing")
+        if isinstance(miss, list) and not miss:  # nothing left out at the as-of close: history only
+            lines.insert(0, "Factor exposure: every held name read at the last close; a name was left out only on "
+                            "an earlier date (history, no severity: the reading at the close is complete)")
+            return block(INFO, lines, report=str(path), headline=fac.get("headline"), missing=[],
+                         missing_gross_share=fac.get("missing_gross_share"))
         share = fac.get("missing_gross_share")
-        names = ", ".join(str(m.get("symbol")) for m in miss)
-        lines.insert(0, (f"Factor exposure PARTIAL: {names} left out at the last close, " if miss else
-                         "Factor exposure PARTIAL: every held name read at the last close, a name left out on an "
-                         "earlier date, ")
+        names = ("names left out UNMEASURED (not in the job's JSON)" if miss is None
+                 else ", ".join(str(m.get("symbol")) for m in miss) + " left out at the last close")
+        lines.insert(0, f"Factor exposure PARTIAL: {names}, "
                      + (f"{share:.1%} of the book's gross" if isinstance(share, (int, float)) and not isinstance(share, bool)
                         else "share of the book's gross UNMEASURED (not in the job's JSON)")
                      + "; the readings below are on the remaining names (WATCH: a data gap on a held name; "
                        "a review-line breach still sends nothing)")
         return block(WATCH, lines, report=str(path), headline=fac.get("headline"),
-                     missing=[m.get("symbol") for m in miss], missing_gross_share=share)
-    status = INFO if st == "OK" else UNMEASURED
+                     missing=None if miss is None else [m.get("symbol") for m in miss], missing_gross_share=share)
+    status = INFO if st in ("OK", "FLAT") else UNMEASURED
     return block(status, lines, report=str(path), headline=fac.get("headline"))
 
 

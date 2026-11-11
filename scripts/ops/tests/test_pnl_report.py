@@ -475,6 +475,154 @@ def test_every_held_name_late_or_a_factor_etf_late_stays_unmeasured(tmp_path):
     assert rep["factor"]["why"].startswith(f"factor ETF price unavailable at the close of {ASOF}: {etf}")
 
 
+# --- a flat close and an earlier-only exclusion (independent review of PR #82, 2026-11-11) ---
+
+THIS = sys.modules[__name__]
+FLATTEN = [("f4", "AAA", "sell", 4000, "10.05", TRADED[2]),     # the whole book closed at the as-of close
+           ("f5", "BBB", "buy", 2000, "20.40", TRADED[2])]
+COVER_BBB_EARLY = [("f4", "BBB", "buy", 2000, "20.20", TRADED[1])]   # BBB held at the 01-20 close only
+
+
+def _unserved(sym, book="cef"):
+    """A price fetch that never serves `sym` (a fund yfinance no longer serves: merged, renamed)."""
+    def fetch(tickers, start, asof):
+        px = price_history(ER.factor_set(book))
+        return px[px["ticker"] != sym].reset_index(drop=True), {}, {sym: f"ReadoutError: yfinance returned no rows for {sym}"}
+    return fetch
+
+
+def _assert_flat_block(f, md_path, book):
+    """A FLAT block reads nothing for the as-of close and shows no earlier close as it."""
+    assert f["lines"][0].startswith(f"Factor exposure at the close of {ASOF}: FLAT, the book holds no position"), \
+        f["lines"][0]
+    assert f["status"] == "FLAT" == P.FLAT and f["flat"] is True and f["asof"] == ASOF.isoformat()
+    assert not {"factors", "split", "gross_usd", "net_usd", "missing", "missing_gross_share"} & set(f)
+    for ln in f["lines"]:
+        assert f"at the close of {TRADED[1]}" not in ln, ln            # never the previous close's reading
+        assert "(PARTIAL)" not in ln and ": within" not in ln and ": REVIEW" not in ln, ln
+        assert not ln.startswith(tuple(f"{k} (" for k in [f.get("headline")] + list(ER.factor_set(book).indicative))), ln
+    md = md_path.read_text()
+    assert "Overall: **OK**." in md and "## Factor exposure against the review line (FLAT)" in md
+
+
+@pytest.mark.parametrize("book", ["cef", "c4"])
+def test_a_book_flat_at_the_as_of_close_is_flat_never_the_previous_close(tmp_path, monkeypatch, book):
+    """Finding 2 of the independent review of PR #82 (2026-11-11). The account sells everything
+    at the 01-22 close. The block says FLAT for 01-22 and prints no exposure, flag or PARTIAL for
+    it; its history covers 01-20..01-21, labelled with those dates; the report is OK and
+    risk_daily shows INFO. Fails on the parent commit, where the block was OK and read at the
+    close of 01-21 ("MUNI ... REVIEW" for a book holding nothing)."""
+    monkeypatch.setattr(THIS, "FILLS", FILLS + FLATTEN)
+    rep, code = run(tmp_path, book=book)
+    f = rep["factor"]
+    assert code == P.EXIT_OK and rep["status"] == "OK" and rep["attribution"]["reconciled"] is True
+    _assert_flat_block(f, tmp_path / book / "reports" / "pnl" / f"{ASOF}.md", book)
+    assert f["history_dates"] == [TRADED[0].isoformat(), TRADED[1].isoformat()]
+    assert f["lines"][1].startswith(f"History since the first trade ({TRADED[0]}), each date read at its own close: "
+                                    f"2 earlier close(s) with a position, {TRADED[0]} to {TRADED[1]}")
+    assert set(f["history"]) == {f["headline"], *ER.factor_set(book).indicative}
+    assert all(h["dates"] == 2 for h in f["history"].values())
+    assert "earlier_exclusions" not in f and not any(ln.startswith("History note") for ln in f["lines"])
+    from scripts.ops import risk_daily as RD
+    b = RD.factor_block(book, tmp_path / book, ASOF)
+    assert b["status"] == RD.INFO and b["lines"][0] == f["lines"][0]
+
+
+def test_a_flat_close_after_a_name_left_out_earlier_never_raises(tmp_path, monkeypatch):
+    """Finding 1 of the independent review of PR #82 (2026-11-11): the same flat account with BBB
+    never served by the price fetch, so BBB is left out on 01-20 and 01-21. The block is FLAT,
+    and its history names BBB on both dates in a note that raises no severity. Fails on the
+    parent commit, where the PARTIAL share was read against the 01-22 gross, 0, and the block
+    said "UNMEASURED: ReadoutError: the attribution's gross at the close of 2026-01-22 is 0"."""
+    monkeypatch.setattr(THIS, "FILLS", FILLS + FLATTEN)
+    rep, code = run(tmp_path, price_fetcher=_unserved("BBB"))
+    f = rep["factor"]
+    assert f["status"] != P.UNMEASURED, f["why"]
+    assert code == P.EXIT_OK and rep["status"] == "OK"
+    _assert_flat_block(f, tmp_path / "cef" / "reports" / "pnl" / f"{ASOF}.md", "cef")
+    assert f["partial_dates"] == {TRADED[0].isoformat(): ["BBB"], TRADED[1].isoformat(): ["BBB"]}
+    assert [(x["date"], x["symbol"]) for x in f["earlier_exclusions"]] == [(TRADED[0].isoformat(), "BBB"),
+                                                                          (TRADED[1].isoformat(), "BBB")]
+    note = [ln for ln in f["lines"] if ln.startswith("History note")]
+    assert len(note) == 1 and f"no severity: the book holds nothing at the close of {ASOF}" in note[0]
+    assert f"{TRADED[0]} BBB (no price history in the fetch (ReadoutError: yfinance returned no rows for BBB))" in note[0]
+    from scripts.ops import risk_daily as RD
+    assert RD.factor_block("cef", tmp_path / "cef", ASOF)["status"] == RD.INFO
+
+
+def test_a_flat_close_whose_history_cannot_be_read_stays_flat_naming_the_gap(tmp_path, monkeypatch):
+    """The as-of reading of a flat book needs no price, so a history that cannot be read (here no
+    held name has its inputs on any earlier date) is UNMEASURED in its own line, named, and the
+    block stays FLAT. Fails on the parent commit (no FLAT block)."""
+    monkeypatch.setattr(THIS, "FILLS", FILLS + FLATTEN)
+
+    def none_served(tickers, start, asof):
+        px = price_history(ER.factor_set("cef"))
+        return px[~px["ticker"].isin(["AAA", "BBB"])].reset_index(drop=True), {}, {"AAA": "gone", "BBB": "gone"}
+    rep, code = run(tmp_path, price_fetcher=none_served)
+    f = rep["factor"]
+    assert f["status"] == "FLAT", f.get("why")
+    assert code == P.EXIT_OK and rep["status"] == "OK" and f["status"] == P.FLAT and f["history"] is None
+    assert f["lines"][1].startswith(f"History since the first trade ({TRADED[0]}) UNMEASURED: no held name has every input")
+    assert "AAA (gone)" in f["history_why"]
+
+
+def test_a_name_left_out_only_on_an_earlier_date_is_a_history_note_not_partial(tmp_path, monkeypatch):
+    """Finding 3 of the independent review of PR #82 (2026-11-11). BBB is covered at the 01-21
+    close and never served by the price fetch (a merged or renamed fund), so it is left out on
+    01-20 only; at the 01-22 close the book holds AAA, which is read. The block is OK, not
+    PARTIAL: its exposures at the close equal a strict readout of the same book (BBB left out of
+    01-20, the date it was excluded on), no flag says PARTIAL, and the 01-20 exclusion is a named
+    history note; risk_daily shows INFO. Fails on the parent commit, where the block was PARTIAL
+    and risk_daily a WATCH, every night from then on."""
+    monkeypatch.setattr(THIS, "FILLS", FILLS + COVER_BBB_EARLY)
+    rep, code = run(tmp_path, price_fetcher=_unserved("BBB"))
+    f = rep["factor"]
+    assert f["status"] == "OK", f["lines"][0]
+    assert code == P.EXIT_OK and rep["status"] == "OK"
+    assert "missing" not in f and "missing_gross_share" not in f
+    assert f["partial_dates"] == {TRADED[0].isoformat(): ["BBB"]}
+    assert [(x["date"], x["symbol"], x["shares"]) for x in f["earlier_exclusions"]] == [(TRADED[0].isoformat(), "BBB", -2000.0)]
+    assert f["lines"][0].startswith(f"Factor exposure at the close of {ASOF} (headline MUNI")
+    assert not any("(PARTIAL)" in ln for ln in f["lines"])
+    assert all(x["review"] in ("REVIEW", "within") for x in f["factors"].values())
+    note = [ln for ln in f["lines"] if ln.startswith("History note")]
+    assert len(note) == 1 and f"no severity: every name held at the close of {ASOF} is read" in note[0]
+    assert f"{TRADED[0]} BBB (no price history in the fetch (ReadoutError: yfinance returned no rows for BBB))" in note[0]
+    # the as-of reading is the strict readout of what was held, BBB left out of its one date
+    px = _unserved("BBB")(None, None, None)[0]
+    eq = dict(equity_series())
+    q = {"AAA": 0, "BBB": 0}
+    rows = []
+    for d in TRADED:
+        for _, s, side, n, _, dd in FILLS + COVER_BBB_EARLY:
+            if dd == d:
+                q[s] += SIGN[side] * n
+        rows += [dict(date=d.isoformat(), symbol=s, shares=float(n), equity=eq[d]) for s, n in q.items() if n and s != "BBB"]
+    direct = ER.readout(px, pd.DataFrame(rows), GROUPS, fs=ER.factor_set("cef")).exposure
+    direct = direct[direct["date"] == pd.Timestamp(ASOF)].set_index("factor")
+    for k, x in f["factors"].items():
+        assert x["exposure_usd"] == pytest.approx(float(direct.at[k, "exposure_usd"]), rel=1e-12), k
+        assert x["review"] == direct.at[k, "review"], k
+    from scripts.ops import risk_daily as RD
+    b = RD.factor_block("cef", tmp_path / "cef", ASOF)
+    assert b["status"] == RD.INFO and b["lines"] == f["lines"]
+
+
+def test_the_block_refuses_a_readout_whose_last_date_is_not_the_as_of_close():
+    """The guard behind finding 2 (independent review of PR #82, 2026-11-11): `_factor_report`
+    is given the as-of close and refuses a readout that ends earlier, rather than print that
+    earlier close's reading as the as-of one. Fails on the parent commit, which took the
+    readout's own last date."""
+    fs = ER.factor_set("cef")
+    eq = dict(equity_series())
+    rows = [dict(date=d.isoformat(), symbol=s, shares=float(n), equity=eq[d])
+            for d, qq in zip(TRADED[:2], _positions_at_closes()[:2]) for s, n in qq.items() if n]
+    ro = ER.readout(price_history(fs), pd.DataFrame(rows), GROUPS, fs=fs)
+    with pytest.raises(ER.ReadoutError, match=f"is not the as-of close {ASOF}"):
+        P._factor_report(ro, fs, "cef", ASOF)
+
+
 def test_the_job_asks_the_fetch_for_its_partial_mode(tmp_path, monkeypatch):
     """The job, not the research CLI, turns the partial fetch on. Fails on the parent commit."""
     seen = {}
