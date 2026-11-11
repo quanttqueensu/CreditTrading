@@ -46,16 +46,19 @@ class FakeSession:
     def __init__(self, get_handler=None, post_handler=None):
         self.headers = {}
         self.gets, self.posts = [], []
+        self.redirect_flags = []      # every call's allow_redirects, as passed
         self._g, self._p = get_handler, post_handler
 
-    def get(self, url, params=None, timeout=None):
+    def get(self, url, params=None, timeout=None, allow_redirects=None):
+        self.redirect_flags.append(allow_redirects)
         self.gets.append((url, dict(params or {})))
         r = self._g(url, params or {})
         if isinstance(r, Exception):
             raise r
         return r
 
-    def post(self, url, json=None, timeout=None):
+    def post(self, url, json=None, timeout=None, allow_redirects=None):
+        self.redirect_flags.append(allow_redirects)
         self.posts.append((url, json))
         r = self._p(url, json)
         if isinstance(r, Exception):

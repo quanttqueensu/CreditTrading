@@ -4103,3 +4103,15 @@ that adds it does not exist when it is written.
 - source: `results/ideas/2026-11-10_cef_exdate_drift.md` @ `852a0ab` (added by this commit); `results/ideas/cef_exdate_drift/results.json` @ `852a0ab` (added by this commit)
 - supports: §3, §4
 - status: current. One run of the reproducer and one of the robustness checks; not independently re-derived. The by-liquidity and trading-volume checks were run in the session and their figures are in the card, not in a stored file
+
+### E-2026-11-10-09 · Incident: the broker client and the probe followed HTTP redirects with the Alpaca key headers attached; both now refuse any redirect, with tests on requests' own redirect code
+- kind: incident
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - 3 calls in the run package carried the key headers and followed redirects: the client's GET, the client's order POST and the probe's GET; 2 research scripts borrowed the same sessions [S]
+  - on an unprotected session, each of 301, 302, 303, 307 and 308 delivered both key headers to the second host, in a test on a recording transport with fake keys [S]
+  - 22 of the new tests fail against the client and probe as they stood on main [S]
+- source: `quantt/broker/alpaca.py` @ `89bf145` (`refuse_redirects` is added by this commit); `quantt/tests/test_alpaca_redirects.py` @ `89bf145` (added by this commit)
+- supports: §5
+- status: current. Found by another session's review of its report reader and passed on at the team lead's request; no evidence that a redirect was ever served. The fix is in the repository only: prod runs it after the team lead's next release

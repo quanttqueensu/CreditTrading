@@ -413,3 +413,8 @@ from a named source; [doc] copied from a named note.
 - **Research.** On 1,123 CEFs from CRSP (dead funds included, to 2025-12-31), a fund falls about 30bp relative to other funds over the three sessions after its ex-date, after rising about 22bp over the three before. The pre-specified book (short after, long the rest) has a gross Sharpe of 4.18, positive in every era [V: `results/ideas/2026-11-10_cef_exdate_drift.md`].
 - **Checked as an artifact.** Every eligible ex-date had volume, the ex-day drop is 1.08 times the distribution, and the effect is larger in the most liquid funds. It is not stale prices.
 - **Not shown by the gross figure.** Each event is worth 20 to 30bp, about a round trip through the spread; the shorts need borrow that paper does not charge; capacity is about $1–3M. It clears Explore, and the shadow book is the next build.
+
+**A security fix to the broker client** (`results/report/EVIDENCE_LOG.md` E-2026-11-10-09).
+- **Found.** The Alpaca client's GET and order POST, and the probe's GET, followed HTTP redirects. `requests` keeps custom headers on a redirect to another host, so a 3xx would have sent both key headers wherever it pointed. Another session's review found the same fault in its report reader and passed it on at the team lead's request. There is no evidence a redirect was ever served.
+- **Fixed, not released.** Every session that carries the keys now refuses any redirect (`quantt.broker.alpaca.refuse_redirects`), and a 3xx raises naming its status; on the order POST it is the ambiguous case, never a resend. The tests run `requests`' own redirect code against a recording transport: 22 fail on the old code.
+- **Prod.** Unchanged until the team lead's next release.
