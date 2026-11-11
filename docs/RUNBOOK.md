@@ -1189,6 +1189,72 @@ named `shadow`. **Still not measured:** the job's memory peak (systemd reported 
 first run), so the unit's `MemoryMax` remains a guess to read against later runs. **If `requirements.txt` changes on the branch, the nightly run refuses** until
 this script is re-run.
 
+### 8.11 The nightly report-only checks (data QA and risk)
+
+Team lead, 2026-11-08: the nightly check is owned by a VM timer, and pushes a
+notification only when a stop fires. Everything else stays in the journal
+(`results/ops/AGENT_DESK_DESIGN_2026-11-03.md`, PR #46; the scripts'
+docstrings give the reasons).
+
+| job | unit | when (Mon-Fri, local) | writes |
+|---|---|---|---|
+| data QA per book | `quantt-{cef,c4}-dataqa` | 21:45 cef, 21:50 c4 (after the :40 collect, before the 22:00 decide) | `<state>/reports/data_qa/<date>.{md,json}` |
+| risk per account | `quantt-{cef,c4}-risk` | 22:15 cef, 22:20 c4 (after the decide) | `<state>/reports/risk/<date>.{md,json}` |
+
+These times are clear of every runner slot (session :00/:30, collect :10/:40,
+send, verify 17:30), and the units cannot overrun into the next one:
+`TimeoutStartSec=480`. The units carry no broker key file, no DRY_RUN and no
+lock: they read the panels and the runner's files, and `ReadOnlyPaths=` the
+clone. `MemoryMax=450M` (peak measured 2026-11-08 on the laptop's panels,
+data_qa 220 MB for C4, risk 102 MB; read the real figure with `systemctl show
+quantt-c4-dataqa -p MemoryPeak` after a first run). A failed report job is its own failed
+unit: a session never depends on one.
+
+**Install** (after the core at the tag; it never moves the clone):
+
+```bash
+qi --tag <tag> --vault <vault-name> --reports                     # dry run: every check, every unit
+qi --tag <tag> --vault <vault-name> --reports --apply --enable    # writes the units, starts the timers
+```
+
+It touches no session, verify, collect or key unit. A book install's existing checks
+refuse only at planning while a report job is running; it never re-asks that after it
+has stopped the timers, and it never stops or starts a report timer.
+
+**Reading.** `sudo tail -n 60 /home/quantt/quantt_state/cef/logs/{dataqa,risk}.out.log`
+and the dated reports under `<state>/reports/`. A report that cannot measure a block
+says UNMEASURED and names what is missing (on the VM today: `stops.py`'s fit series,
+the attribution cache, the factor cache; the drawdown reader's freshest-row rule waits
+on PR #55).
+
+**Severity.** INFO stays in the file; WATCH is a line near a limit or a data-QA flag on a held name; ACT is a
+pre-registered stop that has fired. Only ACT pushes (risk jobs only). **The team lead's steps
+for the push to work:**
+
+1. Create a Gmail App Password (16 characters; 2-step verification on) for the sending account.
+2. In the vault the units already use, create two secrets, single-line values:
+   `alert-smtp-user` (the sending address) and `alert-smtp-pass` (the app password).
+3. After a release with this section's code is installed with `--reports`:
+   `sudo systemctl restart quantt-reports-secret.service`, then send a test through the channel:
+
+   ```bash
+   sudo systemd-run --wait --pipe --uid=quantt --gid=quantt \
+     -p EnvironmentFile=/run/quantt-reports/alert.env \
+     --working-directory=/home/quantt/prod/quantt-alpaca \
+     /home/quantt/venv/bin/python -B -m scripts.ops.risk_daily --book cef \
+     --state-dir /home/quantt/quantt_state/cef --notify-test
+   ```
+
+Until that is done, a fired stop records `ACT: notification NOT delivered: <reason>` in
+the report and the service exits 3, failed: it is never silent. Authenticated SMTP on
+port 587 is allowed from Azure VMs regardless of subscription (docs/REFERENCES.md);
+this code has never sent from the VM, so the test above is the first proof.
+
+**Rollback.** On a rollback to a tag older than this section, first
+`sudo systemctl disable --now quantt-{cef,c4}-{dataqa,risk}.timer` and delete the
+report unit files: an older installer's C4 scan names any other `quantt-` unit file as
+"no unit any book installs" and refuses.
+
 ## Open questions (for the TL)
 
 1. **Timezone:** set this Mac to `America/New_York`, or accept `America/Toronto`

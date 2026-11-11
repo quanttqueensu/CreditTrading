@@ -1,0 +1,534 @@
+"""The nightly risk report for one account: where it stands against every limit and stop.
+
+    python3 -m scripts.ops.risk_daily --book cef [--state-dir DIR] [--asof YYYY-MM-DD]
+
+WHY THIS EXISTS (team lead, 2026-11-08; design results/ops/AGENT_DESK_DESIGN_2026-11-03.md s2)
+-----------------------------------------------------------------------------------------------
+The stops exist (HALVE/KILL, trial 53's R1-R3, the core's 60-session rule, C4's
+H11, trial 54's L1), but nothing read them on a schedule, and the evening check
+that did lived in an open Claude session and ran three days late
+(E-2026-11-08-03). So this runs on a VM timer after the decide, reads the files
+the runner already wrote, and writes `<state>/reports/risk/<asof>.{md,json}`.
+
+ONE ACCOUNT PER RUN. The design said "both accounts, one report"; the team lead's
+2026-11-08 brief puts the output under `quantt_state/<book>/`, so each account gets
+its own timer and report (`--book cef`, `--book c4`), and the diversification
+block reads the other account's EOD series, read-only.
+
+REPORT ONLY, AND A WRAPPER. Every number comes from an existing reader:
+`quantt.session.drawdown` (imported, standard library only), `stops.py`'s printed
+output (read from a file, never run here: its import closure reaches the broker
+client), the runner's `eod_equity.csv`, `equity.csv`, `scores.csv`, `tca.csv`,
+`plan.json`, `account.json`. It holds no broker client and imports nothing from
+`quantt.broker` or `quantt.session.run` (scripts/ops/tests/test_report_no_order_path.py).
+It never sends, cancels, arms, disarms, halts, or changes a spec or a book json.
+
+A MISSING INPUT IS UNMEASURED AND NAMED, never inferred (CLAUDE.md). Blocks whose
+inputs do not exist on the VM say so, with the exact command that would measure
+them on a machine that has them: R1-R3 need `stops.py`'s fit series, the
+attribution needs `live_attribution.py`'s cache, the factor readout needs
+`exposure_readout.py`'s cache. Those are stated gaps, not silent zeros.
+
+THE DRAWDOWN READ. At 22:15 the as-of day's EOD row is not written yet, so
+`drawdown.check` says UNMEASURED. The team lead ruled (2026-11-08) that this report
+reads the freshest row: the as-of's own row if it exists, else D-1, labelled stale.
+PR #55 adds that reader (`read_through`) to `drawdown.py`; it is not merged, so this
+script calls `check` as it stands, uses the stale figure it already records, says
+so on the line, and carries `FOLLOWUP_DRAWDOWN` (switch to `read_through` when #55
+lands). A line breached on the newest row available is an ACT either way: a stop
+that fires on D-1's close has fired.
+
+SEVERITY (the design's table)
+  INFO   inside every limit.
+  WATCH  within a declared distance of a limit, or a data-QA flag on a held name.
+  ACT    a pre-registered stop has fired. The team lead acts, by the route the
+         trial names; this script writes the line and the revert, and nothing else.
+Per-name concentration is reported and never raises severity (team lead,
+2026-11-08: "measure it, change nothing").
+
+PUSH: only on ACT (`scripts/ops/report_notify.py`). If no channel is configured the
+report records `ACT: notification NOT delivered: <reason>` and the run exits
+`EXIT_ACT_UNDELIVERED`, never silently.
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import datetime as dt
+import json
+import math
+import os
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from quantt.session import drawdown as dd          # noqa: E402  (standard library only)
+from scripts.ops.data_qa import (BOOKS, ET, expected_day, latest_plan, read_spec,  # noqa: E402
+                                 write_atomic)
+from scripts.ops.report_notify import (EXIT_ACT_UNDELIVERED, notify_act,            # noqa: E402
+                                       undelivered_line)
+
+INFO, WATCH, ACT, UNMEASURED = "INFO", "WATCH", "ACT", "UNMEASURED"
+RANK = {INFO: 0, UNMEASURED: 1, WATCH: 2, ACT: 3}
+
+# Declared distances for WATCH (design s2.3). Labels only: nothing keys on them.
+WATCH_DRAWDOWN_FRACTION = 0.75    # of the HALVE line
+WATCH_GROSS_FRACTION = 0.95       # of the spec's max_gross_stress
+WATCH_MARGIN_USED = 0.90          # maintenance margin / equity
+MIN_CORR_DAYS = 20                # below this a correlation is not worth printing
+
+FOLLOWUP_DRAWDOWN = ("FOLLOW-UP: when PR #55 merges, read the drawdown through "
+                     "`drawdown.read_through` (the team lead's freshest-row rule, 2026-11-08) "
+                     "instead of `check`'s stale figure")
+STOPS_SCRIPT = "results/cef/prereg_voltarget/stops.py"
+OTHER_BOOK = {"cef": "c4", "c4": "cef"}
+GROUP_SOURCES = {"cef": "data/cef/cef_universe.csv", "c4": "results/cef/c4/c4_universe_frozen_2026-10-14.csv"}
+GROUP_COLUMN = {"cef": "grp", "c4": "family"}
+
+
+def block(status: str, lines: list[str], **data) -> dict:
+    return {"status": status, "lines": lines, "data": data}
+
+
+def _unmeasured(why: str, **data) -> dict:
+    return block(UNMEASURED, [f"UNMEASURED: {why}"], **data)
+
+
+# ------------------------------------------------------------------- P&L
+
+def read_csv_rows(path: Path, asof: dt.date) -> list[dict]:
+    """The rows of `path` dated on or before `asof` (no lookahead), oldest first.
+    Raises FileNotFoundError naming the file if absent."""
+    if not path.is_file():
+        raise FileNotFoundError(f"no {path.name} at {path}")
+    with open(path, newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    return sorted((r for r in rows if r["date"] <= asof.isoformat()), key=lambda r: r["date"])
+
+
+def pnl_block(state: Path, asof: dt.date) -> dict:
+    """The day and to-date P&L: the official EOD series (the P&L of record) and
+    the 17:30 snapshot, labelled and never blended, plus the auction-marked
+    score. Each is its own line so a missing file costs only its line."""
+    lines, data, missing = [], {}, []
+    for label, name in (("official EOD (P&L of record)", dd.OFFICIAL_FILE), ("17:30 snapshot", dd.SNAPSHOT_FILE)):
+        try:
+            series = dd.read_series(state / name, asof)
+        except dd.Unmeasured as e:
+            missing.append(f"{label}: {e}")
+            continue
+        day = series[-1][1] - series[-2][1] if len(series) > 1 else None
+        total = series[-1][1] - series[0][1]
+        lines.append(f"{label}: equity ${series[-1][1]:,.2f} on {series[-1][0]}"
+                     + (f", day {day:+,.2f}" if day is not None else ", day n/a (first row)")
+                     + f", to date {total:+,.2f} since {series[0][0]}")
+        data[name] = {"last_date": str(series[-1][0]), "equity": series[-1][1], "day": day, "to_date": total}
+    try:
+        rows = read_csv_rows(state / "scores.csv", asof)
+        today = [r for r in rows if r["date"] == asof.isoformat()]
+        if today:
+            r = today[-1]
+            lines.append(f"auction-marked {r['auction_pnl_usd']} (verdict {r['verdict']}, "
+                         f"{r['n_filled']}/{r['n_orders']} filled)")
+            data["scores"] = {k: r[k] for k in ("verdict", "n_orders", "n_filled", "auction_pnl_usd")}
+        else:
+            missing.append(f"no scores.csv row for {asof}")
+    except FileNotFoundError as e:
+        missing.append(str(e))
+    if missing:
+        lines.extend(f"UNMEASURED: {m}" for m in missing)
+    return block(UNMEASURED if not lines or len(missing) >= 3 else INFO, lines, **data)
+
+
+# ------------------------------------------------------------------- drawdown
+
+def drawdown_block(state: Path, spec: dict, asof: dt.date) -> dict:
+    """Wraps `quantt.session.drawdown.check`. ACT when the newest row it has read
+    is at or past a line (module docstring, THE DRAWDOWN READ). The figures are
+    `check`'s own; a test proves they match."""
+    rec = dd.check(state, spec, asof, dd.REPORT)
+    lines = list(dd.lines(rec))
+    status = rec["status"]
+    reading = rec.get("reading")
+    data = {"check_status": status, "reading": _jsonable(reading), "levels": rec.get("levels"), "why": rec.get("why")}
+    level_status = (reading or {}).get("status", status)
+    stale = status == dd.UNMEASURED and reading is not None and reading["last_date"] != asof
+    if level_status in (dd.HALVE, dd.KILL):
+        tag = f"{level_status} line reached" + (f" on the newest row {reading['last_date']} (stale)" if stale else "")
+        lines.insert(0, f"ACT: {tag}: the spec's {level_status} stop (report mode). "
+                        f"The team lead reads the `on` semantics in quantt/session/drawdown.py and acts")
+        st = ACT
+    elif status == dd.UNMEASURED and reading is None:
+        st = UNMEASURED
+    else:
+        lv = rec.get("levels")
+        ddv = None if reading is None else reading["drawdown"]
+        st = WATCH if lv and ddv is not None and ddv >= WATCH_DRAWDOWN_FRACTION * lv["halve"] else INFO
+    if stale:
+        lines.append(f"(stale: EOD row for {asof} not written yet; figures are {reading['last_date']}'s)")
+        lines.append(FOLLOWUP_DRAWDOWN)
+    return block(st, lines, **data)
+
+
+def _jsonable(d):
+    return json.loads(json.dumps(d, default=str)) if d is not None else None
+
+
+# ------------------------------------------------------------------- stops
+
+def stops_block(book: str, spec: dict, stops_output: Path | None) -> dict:
+    """R1-R3 as `stops.py` printed them, verbatim, or UNMEASURED naming what would
+    measure them. `stops.py` needs the fit series under SCRATCH, which only the
+    research machine has, and its import closure reaches the broker client, so a
+    report job never runs it. The evening routine can hand this script its output
+    file with `--stops-output` (it is labelled with the file's own date: re-measured
+    then, not tonight; H14). No threshold is keyed on a number written in a document."""
+    m = (spec.get("frozen") or {}).get("sizing_multiplier")
+    other = json.loads((REPO / BOOKS[OTHER_BOOK[book]].spec_path).read_text())
+    m_other = (other.get("frozen") or {}).get("sizing_multiplier")
+    m_core, m_c4 = (m, m_other) if book == "cef" else (m_other, m)
+    cmd = (f"python3 {STOPS_SCRIPT} --scratch SCRATCH --m-core {m_core} --m-c4 {m_c4} "
+           f"--only {'core' if book == 'cef' else 'c4'}")
+    if stops_output is None or not Path(stops_output).is_file():
+        return _unmeasured(f"R1-R3 need the fit series under a SCRATCH directory that is not on this machine, "
+                           f"and {STOPS_SCRIPT}, which a report job never runs; on the research machine run "
+                           f"`{cmd}` and pass its output with `--stops-output`")
+    p = Path(stops_output)
+    when = dt.datetime.fromtimestamp(p.stat().st_mtime, tz=dt.timezone.utc).date().isoformat()
+    text = p.read_text()
+    return block(INFO, [f"stops.py output file {p.name}, written {when} (re-measured then, not tonight):",
+                        *[ln for ln in text.splitlines() if ln.strip()]], stdout=text, output_file=str(p))
+
+
+# ------------------------------------------------------------------- kill rules
+
+def traded_sessions(state: Path, asof: dt.date) -> int:
+    rows = read_csv_rows(state / "scores.csv", asof)
+    return sum(1 for r in rows if str(r.get("traded", "")).strip().lower() == "true")
+
+
+def live_sharpe(state: Path, asof: dt.date) -> tuple[float | None, int]:
+    """Annualised Sharpe of the official EOD equity's day changes since the first
+    traded session, and the number of changes. The core's kill rule (a) is written
+    on net Sharpe; paper's official EOD charges fees but no borrow, so this is
+    the nearest measured line, labelled so on the block."""
+    rows = read_csv_rows(state / "scores.csv", asof)
+    first = next((r["date"] for r in rows if str(r.get("traded", "")).strip().lower() == "true"), None)
+    if first is None:
+        return None, 0
+    series = dd.read_series(state / dd.OFFICIAL_FILE, asof)
+    eq = [e for d, e in series if d.isoformat() >= first]
+    changes = [eq[i] / eq[i - 1] - 1 for i in range(1, len(eq))]
+    if len(changes) < 2:
+        return None, len(changes)
+    m = sum(changes) / len(changes)
+    sd = math.sqrt(sum((c - m) ** 2 for c in changes) / (len(changes) - 1))
+    return (None if sd == 0 else m / sd * math.sqrt(252)), len(changes)
+
+
+def kill_rules_block(book: str, state: Path, spec: dict, asof: dt.date) -> dict:
+    """The kill rules this script can read from the runner's own files."""
+    try:
+        n = traded_sessions(state, asof)
+    except FileNotFoundError as e:
+        return _unmeasured(str(e))
+    lines = [f"{n} armed (traded) sessions to {asof}"]
+    data: dict = {"armed_sessions": n}
+    status = INFO
+    if book == "cef":
+        due = 60
+        if n >= due:
+            s, k = live_sharpe(state, asof)
+            data["sharpe"] = s
+            if s is None:
+                lines.append(f"core rule (a): UNMEASURED: {k} EOD day changes")
+                status = max(status, UNMEASURED, key=RANK.get)
+            elif s < 0:
+                lines.append(f"ACT: core kill rule (a) fired: live Sharpe {s:+.2f} < 0 at {n} sessions "
+                             f"(the P&L of record, net of what paper charges, no borrow). "
+                             f"Route: the spec's kill_rule; the team lead acts")
+                status = ACT
+            else:
+                lines.append(f"core rule (a): live Sharpe {s:+.2f} at {n} sessions: not fired")
+        else:
+            lines.append(f"core 60-session rule: not due ({n}/{due})")
+        lines.append("core rules (b) slippage vs modelled and (c) discount spread: UNMEASURED by this "
+                     "script: (b) needs the modelled-slippage series, (c) the top-minus-bottom spread "
+                     "computed as the rule defines it")
+    else:
+        for name, why in (("C4 H11 (120-session reversal)", "the fit reference series h11_reference, which "
+                           "scripts/cef/c4_paper_benchmark.py writes, is not on this machine"),
+                          ("trial 54 L1", "the level-only modelled P&L is produced by the "
+                           "prereg_c4_level pipeline, not on this machine")):
+            lines.append(f"{name}: {'DUE' if n >= 120 else f'not due ({n}/120)'}; "
+                         f"UNMEASURED by this script: {why}")
+            if n >= 120:
+                status = max(status, WATCH, key=RANK.get)
+    return block(status, lines, **data)
+
+
+# ------------------------------------------------------------------- exposure and concentration
+
+def latest_account(state: Path, asof: dt.date) -> tuple[dict | None, str | None]:
+    latest = None
+    for d in sorted((state / "data").glob("20*")) if (state / "data").is_dir() else ():
+        if d.name <= asof.isoformat() and (d / "account.json").is_file():
+            latest = d / "account.json"
+    if latest is None:
+        return None, None
+    return json.loads(latest.read_text()), str(latest)
+
+
+def group_map(book: str) -> tuple[dict, str | None]:
+    path = REPO / GROUP_SOURCES[book]
+    if not path.is_file():
+        return {}, f"no group source at {path}"
+    col = GROUP_COLUMN[book]
+    with open(path, newline="") as fh:
+        return {r["ticker"]: r.get(col) or "unknown" for r in csv.DictReader(fh)}, None
+
+
+def concentration(positions: list[dict], equity: float, groups: dict | None = None) -> dict:
+    """Per-name and group share of NAV from positions (team lead ruling,
+    2026-11-08: measure it, change nothing). `share` = |market value| / equity;
+    `signed` keeps the side, because a 20% short is not a 20% long."""
+    rows = sorted(({"symbol": p["symbol"], "share": abs(float(p["market_value"])) / equity,
+                    "signed": float(p["market_value"]) / equity, "side": p.get("side")}
+                   for p in positions), key=lambda r: -r["share"])
+    out = {"largest": rows[0] if rows else None, "top3_share": sum(r["share"] for r in rows[:3]),
+           "per_name": rows}
+    if groups is not None:
+        by: dict = {}
+        for r in rows:
+            g = groups.get(r["symbol"], "unknown")
+            by[g] = by.get(g, 0.0) + r["share"]
+        out["group_share"] = dict(sorted(by.items(), key=lambda kv: -kv[1]))
+    return out
+
+
+def exposure_block(book: str, state: Path, spec: dict, asof: dt.date) -> dict:
+    """Gross, net and margin against the spec's cap, and concentration, from
+    `<state>/data/<D>/account.json`, the collector's own record of the close."""
+    acct, path = latest_account(state, asof)
+    if acct is None:
+        return _unmeasured(f"no account.json under {state}/data on or before {asof}")
+    equity = float(acct["account"]["equity"])
+    raw = (acct.get("positions") or {}).get("raw")
+    if raw is None or equity <= 0:
+        return _unmeasured(f"{path} has no positions.raw or a non-positive equity")
+    groups, grp_err = group_map(book)
+    con = concentration(raw, equity, groups if not grp_err else None)
+    gross = sum(abs(float(p["market_value"])) for p in raw) / equity
+    net = sum(float(p["market_value"]) for p in raw) / equity
+    maint = float(acct["account"].get("maintenance_margin", 0)) / equity
+    cap = float(spec["frozen"]["max_gross_stress"])
+    status = WATCH if gross >= WATCH_GROSS_FRACTION * cap or maint >= WATCH_MARGIN_USED else INFO
+    acct_date = Path(path).parent.name
+    stale = "" if acct_date == asof.isoformat() else f" (stale: the newest account.json is {acct_date}, not {asof})"
+    lines = [f"as of {acct_date}{stale}: gross {gross:.3f}x (cap {cap:.2f}x), net {net:+.3f}x, "
+             f"maintenance {maint:.1%} of equity ${equity:,.2f}"]
+    if con["largest"]:
+        lines.append(f"largest name {con['largest']['symbol']} {con['largest']['share']:.1%} of NAV "
+                     f"({con['largest']['side']}); top-3 {con['top3_share']:.1%}")
+    if con.get("group_share"):
+        lines.append("group share: " + ", ".join(f"{k} {v:.1%}" for k, v in con["group_share"].items()))
+    if grp_err:
+        lines.append(f"group share UNMEASURED: {grp_err}")
+    lines.append("Concentration is measured and reported only (team lead, 2026-11-08): nothing acts on it.")
+    return block(status, lines, gross=gross, net=net, maintenance_to_equity=maint, cap=cap, concentration=con)
+
+
+# ------------------------------------------------------------------- the other blocks
+
+def attribution_block(book: str) -> dict:
+    return _unmeasured("the discount/NAV attribution reads a `live_attribution.py fetch` cache (keys and "
+                       "yfinance), which a report job has neither; run scripts/cef/live_attribution.py on a "
+                       "machine holding that cache")
+
+
+def factor_block(book: str) -> dict:
+    return _unmeasured("the factor readout needs `scripts/cef/exposure_readout.py fetch`'s gitignored "
+                       "price cache, and for C4 the risk lanes' equity/sector readouts; neither exists "
+                       "on this machine")
+
+
+def execution_block(state: Path, asof: dt.date, plan: dict | None) -> dict:
+    """Planned against filled and fill cost, from the runner's records."""
+    lines: list[str] = []
+    data: dict = {}
+    status = INFO
+    if plan is not None:
+        data["plan_status"] = plan.get("status")
+        data["refusals"] = plan.get("refusals", [])
+        lines.append(f"latest plan: status {plan.get('status')}, {len(plan.get('orders', []))} order(s), "
+                     f"{len(plan.get('refusals') or [])} refusal(s), notes on "
+                     f"{len(plan.get('notes') or {})} name(s)")
+    try:
+        rows = [r for r in read_csv_rows(state / "tca.csv", asof) if r["date"] == asof.isoformat()]
+    except FileNotFoundError as e:
+        rows = []
+        lines.append(f"UNMEASURED: {e}")
+    if rows:
+        r = rows[-1]
+        lines.append(f"tca {asof}: {r['n_full']}/{r['n_orders']} orders full, fill rate {r['fill_rate_shares']}, "
+                     f"slip {r['slip_bp_all']}bp vs the official close")
+        data["tca"] = {k: r[k] for k in ("n_orders", "n_full", "fill_rate_shares", "slip_bp_all")}
+    else:
+        lines.append(f"UNMEASURED: no tca.csv row for {asof} (verify writes it at 17:30 on a day with fills)")
+        status = UNMEASURED
+    lines.append("fill cost against breakeven: UNMEASURED: no file this job reads carries a per-account "
+                 "breakeven; the 15:50-drift split (fill_drift.py) needs broker keys a report job must not hold")
+    return block(status, lines, **data)
+
+
+def diversification_block(book: str, state: Path, asof: dt.date) -> dict:
+    """The two accounts' EOD daily changes, last common rows, read-only."""
+    other = OTHER_BOOK[book]
+    other_state = state.parent / other
+    try:
+        a = dd.read_series(state / dd.OFFICIAL_FILE, asof)
+        b = dd.read_series(other_state / dd.OFFICIAL_FILE, asof)
+    except dd.Unmeasured as e:
+        return _unmeasured(f"the two accounts' EOD series: {e}")
+    da, db = dict(a), dict(b)
+    common = sorted(set(da) & set(db))
+    ca = [da[d] for d in common]
+    cb = [db[d] for d in common]
+    ra = [ca[i] / ca[i - 1] - 1 for i in range(1, len(ca))]
+    rb = [cb[i] / cb[i - 1] - 1 for i in range(1, len(cb))]
+    if len(ra) < MIN_CORR_DAYS:
+        return block(INFO, [f"live correlation with {other}: {len(ra)} common EOD changes (< {MIN_CORR_DAYS}): "
+                            f"too few to print"], n=len(ra))
+    ma, mb = sum(ra) / len(ra), sum(rb) / len(rb)
+    cov = sum((x - ma) * (y - mb) for x, y in zip(ra, rb))
+    sa = math.sqrt(sum((x - ma) ** 2 for x in ra))
+    sb = math.sqrt(sum((y - mb) ** 2 for y in rb))
+    rho = None if sa == 0 or sb == 0 else cov / (sa * sb)
+    lines = [f"live correlation with {other} over {len(ra)} common EOD changes: "
+             + ("undefined (flat series)" if rho is None else f"{rho:+.2f}"),
+             "the fit's rho: UNMEASURED by this script: it is in no machine-readable file this job reads"]
+    return block(INFO, lines, rho=rho, n=len(ra))
+
+
+def data_qa_block(state: Path, asof: dt.date) -> dict:
+    """Tonight's data-QA flags on held or targeted names (design s2.3: a WATCH)."""
+    path = state / "reports" / "data_qa" / f"{asof.isoformat()}.json"
+    if not path.is_file():
+        return _unmeasured(f"no data-QA report at {path} (the 21:45 job has not written one for {asof})")
+    rep = json.loads(path.read_text())
+    held = [f for c in rep.get("checks", {}).values() for f in c.get("flags", []) if f.get("held")]
+    if held:
+        return block(WATCH, [f"{f['check']} {f.get('ticker') or ''} {f['date']}: {f['rule']}" for f in held],
+                     held_flags=held, report_status=rep.get("status"))
+    return block(INFO, [f"no data-QA flag on a held name; report status {rep.get('status')}"],
+                 report_status=rep.get("status"))
+
+
+# ------------------------------------------------------------------- the report
+
+def severity_of(blocks: dict) -> str:
+    return max((b["status"] for b in blocks.values()), key=lambda s: RANK[s], default=INFO)
+
+
+def render_md(rep: dict) -> str:
+    out = [f"# Risk, {rep['book']}, as-of {rep['asof']}", "",
+           f"Generated {rep['generated_at']} (report only; nothing here touches an order).",
+           f"Overall: **{rep['severity']}**.", ""]
+    for name, b in rep["blocks"].items():
+        out.append(f"## {name}: {b['status']}")
+        out.extend(f"- {ln}" for ln in b["lines"])
+        out.append("")
+    if rep.get("act_lines"):
+        out.append("## ACT")
+        out.extend(f"- {ln}" for ln in rep["act_lines"])
+        out.append(f"- notification: {rep['notification']}")
+    return "\n".join(out) + "\n"
+
+
+def run_report(book: str, state: Path, asof: dt.date, *, stops_output=None,
+               now_utc=None, send=None) -> tuple[dict, int]:
+    cfg = BOOKS[book]
+    try:
+        spec = read_spec(cfg)
+    except Exception as e:
+        spec = {"frozen": {}, "_error": f"spec unreadable: {type(e).__name__}: {e}"}
+    now = (now_utc or dt.datetime.now(dt.timezone.utc)).astimezone(ET)
+    try:
+        plan, plan_path = latest_plan(state, asof)
+    except Exception as e:
+        plan, plan_path = None, None
+        print(f"risk_daily: plan unreadable: {type(e).__name__}: {e}", file=sys.stderr)
+
+    def guard(fn):
+        """A block's own bug (an unexpected type in a record) must not cost the
+        other blocks or the ACT line: it becomes that block's UNMEASURED, named."""
+        try:
+            return fn()
+        except Exception as e:
+            return _unmeasured(f"{type(e).__name__}: {e}")
+
+    blocks = {
+        "pnl": guard(lambda: pnl_block(state, asof)),
+        "drawdown": guard(lambda: drawdown_block(state, spec, asof)),
+        "stops": guard(lambda: stops_block(book, spec, stops_output)),
+        "kill_rules": guard(lambda: kill_rules_block(book, state, spec, asof)),
+        "exposure": guard(lambda: exposure_block(book, state, spec, asof)),
+        "attribution": guard(lambda: attribution_block(book)),
+        "factor_exposure": guard(lambda: factor_block(book)),
+        "execution": guard(lambda: execution_block(state, asof, plan)),
+        "diversification": guard(lambda: diversification_block(book, state, asof)),
+        "data_qa": guard(lambda: data_qa_block(state, asof)),
+    }
+    act_lines = [ln for b in blocks.values() for ln in b["lines"] if ln.startswith("ACT")]
+    rep: dict = {"book": book, "asof": asof.isoformat(), "generated_at": now.isoformat(timespec="seconds"),
+                 "plan": plan_path, "spec_id": spec.get("spec_id"), "blocks": blocks,
+                 "severity": severity_of(blocks), "act_lines": act_lines, "notification": None}
+    code = 0
+    out_dir = state / "reports" / "risk"
+    report_path = out_dir / f"{asof.isoformat()}.md"
+    if act_lines:
+        res = notify_act(act_lines, book=book, asof=asof, report_path=str(report_path), send=send)
+        rep["notification"] = res
+        if not res["delivered"]:
+            line = undelivered_line(str(res["reason"]))
+            rep["act_lines"].append(line)
+            print(line, file=sys.stderr)
+            code = EXIT_ACT_UNDELIVERED
+    write_atomic(out_dir / f"{asof.isoformat()}.json", json.dumps(rep, indent=1, default=str))
+    write_atomic(report_path, render_md(rep))
+    print(f"risk_daily {book} {asof}: {rep['severity']}; wrote {report_path}")
+    return rep, code
+
+
+def main(argv=None, *, now_utc=None, send=None) -> int:
+    ap = argparse.ArgumentParser(description="The nightly risk report for one account (report only).")
+    ap.add_argument("--book", required=True, choices=sorted(BOOKS))
+    ap.add_argument("--state-dir", type=Path, default=None, help="default $QUANTT_STATE_DIR")
+    ap.add_argument("--asof", type=dt.date.fromisoformat, default=None)
+    ap.add_argument("--stops-output", type=Path, default=None,
+                    help="a file holding stops.py's printed output, from a machine with its fit series")
+    ap.add_argument("--notify-test", action="store_true",
+                    help="send one test message through the ACT channel and exit; writes no report. "
+                         "So the first thing to use the channel is not a real stop")
+    a = ap.parse_args(argv)
+    if a.notify_test:
+        res = notify_act([f"ACT channel test for {a.book}: no stop has fired."], book=a.book,
+                         asof=dt.date.today(), report_path="(test, no report)", send=send)
+        print("delivered" if res["delivered"] else undelivered_line(str(res["reason"])),
+              file=None if res["delivered"] else sys.stderr)
+        return 0 if res["delivered"] else EXIT_ACT_UNDELIVERED
+    state = a.state_dir or (Path(os.environ["QUANTT_STATE_DIR"]) if os.environ.get("QUANTT_STATE_DIR") else None)
+    if state is None:
+        print("REFUSED: no --state-dir and no QUANTT_STATE_DIR", file=sys.stderr)
+        return 2
+    now = (now_utc or dt.datetime.now(dt.timezone.utc)).astimezone(ET)
+    asof = a.asof or expected_day(now)
+    _, code = run_report(a.book, state, asof, stops_output=a.stops_output, now_utc=now_utc, send=send)
+    return code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
