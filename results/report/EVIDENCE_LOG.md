@@ -4205,3 +4205,13 @@ that adds it does not exist when it is written.
 - source: `ops/specs/cef_discount.frozen.json` @ `73c213e`; `ops/specs/c4_families.frozen.json` @ `73c213e`; `results/cef/c4/c4_paper_benchmark_2026-11-03.json` @ `73c213e`; `results/cef/prereg_c4_level/activation_measures_2026-11-03.json` @ `73c213e`
 - supports: §1, §5
 - status: current
+
+### E-2026-11-11-51 · Method: an independent review of the report job's later changes found four low-severity defects, all fixed: a book flat at the close now reads FLAT, and a name left out only on an earlier date no longer holds the block at WATCH
+- kind: method
+- era: ALPACA
+- date: 2026-11-11
+- figures:
+  - none (a review and its fixes. On a day the book holds nothing at the as-of close the factor block reads FLAT, with no exposure and no flag, and risk_daily reads INFO; before, it showed the previous close's exposure with status OK, and a flat close with an earlier exclusion raised. PARTIAL and WATCH now follow the as-of close only, and earlier exclusions become a named history note. The installer's --reports help names the pnl units and their key services. The team lead ruled on 2026-11-11: fix all four, then merge, and keep the PARTIAL flags as ruled, with no cap on the missing share)
+- source: `scripts/ops/pnl_report.py` @ `9839a14`; `scripts/ops/risk_daily.py` @ `9839a14`; `quantt/deploy/install_vm.py` @ `bbd5c09`; `scripts/cef/exposure_readout.py` @ `d7a0f85`
+- supports: §4, §5
+- status: current
