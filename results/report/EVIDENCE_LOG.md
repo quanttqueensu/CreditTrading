@@ -4103,3 +4103,18 @@ that adds it does not exist when it is written.
 - source: `results/ideas/2026-11-10_cef_exdate_drift.md` @ `852a0ab` (added by this commit); `results/ideas/cef_exdate_drift/results.json` @ `852a0ab` (added by this commit)
 - supports: §3, §4
 - status: current. One run of the reproducer and one of the robustness checks; not independently re-derived. The by-liquidity and trading-volume checks were run in the session and their figures are in the card, not in a stored file
+
+### E-2026-11-11-01 · Result: earnings drift on the 1,500 largest US stocks is present but small; the pre-specified book has a gross Sharpe of 0.21 and is not promoted
+- kind: result
+- era: ALPACA
+- date: 2026-11-11
+- figures:
+  - long the top tenth and short the bottom tenth by IBES surprise score for 40 sessions after a quarterly release: gross Sharpe 0.21, t 1.09, 1.20%/yr at 5.59% vol, 2000-03-03 to 2025-12-31; 255,475 releases; shift(2); no cost modelled [S]
+  - halves 0.12 and 0.34; eras 1.12, −0.14, 0.20, 0.67, 0.50 [S]
+  - controls: the surprise 126 sessions late −0.16; ranks 1 to 500 only 0.33; ranks 501 to 1,500 only 0.13 [S]
+  - turnover 39 times a year; beta to the equal-weighted market 0.01 [S]
+  - event time, top less bottom tenth, market-adjusted, t+2 to t+41: 56.8bp sorted on the surprise score, 105.7bp sorted on the two-session announcement move; 141,703 releases [S]
+  - variant, not pre-specified, sorted on the announcement move: Sharpe 0.73 held 40 sessions (0.88 to 2012, 0.55 from 2013), 0.52 held 20 sessions [S]
+- source: `results/ideas/2026-11-11_pead_wide.md` @ `8c8bfe5`; `results/ideas/pead_wide/results.json` @ `8c8bfe5`
+- supports: §3, §4
+- status: current. One run of each reproducer; not independently re-derived. The event-time table and the variant are printed by `results/ideas/pead_wide/event_time.py` and stored only in the card
