@@ -712,6 +712,63 @@ def test_a_name_left_out_only_on_an_earlier_date_is_a_history_note_not_partial(t
     assert b["status"] == RD.INFO and b["lines"] == f["lines"]
 
 
+# held 01-20, flat 01-21, held again 01-22 (the 01-20 book is the plain fixture's): the review's interlude
+INTERLUDE = [("f1", "AAA", "buy", 5000, "10.00", TRADED[0]), ("f2", "BBB", "sell_short", 2000, "20.00", TRADED[0]),
+             ("f3", "AAA", "sell", 5000, "10.20", TRADED[1]), ("f4", "BBB", "buy", 2000, "20.20", TRADED[1]),
+             ("f5", "AAA", "buy", 4000, "10.05", TRADED[2]), ("f6", "BBB", "sell_short", 2000, "20.40", TRADED[2])]
+
+
+def _cum_lines(f):
+    return [ln for ln in f["lines"] if ln.startswith("Cumulative factor P&L")]
+
+
+def test_every_cumulative_factor_pnl_line_labels_the_sessions_it_covers(tmp_path, monkeypatch):
+    """Second review of PR #82 (2026-11-11): the cumulative factor P&L leaves out a session that
+    closed flat after a held close (the team lead left that to a follow-up PR), so each line that
+    prints it says which sessions it covers: the count, the first and last, and the rule (the
+    sums are the readout's own, not changed). Held through 01-22: 01-21 and 01-22. Flat at
+    01-22: 01-21 only. Fails on
+    the parent 51b209f, whose held line named no session and whose flat line only the last."""
+    rule = ("each a session whose previous close and own close both held a position; a session that closed flat "
+            "after a held close is not in it (not read here: a follow-up PR, team lead, 2026-11-11)")
+    rep, _ = run(tmp_path / "held")
+    f = rep["factor"]
+    assert f["status"] == "OK" and len(_cum_lines(f)) == 1
+    assert _cum_lines(f)[0].startswith(f"Cumulative factor P&L (book, E(t-1) x f(t), model reading) over 2 session(s), "
+                                       f"{TRADED[1]} to {TRADED[2]}, {rule}: MUNI ")
+    assert f["factor_pnl_sessions"] == {"count": 2, "first": TRADED[1].isoformat(), "last": TRADED[2].isoformat()}
+    monkeypatch.setattr(THIS, "FILLS", FILLS + FLATTEN)
+    rep, _ = run(tmp_path / "flat")
+    f = rep["factor"]
+    assert f["status"] == P.FLAT and len(_cum_lines(f)) == 1
+    assert _cum_lines(f)[0].startswith(f"Cumulative factor P&L (book, E(t-1) x f(t), model reading) over 1 session(s), "
+                                       f"{TRADED[1]} to {TRADED[1]}, {rule}: MUNI ")
+    assert f["factor_pnl_sessions"] == {"count": 1, "first": TRADED[1].isoformat(), "last": TRADED[1].isoformat()}
+    assert P.FACTOR_PNL_SESSIONS == rule
+
+
+@pytest.mark.parametrize("night", ["held_interlude", "flat_after_one_close"])
+def test_no_session_held_at_both_closes_says_why_there_is_no_factor_pnl(tmp_path, monkeypatch, night):
+    """Second review of PR #82 (2026-11-11): after held -> flat -> held, no session was held at
+    both its previous close and its own, so the readout has no factor P&L row; the held block
+    printed no cumulative line at all and its JSON said `factor_pnl: null` with no reason. Now
+    the block says it was not read and why, in a line and in `factor_pnl_why`; a flat block whose
+    history is one held close does the same. Fails on the parent 51b209f (no line, no reason)."""
+    fills = INTERLUDE if night == "held_interlude" else FILLS[:2] + [
+        ("f3", "AAA", "sell", 5000, "10.20", TRADED[1]), ("f4", "BBB", "buy", 2000, "20.20", TRADED[1])]
+    monkeypatch.setattr(THIS, "FILLS", fills)
+    rep, code = run(tmp_path)
+    f = rep["factor"]
+    assert code == P.EXIT_OK and rep["attribution"]["reconciled"] is True
+    assert f["status"] == ("OK" if night == "held_interlude" else P.FLAT), f["lines"]
+    cum = _cum_lines(f)
+    assert len(cum) == 1, f["lines"]
+    assert cum[0].startswith("Cumulative factor P&L not read: no session since the first trade held a position at "
+                             "both its previous close and its own, so no E(t-1) x f(t) was read")
+    assert f["factor_pnl"] is None and cum[0] == f"Cumulative factor P&L not read: {f.get('factor_pnl_why')}"
+    assert "factor_pnl_sessions" not in f
+
+
 def test_the_block_refuses_a_readout_whose_last_date_is_not_the_as_of_close():
     """The guard behind finding 2 (independent review of PR #82, 2026-11-11): `_factor_report`
     is given the as-of close and refuses a readout that ends earlier, rather than print that

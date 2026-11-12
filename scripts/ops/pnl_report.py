@@ -497,17 +497,44 @@ def _earlier_note(earlier: list[dict], why_no_severity: str) -> str:
             + "; ".join(f"{x['date']} {x['symbol']} ({x['reason']})" for x in earlier))
 
 
-def _factor_pnl(ro, order, pdates: set) -> tuple[dict | None, int]:
-    """The book's summed factor P&L per factor, and how many of its sessions were read on a
-    PARTIAL previous-session book."""
+# Which sessions the cumulative factor P&L covers, said on every line that prints it (second
+# review of PR #82, 2026-11-11). `exposure_readout.readout` reads E(t-1) x f(t) only on a
+# positions date whose previous session is one, and `positions_frame` drops flat closes, so a
+# session that closes flat after a held close has no row: its factor P&L is not read. The team
+# lead left that gap to a follow-up PR (2026-11-11); until then the label keeps it visible.
+FACTOR_PNL_SESSIONS = ("each a session whose previous close and own close both held a position; a session that "
+                       "closed flat after a held close is not in it (not read here: a follow-up PR, team lead, "
+                       "2026-11-11)")
+
+
+def _factor_pnl(ro, order, pdates: set) -> tuple[list[str], dict]:
+    """The cumulative factor P&L's line and JSON fields: the book's summed factor P&L per factor,
+    labelled with the sessions it covers (FACTOR_PNL_SESSIONS: their count, first and last) and
+    how many were read on a PARTIAL previous-session book.
+
+    NEVER SILENT WHEN THERE IS NONE (second review of PR #82, 2026-11-11). With no session held
+    at both its previous close and its own (a book held, then flat, then held again: the review's
+    interlude), the readout has no factor P&L row; before that review the block then printed no
+    line at all and its JSON said `factor_pnl: null` with no reason. Now the line says it was not
+    read and why, and `factor_pnl_why` carries the same. No figure changes: the sums are the
+    readout's own, over the same rows."""
     fp = ro.factor_pnl
     if not len(fp):
-        return None, 0
+        why = ("no session since the first trade held a position at both its previous close and its own, so no "
+               "E(t-1) x f(t) was read; a session that closed flat after a held close is not read here (a "
+               "follow-up PR, team lead, 2026-11-11)")
+        return [f"Cumulative factor P&L not read: {why}"], {"factor_pnl": None, "factor_pnl_why": why}
     book_rows = fp[fp["scope"] == "book"]
     pnl = {k: float(book_rows[book_rows["factor"] == k]["pnl_summed"].sum()) for k in order}
     on_partial = int(book_rows[book_rows["prev"].map(lambda d: pd.Timestamp(d).date().isoformat()).isin(pdates)]
                      ["date"].nunique()) if pdates else 0
-    return pnl, on_partial
+    sessions = sorted({pd.Timestamp(d).date().isoformat() for d in book_rows["date"]})
+    line = (f"Cumulative factor P&L (book, E(t-1) x f(t), model reading) over {len(sessions)} session(s), "
+            f"{sessions[0]} to {sessions[-1]}, {FACTOR_PNL_SESSIONS}: "
+            + ", ".join(f"{k} {v:+,.2f}" for k, v in pnl.items())
+            + (f" ({on_partial} session(s) on a PARTIAL previous-session book)" if on_partial else ""))
+    return [line], {"factor_pnl": pnl,
+                    "factor_pnl_sessions": {"count": len(sessions), "first": sessions[0], "last": sessions[-1]}}
 
 
 def _factor_flat(book: str, fs: ER.FactorSet, P: pd.DataFrame, *, groups: dict, first: dt.date, last: dt.date,
@@ -573,15 +600,11 @@ def _factor_flat(book: str, fs: ER.FactorSet, P: pd.DataFrame, *, groups: dict, 
                  f"close(s) with a position, {held[0]} to {held[-1]}; REVIEW on "
                  + ", ".join(f"{k} {history[k]['review_dates']} of {history[k]['dates']}" for k in order)
                  + (f" ({len(pdates)} of those dates PARTIAL)" if pdates else ""))
-    pnl, on_partial = _factor_pnl(ro, order, pdates)
-    if pnl is not None:
-        through = pd.Timestamp(ro.factor_pnl["date"].max()).date().isoformat()
-        lines.append(f"Cumulative factor P&L (book, E(t-1) x f(t), model reading, sessions through {through}): "
-                     + ", ".join(f"{k} {v:+,.2f}" for k, v in pnl.items())
-                     + (f" ({on_partial} session(s) on a PARTIAL previous-session book)" if on_partial else ""))
+    pnl_lines, pnl_out = _factor_pnl(ro, order, pdates)
+    lines.extend(pnl_lines)
     if excluded:
         lines.append(_earlier_note(excluded, f"no severity: the book holds nothing at the close of {last}"))
-    out.update(history=history, history_dates=[held[0], held[-1]], factor_pnl=pnl)
+    out.update(history=history, history_dates=[held[0], held[-1]], **pnl_out)
     if excluded:
         out.update(partial_dates=_partial_dates(excluded), earlier_exclusions=excluded)
     return out
@@ -678,19 +701,17 @@ def _factor_report(ro, fs: ER.FactorSet, book: str, last: dt.date, partial: dict
         lines.append(f"{fs.headline} by family{lab}: "
                      + ", ".join(f"{g} {v['exposure_usd']:+,.0f} ({v['share_of_book']:+.2f} of book)"
                                  for g, v in split["families"].items()))
-    pnl, on_partial = _factor_pnl(ro, order, pdates)
-    if pnl is not None:
-        lines.append("Cumulative factor P&L (book, E(t-1) x f(t), model reading): "
-                     + ", ".join(f"{k} {v:+,.2f}" for k, v in pnl.items())
-                     + (f" ({on_partial} session(s) on a PARTIAL previous-session book)" if on_partial else ""))
+    pnl_lines, pnl_out = _factor_pnl(ro, order, pdates)
+    lines.extend(pnl_lines)
     earlier = [x for x in excluded if x["date"] < last.date().isoformat()]
     if earlier and not partial:
         lines.append(_earlier_note(earlier, f"no severity: every name held at the close of {last.date()} is read"))
     out = {"status": "PARTIAL" if partial else "OK", "asof": last.date().isoformat(),
            "headline": fs.headline, "review_line": review_line,
-            "factors": factors, "history": history, "split": split, "factor_pnl": pnl, "lines": lines,
-            "gross_usd": float(tv["gross_usd"]), "net_usd": float(tv["net_usd"]),
+            "factors": factors, "history": history, "split": split, "factor_pnl": pnl_out["factor_pnl"],
+            "lines": lines, "gross_usd": float(tv["gross_usd"]), "net_usd": float(tv["net_usd"]),
             "total_of_target": float(tv["total_of_target"])}
+    out.update(pnl_out)                          # factor_pnl_sessions, or factor_pnl_why when there is none
     if partial:
         out.update(partial)
     if excluded:
