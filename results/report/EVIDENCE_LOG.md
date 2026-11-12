@@ -4154,6 +4154,18 @@ that adds it does not exist when it is written.
 - supports: §5
 - status: current
 
+### E-2026-11-10-09 · Incident: the broker client and the probe followed HTTP redirects with the Alpaca key headers attached; both now refuse any redirect, with tests on requests' own redirect code
+- kind: incident
+- era: ALPACA
+- date: 2026-11-10
+- figures:
+  - 3 calls in the run package carried the key headers and followed redirects: the client's GET, the client's order POST and the probe's GET; 2 research scripts borrowed the same sessions [S]
+  - on an unprotected session, each of 301, 302, 303, 307 and 308 delivered both key headers to the second host, in a test on a recording transport with fake keys [S]
+  - 22 of the new tests fail against the client and probe as they stood on main [S]
+- source: `quantt/broker/alpaca.py` @ `89bf145` (`refuse_redirects` is added by this commit); `quantt/tests/test_alpaca_redirects.py` @ `89bf145` (added by this commit)
+- supports: §5
+- status: current. Found by another session's review of its report reader and passed on at the team lead's request; no evidence that a redirect was ever served. The fix is in the repository only: prod runs it after the team lead's next release
+
 ### E-2026-11-09-50 · Rulings: a daily VM report for both paper books, the P&L attribution and factor readout; C4's factors are equity, term, credit and preferred with equity as headline; report only, read through the broker key with read-only code
 - kind: ruling
 - era: ALPACA
