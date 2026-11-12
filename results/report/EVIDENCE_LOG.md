@@ -4233,3 +4233,14 @@ that adds it does not exist when it is written.
 - source: `results/ideas/2026-11-12_insider_clusters.md` @ `f103660`; `results/ideas/insider_clusters/results.json` @ `f103660`
 - supports: §3, §4
 - status: current. One run of the reproducer; not independently re-derived. The cluster file was built on 2026-10-19 by `scripts/events/ssx/ssx_ins_insider_census.py` and was not rebuilt for this test. Stocks below the 2,000th by market value are untested
+
+### E-2026-11-12-02 · Result: ex-dates were declared in advance for 99% of closed-end fund and unit distributions, so the ex-date tests' timing assumption holds
+- kind: result
+- era: ALPACA
+- date: 2026-11-12
+- figures:
+  - closed-end funds: 143,200 ordinary distributions since 2000; 99.2% declared at least one day before the ex-date, 99.0% at least three; median gap 11 days; 0.7% with no declaration date [S]
+  - units: 12,987 ordinary distributions; 98.9% at least one day before, 98.2% at least three; median gap 9 days; 0.9% with no declaration date [S]
+- source: `results/ideas/2026-11-10_cef_exdate_drift.md` @ `70a35dc`; `results/ideas/2026-11-11_exdate_other_wrappers.md` @ `70a35dc`
+- supports: §3
+- status: current. One query of CRSP `stkdistributions` on the R2 mirror in the session; the query is not stored as a script. Gaps are calendar days. Closes the [U] on declaration dates in E-2026-11-10-07 for the short-after book; the week's notice the long-before leg needs is covered by the median, and its tail is unmeasured
