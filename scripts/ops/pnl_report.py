@@ -100,7 +100,10 @@ A MISSING INPUT IS UNMEASURED, NAMED, NEVER INFERRED (CLAUDE.md, no silent fallb
   * a book that holds nothing at the as-of close: the factor block is FLAT (independent
     review of PR #82, 2026-11-11). Nothing is held, so nothing is exposed; the block reads no
     exposure, no flag and no PARTIAL for that close, and never shows an earlier close's
-    reading as the as-of one. Its history since the first trade is labelled with its dates;
+    reading as the as-of one. FLAT is read only from a rebuild that reconciles: an
+    unreconciled one makes the block UNMEASURED, naming why (team lead, 2026-11-11;
+    `build_factor`), and risk_daily cross-checks every FLAT against the collector's account
+    record for that close. Its history since the first trade is labelled with its dates;
     a history with no reading for a named reason is an UNMEASURED line in the FLAT block, and
     a bug, a LookaheadError or a failed price fetch while reading it makes the whole block
     UNMEASURED, as on a held night (second review of PR #82, 2026-11-11; `_factor_flat`).
@@ -309,7 +312,7 @@ def build_attribution(book: str, state: Path, asof: dt.date, reader, groups: dic
 
 # ---------------------------------------------------------------- the factor readout
 
-def build_factor(book: str, res, inp, *, groups: dict, asof: dt.date, price_fetcher=None,
+def build_factor(book: str, res, inp, *, groups: dict, asof: dt.date, reconciled, price_fetcher=None,
                  now_utc: dt.datetime | None = None) -> dict:
     """Factor exposure against the review line, headline first, by family or muni/taxable.
     Exposures need each held name's price history (keyless yfinance). Never a default.
@@ -338,12 +341,31 @@ def build_factor(book: str, res, inp, *, groups: dict, asof: dt.date, price_fetc
     with a ReadoutError. The core is flat on many thin sessions, so both were common. Now a
     book with no position at that close gets the FLAT block (`_factor_flat`): nothing to
     expose, no flag, no PARTIAL, its history labelled with its dates; and `_factor_report`
-    refuses a readout whose last date is not that close."""
+    refuses a readout whose last date is not that close.
+
+    NEVER FLAT FROM A REBUILD THAT DOES NOT RECONCILE (team lead, 2026-11-11, on the second
+    review of PR #82). FLAT is read from the fill rebuild alone (`res.name_day`'s positions at
+    `res.asof`), so a closing fill the account never made (the review's phantom fill: the
+    activities listed a sale of the whole book at the close, the equity series was built from
+    the real fills) made the block FLAT and risk_daily INFO while the account held positions;
+    the rebuild failed to reconcile that night, which was the only sign. `reconciled` is the
+    attribution's own (`reconciliation`, every session from the first trade, to the cent), and
+    anything but True means the rebuild's positions are not shown to be the account's: the
+    block is then UNMEASURED, naming why, and no FLAT and no exposure is read. A held book on
+    an unreconciled night is read as before (the report's overall status is UNRECONCILED, the
+    loudest, either way). A rebuild that reconciles while its positions are still wrong (the
+    review's contrived fill whose P&L cancels its modelled fees) is caught by risk_daily's
+    cross-check of a FLAT against the collector's account record (`risk_daily.factor_block`)."""
     fs = ER.factor_set(book)
     first = min(f.date for f in inp.fills)
     last = dt.date.fromisoformat(res.asof.isoformat())
     P = positions_frame(res, inp, first, last)
     if not (P["date"] == last.isoformat()).any():  # nothing held at the as-of close: FLAT, never a prior reading
+        if reconciled is not True:               # FLAT only from a rebuild shown to be the account's
+            return _factor_unmeasured(
+                f"the fill rebuild holds no position at the close of {last}, but it does not reconcile to "
+                f"Alpaca's official EOD change (reconciled={reconciled!r}), so whether the book is flat at that "
+                f"close cannot be read from it: no FLAT and no exposure is read (team lead, 2026-11-11)", fs)
         return _factor_flat(book, fs, P, groups=groups, first=first, last=last, asof=asof,
                             price_fetcher=price_fetcher)
     if fs.dimson_lags is None:
@@ -486,8 +508,11 @@ def _factor_pnl(ro, order, pdates: set) -> tuple[dict | None, int]:
 def _factor_flat(book: str, fs: ER.FactorSet, P: pd.DataFrame, *, groups: dict, first: dt.date, last: dt.date,
                  asof: dt.date, price_fetcher) -> dict:
     """The block for a book that holds nothing at the as-of close (independent review of PR #82,
-    2026-11-11). Status FLAT, which risk_daily shows as INFO: a flat book carries no factor
-    risk, so there is nothing to review and nothing missing.
+    2026-11-11). Status FLAT: a flat book carries no factor risk, so there is nothing to
+    review and nothing missing. It is reached only from a rebuild that reconciles
+    (`build_factor`), and risk_daily shows it as INFO only when the collector's account record
+    for the same close holds no position either; WATCH when it holds any, UNMEASURED when it
+    cannot be read (team lead, 2026-11-11; `risk_daily.factor_block`).
 
     It says so in its first line and reads nothing for that close: no exposure, no within or
     REVIEW flag, no PARTIAL, no share. Before this review the block showed the previous held
@@ -787,7 +812,8 @@ def run_report(book: str, state: Path, asof: dt.date, *, now_utc=None, reader=No
             factor = {"status": UNMEASURED, "why": "the attribution did not run", "lines":
                       ["Factor exposure UNMEASURED: the attribution did not run, so the book's positions are unknown"]}
         else:
-            factor = build_factor(book, res, inp, groups=groups, asof=asof, price_fetcher=price_fetcher, now_utc=now)
+            factor = build_factor(book, res, inp, groups=groups, asof=asof, reconciled=att.get("reconciled"),
+                                  price_fetcher=price_fetcher, now_utc=now)
     except Exception as e:                       # the factor readout's failure costs only its block
         factor = {"status": UNMEASURED, "why": f"{type(e).__name__}: {e}",
                   "lines": [f"Factor exposure UNMEASURED: {type(e).__name__}: {e}"]}

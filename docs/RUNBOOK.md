@@ -1346,9 +1346,17 @@ longer serves) is a named history note in an OK block, and `risk_daily` shows it
 book that holds nothing at the as-of close has a FLAT factor block (the same review): it
 says the book is flat and reads no exposure, flag or PARTIAL for that close, never the
 previous close's reading; its history since the first trade is labelled with its dates;
-the report's overall status is OK and `risk_daily` shows the block as INFO. A bug, the
+the report's overall status is OK. A bug, the
 no-lookahead assertion or a failed price fetch (yfinance down) while reading that history
-makes the block UNMEASURED, as on a held night (second review of PR #82, 2026-11-11). A factor ETF
+makes the block UNMEASURED, as on a held night (second review of PR #82, 2026-11-11). FLAT
+is read from the fill rebuild, so two checks guard it (team lead, 2026-11-11): the job never
+says FLAT when the rebuild does not reconcile (the block is UNMEASURED, saying whether the
+book is flat cannot be read from it), and `risk_daily` cross-checks every FLAT against the
+collector's account record for that same close, `<state>/data/<D>/account.json` (written by
+the collector's `account_snapshot` step after D's close and before the next open). The block
+is INFO when that record holds no position, a WATCH naming the count and the symbols when
+it holds any, and UNMEASURED when the record is missing, unreadable or for another session.
+A factor ETF
 without its price, or no held name with its inputs, makes the block UNMEASURED, naming it;
 the attribution above it stays either way. A book with no Dimson lag (C4, until its rule
 has produced one) has a factor block UNMEASURED, naming the rule.

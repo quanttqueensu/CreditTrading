@@ -505,13 +505,23 @@ def _assert_flat_block(f, md_path, book):
     assert "Overall: **OK**." in md and "## Factor exposure against the review line (FLAT)" in md
 
 
+def _account_record(state, day, qty):
+    """The collector's account record for `day` as `quantt/collect/collect.py`'s account_snapshot
+    writes it (the fields risk_daily's FLAT cross-check reads), `qty` {symbol: signed shares}."""
+    d = state / "data" / day.isoformat()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "account.json").write_text(json.dumps({"date": day.isoformat(), "read_at_utc": f"{day.isoformat()}T22:10:05+00:00",
+                                                "positions": {"qty": qty, "raw": []}}))
+
+
 @pytest.mark.parametrize("book", ["cef", "c4"])
 def test_a_book_flat_at_the_as_of_close_is_flat_never_the_previous_close(tmp_path, monkeypatch, book):
     """Finding 2 of the independent review of PR #82 (2026-11-11). The account sells everything
     at the 01-22 close. The block says FLAT for 01-22 and prints no exposure, flag or PARTIAL for
     it; its history covers 01-20..01-21, labelled with those dates; the report is OK and
-    risk_daily shows INFO. Fails on the parent commit, where the block was OK and read at the
-    close of 01-21 ("MUNI ... REVIEW" for a book holding nothing)."""
+    risk_daily shows INFO, the collector's account record for 01-22 holding nothing either
+    (its cross-check: team lead, 2026-11-11). Fails on the parent commit, where the block was
+    OK and read at the close of 01-21 ("MUNI ... REVIEW" for a book holding nothing)."""
     monkeypatch.setattr(THIS, "FILLS", FILLS + FLATTEN)
     rep, code = run(tmp_path, book=book)
     f = rep["factor"]
@@ -524,8 +534,10 @@ def test_a_book_flat_at_the_as_of_close_is_flat_never_the_previous_close(tmp_pat
     assert all(h["dates"] == 2 for h in f["history"].values())
     assert "earlier_exclusions" not in f and not any(ln.startswith("History note") for ln in f["lines"])
     from scripts.ops import risk_daily as RD
+    _account_record(tmp_path / book, ASOF, {})
     b = RD.factor_block(book, tmp_path / book, ASOF)
-    assert b["status"] == RD.INFO and b["lines"][0] == f["lines"][0]
+    assert b["status"] == RD.INFO and b["lines"][1:] == f["lines"]
+    assert b["lines"][0].startswith(f"Factor exposure FLAT at the close of {ASOF}, cross-checked")
 
 
 def test_a_flat_close_after_a_name_left_out_earlier_never_raises(tmp_path, monkeypatch):
@@ -547,6 +559,7 @@ def test_a_flat_close_after_a_name_left_out_earlier_never_raises(tmp_path, monke
     assert len(note) == 1 and f"no severity: the book holds nothing at the close of {ASOF}" in note[0]
     assert f"{TRADED[0]} BBB (no price history in the fetch (ReadoutError: yfinance returned no rows for BBB))" in note[0]
     from scripts.ops import risk_daily as RD
+    _account_record(tmp_path / "cef", ASOF, {})
     assert RD.factor_block("cef", tmp_path / "cef", ASOF)["status"] == RD.INFO
 
 
@@ -591,6 +604,70 @@ def test_a_bug_or_a_lookahead_in_a_flat_books_history_ends_as_on_a_held_night(tm
         assert f["lines"] == [f"Factor exposure UNMEASURED: {type(exc).__name__}: {exc}"], night
         assert rep["status"] == "PARTIAL" and code == P.EXIT_OK and rep["attribution"]["reconciled"] is True, night
         assert RD.factor_block("cef", tmp_path / night / "cef", ASOF)["status"] == RD.UNMEASURED, night
+
+
+class _PhantomReader(FakeReader):
+    """The second review of PR #82's false FLAT (2026-11-11): the activities list closing fills
+    the account never made, while its equity series (and its FEE rows) come from the real fills
+    only, so the account still holds AAA +4000 and BBB -2000 at the 01-22 close."""
+    def __init__(self, extra):
+        super().__init__()
+        self.extra = extra
+
+    def activities_fills(self, date):
+        return super().activities_fills(date) + [
+            {"id": fid, "activity_type": "FILL", "symbol": s, "side": side, "qty": str(q), "price": px,
+             "transaction_time": f"{d.isoformat()}T20:55:00.1Z", "type": "fill", "order_id": fid,
+             "cum_qty": str(q), "leaves_qty": "0", "order_status": "filled"}
+            for fid, s, side, q, px, d in self.extra if d == date]
+
+
+# A sale price whose fill P&L cancels the phantom fills' modelled fees to the cent, so the rebuild
+# reconciles although its positions are wrong (the review's contrived variant).
+PHANTOM_RECONCILING = [("f4", "AAA", "sell", 4000, "10.0502125", TRADED[2]), ("f5", "BBB", "buy", 2000, "20.40", TRADED[2])]
+
+
+def test_a_phantom_closing_fill_never_makes_the_block_flat(tmp_path):
+    """Team lead, 2026-11-11 (second review of PR #82): FLAT is never read from a rebuild that
+    does not reconcile. A closing fill the account never made flattens the rebuild, and the
+    rebuild misses the official change on 01-22; the block is UNMEASURED, saying whether the book
+    is flat cannot be read from it, and risk_daily shows UNMEASURED. Fails on the parent d498c4f,
+    where the block was FLAT and risk_daily INFO while the account held two positions."""
+    from scripts.ops import risk_daily as RD
+    rep, code = run(tmp_path, reader=_PhantomReader(FLATTEN))
+    f = rep["factor"]
+    assert rep["attribution"]["reconciled"] is False and rep["status"] == P.UNRECONCILED and code == P.EXIT_UNRECONCILED
+    assert f["status"] == P.UNMEASURED, f["lines"]
+    assert f["lines"] == [f"Factor exposure UNMEASURED: {f['why']}"]
+    assert f["why"].startswith(f"the fill rebuild holds no position at the close of {ASOF}, but it does not reconcile")
+    assert "whether the book is flat at that close cannot be read from it" in f["why"]
+    assert "flat" not in f and not any("FLAT, the book holds no position" in ln for ln in f["lines"])
+    _account_record(tmp_path / "cef", ASOF, {"AAA": 4000, "BBB": -2000})
+    assert RD.factor_block("cef", tmp_path / "cef", ASOF)["status"] == RD.UNMEASURED
+
+
+def test_a_phantom_fill_that_reconciles_is_caught_by_risk_dailys_cross_check(tmp_path):
+    """Team lead, 2026-11-11 (second review of PR #82): the contrived phantom whose P&L cancels
+    its modelled fees reconciles, so the job, which reads FLAT from its rebuild, still says FLAT;
+    risk_daily's cross-check against the collector's account record for 01-22 says WATCH when
+    that record holds the two positions, naming the counts and symbols, and UNMEASURED when there
+    is no record, never INFO. Fails on the parent d498c4f, where risk_daily read INFO."""
+    from scripts.ops import risk_daily as RD
+    rep, code = run(tmp_path, reader=_PhantomReader(PHANTOM_RECONCILING))
+    assert rep["attribution"]["reconciled"] is True and rep["status"] == "OK" and code == P.EXIT_OK
+    assert rep["factor"]["status"] == P.FLAT                 # the rebuild alone cannot see it
+    state = tmp_path / "cef"
+    b = RD.factor_block("cef", state, ASOF)
+    assert b["status"] == RD.UNMEASURED, b["lines"][0]
+    assert b["lines"][0].startswith(f"Factor exposure FLAT at the close of {ASOF} not cross-checked (UNMEASURED): "
+                                    f"no account record at {state / 'data' / ASOF.isoformat() / 'account.json'}")
+    _account_record(state, ASOF, {"AAA": 4000, "BBB": -2000})
+    b = RD.factor_block("cef", state, ASOF)
+    assert b["status"] == RD.WATCH, b["lines"][0]
+    assert b["lines"][0].startswith(f"Factor exposure FLAT DISAGREES with the account at the close of {ASOF} (WATCH)")
+    assert "shows 2 position(s), 1 long and 1 short (AAA, BBB)" in b["lines"][0] and "4000" not in b["lines"][0]
+    assert b["lines"][1:] == rep["factor"]["lines"] and not any(ln.startswith("ACT") for ln in b["lines"])
+    assert b["data"]["flat_cross_check"]["positions"] == 2
 
 
 def test_a_name_left_out_only_on_an_earlier_date_is_a_history_note_not_partial(tmp_path, monkeypatch):
