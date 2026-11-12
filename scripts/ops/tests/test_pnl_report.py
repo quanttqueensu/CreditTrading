@@ -567,6 +567,32 @@ def test_a_flat_close_whose_history_cannot_be_read_stays_flat_naming_the_gap(tmp
     assert "AAA (gone)" in f["history_why"]
 
 
+@pytest.mark.parametrize("exc", [TypeError("simulated bug in the readout"),
+                                 ER.LookaheadError("simulated: a beta window date is not strictly before t")],
+                         ids=["bug", "lookahead"])
+def test_a_bug_or_a_lookahead_in_a_flat_books_history_ends_as_on_a_held_night(tmp_path, monkeypatch, exc):
+    """Second review of PR #82 (2026-11-11), its regression finding: `_factor_flat` caught every
+    exception from the history read, so on a flat night a TypeError (a bug) or exposure_readout's
+    LookaheadError (the runtime H7 assertion) was a history line under a FLAT block, the report
+    OK and risk_daily INFO, while on a held night the same failure is UNMEASURED, PARTIAL and
+    UNMEASURED. Both nights now end the same way. Fails on the parent d8e9c06, where the flat
+    night read FLAT / OK / INFO."""
+    from scripts.ops import risk_daily as RD
+
+    def raises(*a, **k):
+        raise exc
+    monkeypatch.setattr(ER, "readout", raises)
+    held, held_code = run(tmp_path / "held")
+    monkeypatch.setattr(THIS, "FILLS", FILLS + FLATTEN)
+    flat, flat_code = run(tmp_path / "flat")
+    for night, rep, code in (("held", held, held_code), ("flat", flat, flat_code)):
+        f = rep["factor"]
+        assert f["status"] == P.UNMEASURED, (night, f["status"], f["lines"])
+        assert f["lines"] == [f"Factor exposure UNMEASURED: {type(exc).__name__}: {exc}"], night
+        assert rep["status"] == "PARTIAL" and code == P.EXIT_OK and rep["attribution"]["reconciled"] is True, night
+        assert RD.factor_block("cef", tmp_path / night / "cef", ASOF)["status"] == RD.UNMEASURED, night
+
+
 def test_a_name_left_out_only_on_an_earlier_date_is_a_history_note_not_partial(tmp_path, monkeypatch):
     """Finding 3 of the independent review of PR #82 (2026-11-11). BBB is covered at the 01-21
     close and never served by the price fetch (a merged or renamed fund), so it is left out on

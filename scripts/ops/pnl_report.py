@@ -100,7 +100,10 @@ A MISSING INPUT IS UNMEASURED, NAMED, NEVER INFERRED (CLAUDE.md, no silent fallb
   * a book that holds nothing at the as-of close: the factor block is FLAT (independent
     review of PR #82, 2026-11-11). Nothing is held, so nothing is exposed; the block reads no
     exposure, no flag and no PARTIAL for that close, and never shows an earlier close's
-    reading as the as-of one. Its history since the first trade is labelled with its dates.
+    reading as the as-of one. Its history since the first trade is labelled with its dates;
+    a history with no reading for a named reason is an UNMEASURED line in the FLAT block, and
+    a bug, a LookaheadError or a failed price fetch while reading it makes the whole block
+    UNMEASURED, as on a held night (second review of PR #82, 2026-11-11; `_factor_flat`).
   * a book whose Dimson lag rule has no answer: the factor block says UNMEASURED and why.
 
 NO LOOKAHEAD (H7). The attribution uses fills and closes of the sessions it reports, the
@@ -355,9 +358,12 @@ def build_factor(book: str, res, inp, *, groups: dict, asof: dt.date, price_fetc
 
 
 class _NotRead(Exception):
-    """A named reason the factor readout has no reading (a factor ETF without its price, no held
-    name with its inputs): the block's UNMEASURED line, or a flat block's history line. A bug
-    is not one of these and propagates."""
+    """A named reason the factor readout has no reading (a factor ETF without its price at the
+    as-of close, no held name with its inputs, a book with no Dimson lag): the block's
+    UNMEASURED line, or a flat block's history line. A bug is not one of these and propagates;
+    nor does the runtime no-lookahead assertion (LookaheadError) or a failed price fetch, which
+    make the whole block UNMEASURED on a flat night as on a held one (second review of PR #82,
+    2026-11-11; `_factor_flat`)."""
 
 
 def _read(fs: ER.FactorSet, P: pd.DataFrame, groups: dict, *, first: dt.date, asof: dt.date, price_fetcher,
@@ -488,9 +494,24 @@ def _factor_flat(book: str, fs: ER.FactorSet, P: pd.DataFrame, *, groups: dict, 
     close's exposure as the as-of reading, under status OK, dated but easy to miss. The
     history since the first trade (the review-flag counts and the factor P&L over the earlier
     held closes) is still read, and every line of it says which dates it covers; a name left
-    out on one of those dates is the history's note and raises nothing. A history that cannot
-    be read is UNMEASURED in its own line, named, and leaves the as-of reading FLAT, because
-    that reading needs no price: the book holds nothing."""
+    out on one of those dates is the history's note and raises nothing. A history with no
+    reading for a named reason (`_NotRead`: no held name with its inputs on an earlier date, or
+    a book with no Dimson lag) is UNMEASURED in its own line, named, and leaves the as-of
+    reading FLAT, because that reading needs no price: the book holds nothing.
+
+    ANYTHING ELSE PROPAGATES, AS ON A HELD NIGHT (second review of PR #82, 2026-11-11). This
+    function caught every exception from the history read and kept the block FLAT, the report
+    OK and risk_daily INFO, so a bug (a TypeError) and the runtime no-lookahead assertion
+    (exposure_readout's LookaheadError, H7) passed as a history footnote on a flat night while
+    the same failure on a held night made the block UNMEASURED, the report PARTIAL and
+    risk_daily UNMEASURED; it also contradicted `_NotRead`, which says a bug propagates. Now
+    only `_NotRead` is caught here, and anything else reaches `run_report`'s catch, which makes
+    the block UNMEASURED as it does for a held book. That includes a yfinance outage: a factor
+    ETF's failed fetch is re-raised by `fetch_each` (required tickers) as yfinance's own error,
+    a ReadoutError ("yfinance returned no rows", yfinance 0.2.66 swallowing the transport
+    error into an empty frame) or the transport's exception, never a `_NotRead`; so a flat
+    night with yfinance down reads UNMEASURED, as a held night does, and is not a FLAT block
+    with a history line. Widening `_NotRead` to cover it is the team lead's to rule."""
     order = [fs.headline] + list(fs.indicative)
     lines = [f"Factor exposure at the close of {last}: FLAT, the book holds no position at that close, so there "
              f"is nothing to expose: no exposure, no review-line reading and no flag is read for {last}, and no "
@@ -505,8 +526,8 @@ def _factor_flat(book: str, fs: ER.FactorSet, P: pd.DataFrame, *, groups: dict, 
             raise _NotRead(f"book {book} has no Dimson lag: its lag rule has not produced one "
                            "(scripts/cef/exposure_readout.py, THE C4 LAG RULE)")
         ro, failed = _read(fs, P, groups, first=first, asof=asof, price_fetcher=price_fetcher, etf_close_on=None)
-    except Exception as e:                       # the history's own gap, named; the as-of reading stands
-        why = str(e) if isinstance(e, _NotRead) else f"{type(e).__name__}: {e}"
+    except _NotRead as e:                        # a named reason only; a bug, a LookaheadError or a failed fetch propagates
+        why = str(e)
         lines.append(f"History since the first trade ({first}) UNMEASURED: {why}")
         out["history_why"] = why
         return out

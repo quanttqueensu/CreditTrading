@@ -1346,7 +1346,9 @@ longer serves) is a named history note in an OK block, and `risk_daily` shows it
 book that holds nothing at the as-of close has a FLAT factor block (the same review): it
 says the book is flat and reads no exposure, flag or PARTIAL for that close, never the
 previous close's reading; its history since the first trade is labelled with its dates;
-the report's overall status is OK and `risk_daily` shows the block as INFO. A factor ETF
+the report's overall status is OK and `risk_daily` shows the block as INFO. A bug, the
+no-lookahead assertion or a failed price fetch (yfinance down) while reading that history
+makes the block UNMEASURED, as on a held night (second review of PR #82, 2026-11-11). A factor ETF
 without its price, or no held name with its inputs, makes the block UNMEASURED, naming it;
 the attribution above it stays either way. A book with no Dimson lag (C4, until its rule
 has produced one) has a factor block UNMEASURED, naming the rule.
