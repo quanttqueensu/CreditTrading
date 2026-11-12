@@ -4244,3 +4244,20 @@ that adds it does not exist when it is written.
 - source: `results/ideas/2026-11-10_cef_exdate_drift.md` @ `70a35dc`; `results/ideas/2026-11-11_exdate_other_wrappers.md` @ `70a35dc`
 - supports: §3
 - status: current. One query of CRSP `stkdistributions` on the R2 mirror in the session; the query is not stored as a script. Gaps are calendar days. Closes the [U] on declaration dates in E-2026-11-10-07 for the short-after book; the week's notice the long-before leg needs is covered by the median, and its tail is unmeasured
+
+### E-2026-11-12-03 · Result: agreed all-cash US mergers earn a modest premium (raw Sharpe 0.71, 0.48 over bills, on a universe corrected after the first run); the event-time spread of the October design is absent
+- kind: result
+- era: ALPACA
+- date: 2026-11-12
+- figures:
+  - pre-specified universe, one-step all-cash 'Merger' deals, long every live target: raw Sharpe 0.50, t 2.53, 4.48%/yr at 9.02% vol, 2000-02-01 to 2025-12-31; 2.62%/yr and Sharpe 0.29 over 3-month bills; maximum drawdown −42.5% on summed daily returns; 1,529 deals held; shift(2); no cost modelled [S]
+  - friendly deals only, chosen after the first run: raw Sharpe 0.71, t 3.63, halves 0.71 and 0.73; 3.73%/yr and Sharpe 0.48 over bills; maximum drawdown −23.4%; beta to SPY 0.17; alpha 2.38%/yr, Newey-West t 2.19; 1,366 deals held, 18 live a day at the median [S]
+  - of 1,529 eligible deals 155 are marked unsolicited or hostile and 148 of those were withdrawn; friendly deals were withdrawn 8.3% of the time [S]
+  - event-time (hazard) book: raw Sharpe 0.04 as pre-specified and 0.06 on friendly deals; the tender-offer control was invested on 1% of sessions and is unmeasured [S]
+  - announcement dating: targets rise 23.7% on SDC's date and 6.9% on the next session, then 0.03%; the first return earned is three sessions after SDC's date [S]
+  - CRSP's new-format delisting row equals the legacy delisting return within 1bp on 98.3% of 2,137 merger delistings [S]
+  - cross-check on the desk's EDGAR list, 2001-01-31 to 2010-03-31, entered after the first proxy: raw Sharpe 0.36 at 19.6% vol, beta 0.69; the SDC friendly book over the same sessions 0.61; daily correlation 0.48; 1,595 later deals left out for want of a first-proxy date [S]
+  - independent review: friendly premium re-derived at 0.713 raw and 0.478 over bills; weights rebuilt on data cut at 14 dates matched exactly; one more session of delay gives 0.717 [S]
+- source: `results/ideas/2026-11-12_merger_arb.md` @ `3c1d68f`; `results/ideas/merger_arb/results.json` @ `3c1d68f`; `results/ideas/merger_arb/crosscheck_edgar.json` @ `3c1d68f`; `docs/REFERENCES.md` @ `3c1d68f` (§12ma)
+- supports: §3, §4
+- status: current. The premium figures were re-derived by a separate reviewer agent in the session; the reviewer's own script is not stored. The friendly filter is not pre-specified. The staging selects on SDC's final status (830 rumour, seeking-buyer and intent rows left out), whose effect is unmeasured. Stock deals, costs and borrow are untested. Not on shadow: there is no live deal list with break dates yet
