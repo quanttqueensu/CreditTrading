@@ -435,3 +435,6 @@ from a named source; [doc] copied from a named note.
 **The first event test under the 2026-11-11 instruction** (`results/report/EVIDENCE_LOG.md` E-2026-11-11-03).
 - **Research.** The closed-end fund ex-date trade, unchanged, on four other groups from CRSP to 2025-12-31. Partnership and trust units have it: gross Sharpe 3.03 (t 15.40), both halves, placebo −0.02. REITs weakly (0.91); ETFs and the 1,500 largest common stocks not at all [V: `results/ideas/2026-11-11_exdate_other_wrappers.md`].
 - **Shadow.** Two books from 2026-11-11, $1M each, on 48 live units: `units_exdate_after` and `units_exdate_before_after` (E-2026-11-11-04). The list is rebuilt from the public exchange directory (`docs/REFERENCES.md` §12sd); 14 of the 48 were not shortable at Alpaca that day. Five shadow books now exist.
+
+**Clustered insider buying, 2026-11-12** (`results/report/EVIDENCE_LOG.md` E-2026-11-12-01).
+- **Research.** The October census rule for insider-buying clusters, tested for returns on the 2,000 largest US stocks, 2006 to 2025: gross Sharpe 0.05 (t 0.21), and what there is tracks a buy-the-losers control [V: `results/ideas/2026-11-12_insider_clusters.md`]. Set aside in liquid stocks; three quarters of the clusters are in smaller companies and are untested.
