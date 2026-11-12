@@ -4215,3 +4215,13 @@ that adds it does not exist when it is written.
 - source: `scripts/ops/pnl_report.py` @ `9839a14`; `scripts/ops/risk_daily.py` @ `9839a14`; `quantt/deploy/install_vm.py` @ `bbd5c09`; `scripts/cef/exposure_readout.py` @ `d7a0f85`
 - supports: §4, §5
 - status: current
+
+### E-2026-11-12-50 · Ruling and method: the report job never reads a book as flat from an unreconciled rebuild, and the risk check confirms every flat reading against the account's own positions record
+- kind: method
+- era: ALPACA
+- date: 2026-11-12
+- figures:
+  - none (a second review of the report job's fixes, and the team lead's ruling of 2026-11-11 to add both checks. A flat reading needs a reconciled rebuild, or the factor block is UNMEASURED. risk_daily compares each flat reading with that session's account.json, which the collector writes after the close: an empty record gives INFO, any position gives WATCH, and a missing or other-session record gives UNMEASURED. On a flat night a bug or a lookahead failure in the history read now ends as on a held night, instead of reading calm. Every cumulative factor P&L line names the sessions it covers. The session on which the whole book goes flat is not yet in the factor P&L; the team lead chose a follow-up PR for it. No figure changed)
+- source: `scripts/ops/pnl_report.py` @ `bf98dec`; `scripts/ops/risk_daily.py` @ `bf98dec`; `scripts/ops/pnl_report.py` @ `d498c4f`; `scripts/ops/pnl_report.py` @ `d2f3e19`
+- supports: §4, §5
+- status: current
