@@ -79,4 +79,8 @@ pre-specified. They reuse the fund books' signal code unchanged.
 - Their first decisions, for 2026-11-11, were flat: no unit had an ex-date on 11-10 to 11-12
   [V: local run 2026-11-11 20:13 New York, which is too late to be scored].
 
+## Added 2026-11-12: unit ex-dates were known in advance [V: CRSP `stkdistributions` on R2, queried 2026-11-12, not stored]
+
+Of 12,987 ordinary distributions by units since 2000, 98.9% were declared at least one day before the ex-date and 98.2% at least three; the median gap is 9 days; 0.9% have no declaration date. So the "known the day before" assumption above holds for the short-after book.
+
 ![equity curve, units](exdate_other_wrappers/units/equity.png)
