@@ -2148,9 +2148,17 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
          clock: Callable | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--tag", required=True, help="release tag, already pushed to origin")
+    # The vault help names every secret an install's key services read, from the same maps the
+    # services render. It once named only the core's two, though --book c4 reads C4's two and
+    # --reports reads both books' (its pnl key services) and the two SMTP secrets (its alert
+    # secret service) (second review of PR #82, 2026-11-11).
+    _names = lambda pairs: ", ".join(s for s, _ in pairs)
+    vault_help = "; ".join(f"--book {b}: {_names(vm.secret_map)}" for b, vm in VM_BOOKS.items())
+    vault_help += (f"; --reports: {_names(p for b in REPORT_BOOKS for p in REPORT_PNL_KEYS[b].secret_map)} "
+                   f"(the pnl key services) and {_names(REPORT_SECRET_MAP)} ({REPORT_SECRET_UNIT})")
     ap.add_argument("--vault", required=True,
-                    help="Azure Key Vault name holding alpaca-cef-key-id and "
-                         "alpaca-cef-secret-key (no default)")
+                    help=f"Azure Key Vault name (no default) holding the secrets the install's key services "
+                         f"read: {vault_help}")
     ap.add_argument("--seed-from", type=Path, default=None,
                     help="directory holding the laptop prod's data/cef files; needed "
                          "only while prod lacks them")
@@ -2166,10 +2174,14 @@ def main(argv=None, *, layout: Layout | None = None, origin_url: str = ORIGIN_UR
     # The help names every unit --reports writes. It once said "the report-only data-QA and
     # risk units" after the pnl units and their key services were added, which read each
     # book's Alpaca key from the vault (independent review of PR #82, 2026-11-11); the names
-    # come from the same constants the install renders, so they cannot drift from it.
+    # come from the same constants the install renders, so they cannot drift from it. The
+    # kind list too: it was the literal "data-QA, risk and pnl" until the second review of
+    # PR #82 (2026-11-11), so a fourth kind in REPORT_KINDS would have been left out of it.
+    kinds = list(REPORT_KINDS)
     ap.add_argument("--reports", action="store_true",
-                    help=(f"install the report-only units instead of a book's: the data-QA, risk and pnl "
-                          f"units of each book ({', '.join(REPORT_BOOKS)}), the alert secret service "
+                    help=(f"install the report-only units instead of a book's: the "
+                          f"{', '.join(kinds[:-1])} and {kinds[-1]} units of each book "
+                          f"({', '.join(REPORT_BOOKS)}; quantt-<book>-<kind>), the alert secret service "
                           f"{REPORT_SECRET_UNIT}, and the two pnl key services "
                           f"{' and '.join(REPORT_PNL_KEY_UNITS[b] for b in REPORT_BOOKS)}, which read each "
                           f"book's Alpaca key from the vault into a tmpfs env file of its own; touches no "

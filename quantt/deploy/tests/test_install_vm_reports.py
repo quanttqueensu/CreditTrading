@@ -371,14 +371,49 @@ def test_the_reports_help_names_the_pnl_units_and_their_key_services(capsys, mon
     """Finding 4 of the independent review of PR #82 (2026-11-11): the `--reports` help said it
     installs "the report-only data-QA and risk units", but it also installs each book's pnl
     unit and the two pnl key services, which read each book's Alpaca key from the vault. The
-    help now names them, from the constants the install renders. Fails on the parent commit."""
+    help now names them, from the constants the install renders. Fails on the parent commit.
+    Its kind list is REPORT_KINDS's own names since the second review of PR #82 (2026-11-11)."""
     monkeypatch.setenv("COLUMNS", "1000")            # one line: argparse would wrap at hyphens
     with pytest.raises(SystemExit) as e:
         iv.main(["--help"])
     assert e.value.code == 0
     out = " ".join(capsys.readouterr().out.split())
-    assert "the data-QA, risk and pnl units of each book (cef, c4)" in out
+    assert "the dataqa, risk and pnl units of each book (cef, c4; quantt-<book>-<kind>)" in out
     assert ("the two pnl key services quantt-reports-cef-pnl-keys.service and quantt-reports-c4-pnl-keys.service, "
             "which read each book's Alpaca key from the vault") in out
     assert f"the alert secret service {iv.REPORT_SECRET_UNIT}" in out
     assert "data-QA and risk units instead" not in out
+
+
+def _help(capsys, monkeypatch) -> str:
+    monkeypatch.setenv("COLUMNS", "1000")            # one line: argparse would wrap at hyphens
+    with pytest.raises(SystemExit) as e:
+        iv.main(["--help"])
+    assert e.value.code == 0
+    return " ".join(capsys.readouterr().out.split())
+
+
+def test_the_reports_help_kind_list_is_report_kinds(capsys, monkeypatch):
+    """Second review of PR #82 (2026-11-11): the `--reports` help's kind list was the literal
+    "data-QA, risk and pnl" beside a comment saying its names come from the constants and
+    "cannot drift". It is now built from REPORT_KINDS, so a kind added there is in the help.
+    Fails on the parent 3ab5afd, whose literal has no fourth kind."""
+    monkeypatch.setattr(iv, "REPORT_KINDS", {**iv.REPORT_KINDS, "extra": "scripts.ops.extra"})
+    out = _help(capsys, monkeypatch)
+    assert "the dataqa, risk, pnl and extra units of each book (cef, c4; quantt-<book>-<kind>)" in out
+
+
+def test_the_vault_help_names_every_secret_the_key_services_read(capsys, monkeypatch):
+    """Second review of PR #82 (2026-11-11): the `--vault` help named only alpaca-cef-key-id and
+    alpaca-cef-secret-key, but --book c4 reads C4's two and --reports reads both books' (the pnl
+    key services) and the two SMTP secrets (the alert secret service). It now names them all,
+    from the maps the services render. Fails on the parent 3ab5afd, which names neither C4's
+    secrets nor the SMTP ones."""
+    out = _help(capsys, monkeypatch)
+    names = lambda pairs: ", ".join(s for s, _ in pairs)
+    for b, vm in iv.VM_BOOKS.items():
+        assert f"--book {b}: {names(vm.secret_map)}" in out, b
+    both = names(p for b in iv.REPORT_BOOKS for p in iv.REPORT_PNL_KEYS[b].secret_map)
+    assert f"--reports: {both} (the pnl key services) and {names(iv.REPORT_SECRET_MAP)} ({iv.REPORT_SECRET_UNIT})" in out
+    for secret in ("alpaca-c4-key-id", "alpaca-c4-secret-key", "alert-smtp-user", "alert-smtp-pass"):
+        assert secret in out, secret
