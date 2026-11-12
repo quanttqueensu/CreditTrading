@@ -4178,3 +4178,19 @@ that adds it does not exist when it is written.
 - source: `docs/SYSTEM.md` @ `e02abb1` (§5, the 2026-11-11 block); `docs/MISSION.md` @ `e02abb1` (§5, the block dated 2026-11-11); `.claude/skills/hunt/SKILL.md` @ `e02abb1`
 - supports: §2, §5
 - status: current. The team lead's instruction in the session of 2026-11-11. It adds to the 2026-11-09 ruling (E-2026-11-09-01) and changes nothing else in it. The seed list in `docs/MISSION.md` is hypotheses; none is tested
+
+### E-2026-11-11-03 · Result: the fall after the ex-date is also in partnership and trust units (gross Sharpe 3.03), weakly in REITs, and absent in ETFs and large common stocks
+- kind: result
+- era: ALPACA
+- date: 2026-11-11
+- figures:
+  - units (CRSP share type UG), the closed-end fund test unchanged: gross Sharpe 3.03, t 15.40, 32.26%/yr at 10.65% vol, 2000-02-15 to 2025-12-29; 9,044 eligible ex-dates on 242 units; shift(2); no cost and no borrow modelled [S]
+  - units: halves 3.34 and 2.77; eras 3.16, 3.39, 2.77, 3.08, 2.10; placebo events ten sessions later −0.02 [S]
+  - units, event names less the group: X−3..X−1 +44.2bp, X+1..X+3 −85.2bp [S]
+  - units, dating check: on the ex-date the price falls 203.5bp against a mean distribution of 176.8bp, slope 1.18 on the distribution's size; the X+1 slope is 0.14; one eligible ex-date had no volume [S]
+  - units, X+1..X+3 by average daily dollar volume: −106.7bp at $0.5–2M, −81.7bp at $2–10M, −61.4bp above $10M [S]
+  - REITs: Sharpe 0.91, t 4.62, halves 1.00 and 0.81, −0.45 in 2023–25; X+1..X+3 −13.2bp on 13,050 ex-dates [S]
+  - ETFs: Sharpe 0.28 with the placebo at 0.34; the 1,500 largest common stocks: −0.02 [S]
+- source: `results/ideas/2026-11-11_exdate_other_wrappers.md` @ `fc6bc2b`; `results/ideas/exdate_other_wrappers/results.json` @ `fc6bc2b`
+- supports: §3, §4
+- status: current. One run of the reproducer; not independently re-derived. The dating and liquidity checks were run in the session and their figures are in the card, not in a stored file. Borrow, capacity and the live list of units are unmeasured
