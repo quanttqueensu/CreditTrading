@@ -338,7 +338,12 @@ def build_factor(book: str, res, inp, *, groups: dict, asof: dt.date, reconciled
     book flat on 2026-01-22 showed "MUNI ... REVIEW" read at 01-21, and risk_daily passed it
     as INFO), and when a name had also been left out on an earlier date the PARTIAL share
     was read against the as-of close's gross, 0, and raised, so the block said UNMEASURED
-    with a ReadoutError. The core is flat on many thin sessions, so both were common. Now a
+    with a ReadoutError. A flat close happens when a thin session flattens the core (the live
+    sleeve flattens where the harness holds, E-2026-11-02-11). The backtest shows that often
+    (E-2026-11-02-16, a backtest window, not the live record); the live book had not seen it
+    as of 2026-11-02 ("There has been no thin session since 2026-09-28", E-2026-11-02-11).
+    (Corrected on the second review of PR #82, 2026-11-11: this said "The core is flat on many
+    thin sessions, so both were common", a backtest's frequency read as the live book's.) Now a
     book with no position at that close gets the FLAT block (`_factor_flat`): nothing to
     expose, no flag, no PARTIAL, its history labelled with its dates; and `_factor_report`
     refuses a readout whose last date is not that close.
