@@ -438,3 +438,8 @@ from a named source; [doc] copied from a named note.
 
 **Clustered insider buying, 2026-11-12** (`results/report/EVIDENCE_LOG.md` E-2026-11-12-01).
 - **Research.** The October census rule for insider-buying clusters, tested for returns on the 2,000 largest US stocks, 2006 to 2025: gross Sharpe 0.05 (t 0.21), and what there is tracks a buy-the-losers control [V: `results/ideas/2026-11-12_insider_clusters.md`]. Set aside in liquid stocks; three quarters of the clusters are in smaller companies and are untested.
+
+**Merger arbitrage in cash deals, 2026-11-12** (`results/report/EVIDENCE_LOG.md` E-2026-11-12-03).
+- **Research.** The first returns this desk has computed on merger deals, from SDC and CRSP on R2 to 2025-12-31. Agreed (friendly) one-step cash deals earn a raw Sharpe of 0.71 (t 3.63), 0.48 over bills, with a beta of 0.17 and a 23% drawdown in 2007–08; the friendly filter was chosen after the first run. The event-time spread of the October design note is absent (0.04). An independent review re-derived the premium and found no material defect [V: `results/ideas/2026-11-12_merger_arb.md`].
+- **Found.** The October EDGAR deal list only sees a deal at its proxy, so it cannot be used from the announcement date; and its 2010–22 part does not keep the first-proxy date. SDC's announcement date can be a session early (the target still rises 6.9% the session after). CRSP's new-format return carries the cash paid at closing on an extra row (`docs/REFERENCES.md` §12ma).
+- **Next for this idea.** Rebuild the EDGAR list with first-proxy and termination dates: without a break date a live book holds broken deals as ordinary stocks.
