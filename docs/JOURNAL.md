@@ -426,3 +426,7 @@ from a named source; [doc] copied from a named note.
 
 **Event-driven and special situations added to the mission, 2026-11-11** (`results/report/EVIDENCE_LOG.md` E-2026-11-11-02).
 - **Ruled.** The team lead: the desk is event-driven and special situations as well as systematic, in any asset class, and hunts look for niche verticals there. `docs/SYSTEM.md` §5 records it; `docs/MISSION.md` §5 has the seed list; `/hunt` requires it.
+
+**The first event test under the 2026-11-11 instruction** (`results/report/EVIDENCE_LOG.md` E-2026-11-11-03).
+- **Research.** The closed-end fund ex-date trade, unchanged, on four other groups from CRSP to 2025-12-31. Partnership and trust units have it: gross Sharpe 3.03 (t 15.40), both halves, placebo −0.02. REITs weakly (0.91); ETFs and the 1,500 largest common stocks not at all [V: `results/ideas/2026-11-11_exdate_other_wrappers.md`].
+- **Next.** A shadow book on live units, once the list is checked against Alpaca for tradable and shortable names.
