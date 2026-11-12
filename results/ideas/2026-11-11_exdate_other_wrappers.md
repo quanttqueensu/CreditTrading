@@ -1,7 +1,7 @@
 # Idea card — the ex-date fall in other wrappers: partnership and trust units have it
 
 **Slug:** `exdate_other_wrappers` (the part that clears: `units_exdate_drift`) · **Written:** 2026-11-11 ·
-**Status:** units EXPLORE, cleared, shadow book next; REITs EXPLORE, weak; ETFs and common stocks SET ASIDE ·
+**Status:** units SHADOW (two books from 2026-11-11); REITs EXPLORE, weak; ETFs and common stocks SET ASIDE ·
 **Reproducer:** `python3 results/ideas/exdate_other_wrappers/explore.py` ·
 **Panels:** CRSP daily on R2, last date **2025-12-31** (`scripts/research/stage_crsp_exdate_groups.py`,
 `scripts/research/stage_crsp_equities.py --top 2000`). Not in the repository.
@@ -65,10 +65,18 @@ summed over three sessions. 2000-02-15 to 2025-12-29.
   book must read declared ex-dates from a live source, as the fund books do.
 - **The mirror ends 2025-12-31**; nothing here is from 2026.
 
-## Next
+## On shadow from 2026-11-11
 
-A shadow book on the live units, built like the two fund books (`shadow/signals/cef_exdate.py`),
-after the live list is checked against Alpaca for tradable and shortable names. The
-long-before form (X−3..X−1 is positive in units, +44.2bp) is the obvious second book.
+Two books, $1M each, on 48 live units (`shadow/universes/units_v1.csv`, rebuilt from the
+public exchange directory because CRSP's list cannot be published; it holds 46 of the 51
+CRSP units with a recent ex-date): `units_exdate_after`, the pre-specified short-after
+book, and `units_exdate_before_after`, long before and short after, which is not
+pre-specified. They reuse the fund books' signal code unchanged.
+- **14 of the 48 were not shortable at Alpaca on 2026-11-11.** A shadow book ignores borrow,
+  so its short leg overstates what a paper account could hold.
+- **Unit distributions cluster by quarter**, so both books will be flat on many days. The
+  long-before book is also flat whenever nothing is in a post-ex window, by its own rule.
+- Their first decisions, for 2026-11-11, were flat: no unit had an ex-date on 11-10 to 11-12
+  [V: local run 2026-11-11 20:13 New York, which is too late to be scored].
 
 ![equity curve, units](exdate_other_wrappers/units/equity.png)

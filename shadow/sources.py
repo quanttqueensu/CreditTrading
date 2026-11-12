@@ -90,6 +90,17 @@ class ReadOnlyData:
         return [{"symbol": e["symbol"], "ex_date": e["ex_date"], "amount": e["amount"]}
                 for e in evs if first <= e["ex_date"] <= last]
 
+    def asset_flags(self, symbol: str) -> dict | None:
+        """{tradable, shortable, borrow_status, exchange} for one symbol, or None when Alpaca
+        does not list it. Read on its date only: all of these change daily."""
+        from quantt.broker.alpaca import AssetNotFound
+        try:
+            a = self.__client.asset(symbol)
+        except AssetNotFound:
+            return None
+        return {"tradable": a["tradable"], "shortable": a["shortable"],
+                "borrow_status": a.get("borrow_status"), "exchange": a["exchange"]}
+
     def sessions(self, first: dt.date, last: dt.date) -> list:
         """Trading days from the exchange calendar Alpaca serves."""
         return [dt.date.fromisoformat(str(r["date"])[:10]) for r in self.__client.calendar(first, last)]

@@ -2011,3 +2011,11 @@ books' own fills disagree with a page, both are given.
 | Yahoo serves today's bar while the session is open, dated as a daily bar | [V] 2026-11-10 | First run at about 11:30 New York returned rows dated 2026-11-10. The fetcher now drops a row until its session has closed (16:30 New York) |
 | Yahoo's adjusted close is re-based on every dividend, so its level changes between fetches and only its returns are stable | [S] | The desk's own finding on the ETF panels (`docs/SYSTEM.md` §5, 2026-10-12, "the 7 ETF panels"; the XASSET Stage 0a note). Not re-measured here |
 | The repo's NYSE calendar (`ops/schedule/nyse_calendar.py`) closes on Martin Luther King Day before 1998, when the exchange was open | [V] 2026-11-10 | SPY traded on 1994-01-17, 1995-01-16, 1996-01-15 and 1997-01-20 (Yahoo), all of which the calendar calls holidays. It does not affect the live path, which only asks about current dates; research before 1998 must not date sessions with it |
+
+## 12sd. Nasdaq Trader's symbol directory, for shadow universes (added 2026-11-11)
+
+| claim | status | source and note |
+|---|---|---|
+| `nasdaqlisted.txt` and `otherlisted.txt` list every Nasdaq-listed and other-exchange-listed US security with its security name, an ETF flag and a test-issue flag, pipe-delimited, with a "File Creation Time" last line | [V] 2026-11-11 | `https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt` and `.../otherlisted.txt`, fetched 2026-11-11 (creation time 2026-11-11 18:01): 5,608 and 7,678 lines. Read by `shadow/universes/build_units_v1.py` |
+| The files' terms of use were not read | [U] | Only the symbol and the security name are used, to pick a list of symbols; no price or quote data comes from Nasdaq. This is a different product from the Nasdaq Fund Network data whose policy forbids trading use (the NFN rows above) |
+| A name rule on that directory, then Alpaca (tradable, a cash distribution in 400 days), gives 48 partnership and trust units; 34 were shortable at Alpaca on the build date | [V] 2026-11-11 | `python3 -m shadow.universes.build_units_v1`, run 2026-11-11: 294 names pass the rule, 294 tradable, 48 paid. It holds 46 of the 51 CRSP "units" securities with an ex-date since 2025-06 (checked locally against the R2 mirror; the five missed are named by issuer form the rule does not catch) |
