@@ -83,6 +83,35 @@ from quantt.broker.alpaca_probe import MissingCredential, env_names
 
 NY = ZoneInfo("America/New_York")   # the exchange clock; auction windows are ET days
 
+
+def refuse_redirects(session) -> None:
+    """Make `session` unable to follow an HTTP redirect. Call it on every session that
+    carries the Alpaca key headers.
+
+    WHY (security review, 2026-11-10). `requests` follows a 3xx by default, and on a
+    redirect to ANOTHER HOST it removes only the `Authorization` header. Alpaca's keys
+    travel in two custom headers, `APCA-API-KEY-ID` and `APCA-API-SECRET-KEY`, which
+    `requests` keeps: a 301/302/303/307/308 from either Alpaca host (or from anything
+    that can answer in its place) would hand both keys to whatever host the `Location`
+    names. The client checks which host it ADDRESSES (PAPER_BASE, DATA_BASE) and, until
+    this change, nothing checked where a response sent it next. Neither Alpaca API
+    documents a redirect, so following one buys nothing.
+
+    Two layers, because either alone can be forgotten:
+      * this function sets `max_redirects = 0`. `requests` then raises
+        `TooManyRedirects` on ANY 3xx, BEFORE it builds the second request, whatever the
+        call passed (measured: it raises even with `allow_redirects=False`, because
+        `requests` still resolves the next hop to fill `response.next`). So a research
+        script that borrows `client._session` and calls it bare is covered too. The
+        client turns that exception into its own error, naming the status;
+      * every call in this package also passes `allow_redirects=False`, which is what
+        protects a session that is not a `requests.Session` or lost the setting, and
+        each caller has an explicit 3xx branch for that case.
+    `quantt/tests/test_alpaca_redirects.py` runs the real `requests` redirect code against
+    a recording transport and shows the second host receives nothing either way.
+    """
+    session.max_redirects = 0
+
 # The only two hosts this client will ever address. Not configurable on
 # purpose: the constructor accepts the arguments RUNNER.md names so a caller
 # can SAY which endpoint it expects, and raises if that is anything else.
@@ -363,6 +392,7 @@ class AlpacaClient:
         # Header names from Alpaca's authentication docs [V]. The keys live
         # here and only here; `_scrub` reads them back from this dict.
         session.headers.update({"APCA-API-KEY-ID": key_id, "APCA-API-SECRET-KEY": secret})
+        refuse_redirects(session)
         self._session = session
 
     @classmethod
@@ -413,6 +443,8 @@ class AlpacaClient:
         POST path never comes through here. Returns decoded JSON, or None for a
         404 when `allow_404`. Any other non-200, or a body that is not JSON,
         raises with the path and Alpaca's message -- never the request headers.
+        A 3xx is never followed (`refuse_redirects`) and never retried: it raises,
+        naming the status, and the `Location` it pointed at is not printed.
         """
         import requests
         url = base + path
@@ -422,7 +454,12 @@ class AlpacaClient:
             if i:
                 self._sleep(GET_BACKOFF_S[i - 1])
             try:
-                r = self._session.get(url, params=params, timeout=TIMEOUT_S)
+                r = self._session.get(url, params=params, timeout=TIMEOUT_S, allow_redirects=False)
+            except requests.TooManyRedirects as e:      # `refuse_redirects`: a 3xx, not followed
+                st = getattr(e.response, "status_code", None)
+                raise AlpacaHTTPError(self._scrub(
+                    f"GET {path} -> HTTP {st}: a redirect, NOT followed (following one would "
+                    f"send the key headers to another host)"), status=st) from None
             except (requests.Timeout, requests.ConnectionError) as e:
                 last = f"{type(e).__name__}: {e}"
                 status = None
@@ -430,6 +467,10 @@ class AlpacaClient:
             status = r.status_code
             if status == 404 and allow_404:
                 return None
+            if 300 <= status < 400:
+                raise AlpacaHTTPError(self._scrub(
+                    f"GET {path} -> HTTP {status}: a redirect, NOT followed (following one would "
+                    f"send the key headers to another host)"), status=status)
             if status == 429 or 500 <= status < 600:
                 last = f"HTTP {status}: {r.text[:300]}"
                 continue
@@ -641,12 +682,25 @@ class AlpacaClient:
         cid = client_order_id
         look = f"look it up with order_by_client_id({cid!r}); do NOT resend"
         try:
-            r = self._session.post(PAPER_BASE + "/v2/orders", json=payload, timeout=TIMEOUT_S)
+            r = self._session.post(PAPER_BASE + "/v2/orders", json=payload, timeout=TIMEOUT_S,
+                                   allow_redirects=False)
+        except requests.TooManyRedirects as e:          # `refuse_redirects`: a 3xx, not followed
+            raise AmbiguousSubmit(self._scrub(
+                f"POST /v2/orders {cid}: HTTP {getattr(e.response, 'status_code', None)}, a redirect, "
+                f"NOT followed (following one would send the key headers and the order to another "
+                f"host) -- {look}"), client_order_id=cid) from None
         except (requests.Timeout, requests.ConnectionError) as e:
             raise AmbiguousSubmit(self._scrub(
                 f"POST /v2/orders {cid}: {type(e).__name__} -- the order may or may not "
                 f"be at Alpaca; {look}"), client_order_id=cid) from None
         status = r.status_code
+        if 300 <= status < 400:
+            # Not followed (`refuse_redirects`). Whether the order exists is not known from a
+            # 3xx, so it is the ambiguous case, never a rejection and never a resend.
+            raise AmbiguousSubmit(self._scrub(
+                f"POST /v2/orders {cid}: HTTP {status}, a redirect, NOT followed (following one "
+                f"would send the key headers and the order to another host) -- {look}"),
+                client_order_id=cid)
         if 400 <= status < 500:
             raise OrderRejected(self._scrub(
                 f"POST /v2/orders {cid} ({side} {qty} {symbol} {tif}) rejected: "
