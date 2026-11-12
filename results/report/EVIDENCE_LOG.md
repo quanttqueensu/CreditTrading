@@ -4194,3 +4194,17 @@ that adds it does not exist when it is written.
 - source: `results/ideas/2026-11-11_exdate_other_wrappers.md` @ `fc6bc2b`; `results/ideas/exdate_other_wrappers/results.json` @ `fc6bc2b`
 - supports: §3, §4
 - status: current. One run of the reproducer; not independently re-derived. The dating and liquidity checks were run in the session and their figures are in the card, not in a stored file. Borrow, capacity and the live list of units are unmeasured
+
+### E-2026-11-11-04 · Method: two ex-date shadow books start on 48 partnership and trust units, on a list rebuilt from the public exchange directory
+- kind: method
+- era: ALPACA
+- date: 2026-11-11
+- figures:
+  - 294 listed names pass the name rule; 294 are tradable at Alpaca; 48 paid a cash distribution in the 400 days to 2026-11-11 [S]
+  - 34 of the 48 were shortable at Alpaca on 2026-11-11, all 34 easy to borrow [S]
+  - the list holds 46 of the 51 CRSP units with an ex-date since 2025-06 (local check against the R2 mirror) [S]
+  - first fetch: prices for 48 of 48 symbols; 30 ex-dates, 11 units with a future ex-date listed [S]
+  - both books' decisions for 2026-11-11 were flat (no ex-date on 11-10 to 11-12), from a local run too late to be scored [S]
+- source: `shadow/universes/build_units_v1.py` @ `90960fd`; `shadow/universes/units_v1.csv` @ `90960fd`; `shadow/books/units_exdate_after.json` @ `90960fd`; `shadow/books/units_exdate_before_after.json` @ `90960fd`; `docs/REFERENCES.md` @ `90960fd` (§12sd)
+- supports: §4, §5
+- status: current. Shadow books under the 2026-11-09 one-time approval (E-2026-11-09-03); SIMULATED, $1M each, no borrow modelled. The VM's first run of them is unconfirmed: ssh from the laptop timed out on 2026-11-11
