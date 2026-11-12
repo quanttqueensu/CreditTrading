@@ -1358,8 +1358,10 @@ is INFO when that record holds no position, a WATCH naming the count and the sym
 it holds any, and UNMEASURED when the record is missing, unreadable or for another session.
 A factor ETF
 without its price, or no held name with its inputs, makes the block UNMEASURED, naming it;
-the attribution above it stays either way. A book with no Dimson lag (C4, until its rule
-has produced one) has a factor block UNMEASURED, naming the rule.
+the attribution above it stays either way. A book whose lag rule has produced no Dimson lag
+has a factor block UNMEASURED, naming the rule. Neither does today: the core's rule gives
+L = 0, and C4's gave L = 2 on 2026-11-09 (`scripts/cef/exposure_readout.py`, THE C4 RULE'S
+RESULT).
 
 **Rollback.** As 8.11: on a rollback to a tag older than this section, first
 `sudo systemctl disable --now quantt-{cef,c4}-pnl.timer`, then

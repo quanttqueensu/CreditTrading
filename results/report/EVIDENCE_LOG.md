@@ -4225,3 +4225,13 @@ that adds it does not exist when it is written.
 - source: `scripts/ops/pnl_report.py` @ `bf98dec`; `scripts/ops/risk_daily.py` @ `bf98dec`; `scripts/ops/pnl_report.py` @ `d498c4f`; `scripts/ops/pnl_report.py` @ `d2f3e19`
 - supports: §4, §5
 - status: current
+
+### E-2026-11-12-51 · Ruling: the report job merges after its third review; three older gaps it found go, with the flat-session factor P&L gap, into one reviewed follow-up before any install
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-12
+- figures:
+  - none (a ruling. The third review found the new commits correct with no figure moved, and three gaps older than them: a held night's factor exposure is never checked against the account's positions; a late end-of-day point can show the previous close's reading as INFO without marking it stale; a split in any fund ever held leaves the factor block UNMEASURED every night after. The team lead ruled on 2026-11-12: merge now, and fix these three and the flat-session factor P&L gap in one reviewed follow-up PR before any install. Also on 2026-11-12: a flat night with yfinance down stays UNMEASURED, like a held night)
+- source: `scripts/ops/pnl_report.py` @ `d2f3e19`; `scripts/ops/risk_daily.py` @ `bf98dec`; `scripts/cef/exposure_readout.py` @ `d2f3e19`
+- supports: §5
+- status: current
