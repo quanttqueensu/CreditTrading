@@ -4220,3 +4220,16 @@ that adds it does not exist when it is written.
 - source: `shadow/universes/build_units_v1.py` @ `90960fd`; `shadow/universes/units_v1.csv` @ `90960fd`; `shadow/books/units_exdate_after.json` @ `90960fd`; `shadow/books/units_exdate_before_after.json` @ `90960fd`; `docs/REFERENCES.md` @ `90960fd` (§12sd)
 - supports: §4, §5
 - status: current. Shadow books under the 2026-11-09 one-time approval (E-2026-11-09-03); SIMULATED, $1M each, no borrow modelled. The VM's first run of them is unconfirmed: ssh from the laptop timed out on 2026-11-11
+
+### E-2026-11-12-01 · Result: clustered insider buying has no effect in the 2,000 largest US stocks (gross Sharpe 0.05) and is set aside there
+- kind: result
+- era: ALPACA
+- date: 2026-11-12
+- figures:
+  - long each cluster stock for 21 sessions against the other eligible stocks: gross Sharpe 0.05, t 0.21, 0.30%/yr at 6.48% vol, 2006-02-08 to 2025-12-31; shift(2); no cost modelled [S]
+  - halves 0.23 and −0.14; eras 0.30, 0.15, 0.95, −0.69, −0.41 [S]
+  - controls: the events 126 sessions late −0.33; the worst tenth by one-month return with no insider data 0.16; correlation of the book with that control 0.25; held 60 sessions −0.11 [S]
+  - 14,421 clean clusters (the 2026-10-19 census rule); 3,725 (26%) are in the panel on their date; about 14 cluster stocks held a day; 18% of sessions flat [S]
+- source: `results/ideas/2026-11-12_insider_clusters.md` @ `f103660`; `results/ideas/insider_clusters/results.json` @ `f103660`
+- supports: §3, §4
+- status: current. One run of the reproducer; not independently re-derived. The cluster file was built on 2026-10-19 by `scripts/events/ssx/ssx_ins_insider_census.py` and was not rebuilt for this test. Stocks below the 2,000th by market value are untested
