@@ -342,9 +342,85 @@ from a named source; [doc] copied from a named note.
 
 ## 2026-11-05 (Thu)
 
+**The analysts' roles reopened** (team lead; `docs/SYSTEM.md` §5; `results/report/EVIDENCE_LOG.md` E-2026-11-05-31).
+- The lanes become recommended starting points: FICC risk, equity risk, and cross-asset signals with the dashboard. The work is open-ended.
+- Any analyst may propose a signal, and the team lead approves every test. This supersedes the 2026-11-03 report-only lanes.
+- Each analyst pitches one idea to the execs at the end of November, as a short talk with slides. The date and length are still to be set.
+- `docs/TEAM.md`, `docs/ONBOARDING.md`, `README.md` and the pull request template now say the same. Nothing on the live path changed.
+
 **Execution-cost study, both paper books (report only, zero trials; `results/cef/EXEC_COST_STUDY_2026-11-05.md`, `results/report/EVIDENCE_LOG.md` E-2026-11-05-30).**
 - **Where the cost comes from.** The core's paper fill vs the auction print is 7.14bp over 21 `late_market` sessions (day t 3.20). 5.90bp of it is the spread paid at send: half a cent a share, set by the tick. The remaining 1.24bp is drift to the close and not significant.
 - **What would cut it.** The spread is flat from 15:51 to 15:59:30, so the send time buys no spread. Posting at the passive touch and crossing the remainder at 15:58 would have cost 4.12bp (−2.2bp, t −1.93; the CI includes zero).
 - **Real money.** None of the paper cost carries over to MOC. The live cost is auction impact, which is unmeasured, on orders a notional-weighted median of 15% of the closing cross.
 - **C4.** Its names quote about twice the core's spread, about 5.4%/yr at its design turnover against a modelled 10.76%/yr gross.
 - **Status.** Ranked candidates are proposed and none adopted; each needs a pre-registration and a release. PR to `main`, not merged.
+
+## 2026-11-08 (Sun)
+
+**The check of 2026-11-05's evening, run late** (`results/report/EVIDENCE_LOG.md` E-2026-11-08-01..03).
+- **Why late.** The scheduled job lives only in an open, idle session, so it ran three days after its slot. The VM was also out of reach: the ssh rule no longer matched the team lead's IP, and the team lead updated it. The VM kept running and trading throughout. The 11-06 plans sent unread.
+- **Sessions.** All passed verify.
+  - The core sent 5 of 6 on 11-05 (an MHD short was skipped: not shortable) and 13 of 13 on 11-06.
+  - C4 sent 2 of 2 and 3 of 3.
+- **Official P&L since funding.** Core −$594.02 (equity $99,405.98). C4 +$7.79 (equity $100,007.79; +$1,243.68 on 11-05, −$1,225.93 on 11-06).
+- **The core's ×1.30 book has phased in:** 1.827× gross on Alpaca's values, slightly over the 1.80 cap on marks. Maintenance margin is 0.80 of equity.
+- **Plans for 11-09.** The core: 13 orders, taking the book to 1.784× and net from +0.177× to +0.055×. C4: 2 orders, at 1.335×.
+- **C4's data.** IGR's history is unchanged and no seed-window close moved. C4's UTF short is no longer shortable; it is an existing position and no new short is planned.
+
+**Research is not pass or fail** (`docs/SYSTEM.md` §5, 2026-11-08; `results/report/EVIDENCE_LOG.md` E-2026-11-08-04). The team lead ruled that a failed gate should not end an idea.
+- **The research line.** The power check now stops only below 0.10 and warns up to 0.50. A new Follow-up station reads every result on economics and market history, then names the next tweak or gives the reasons to set the idea aside.
+- **Counting.** Every re-test and every holdout look is a counted trial, and holdouts can be re-opened. Paper trading on later data is the clean check before real money.
+- **The loop.** Follow-ups come first. It no longer admits anything: it writes a scorecard and the team lead decides.
+- **Not changed.** The live book's stops, real-capital admission, the analysts' process and the guides.
+
+## 2026-11-09 (Mon)
+
+**The mission** (`docs/SYSTEM.md` §5, 2026-11-09; `docs/MISSION.md`; `results/report/EVIDENCE_LOG.md` E-2026-11-09-01, -02).
+- **Rulings.** The team lead gave a standing brief, kept verbatim as `docs/MISSION.md`.
+  - Scope is open, and the CEF book is one sleeve.
+  - Paper trading is the test. Research is judged on gross signal, with no cost model.
+  - Pre-registration, the trial counters, the holdout ceremony, "no sweeping" and alpha-only are dropped.
+  - An agent may start a paper or shadow book itself, through a separate path whose design the team lead approves once. That design is not written yet, so nothing new is on paper.
+  - Prod releases are the team lead's alone again: the 2026-11-02 standing authority is withdrawn.
+- **Research.** No return computed. `results/IDEA_LEDGER.md` replaces the counters and carries a one-line backfill of everything in `docs/RESEARCH_STATE.md`, which is frozen as history. 13 old ideas had a measured positive gross effect and were stopped by a gate that no longer applies.
+- **Found.** `results/mission/PHASE0_2026-11-09.md`: why the book has too few bets (one signal, small universes, one horizon, gates that kept no inventory, a prod release for every sleeve); every laptop panel is stale, from about 17 sessions (the core) to seven months (futures); and the agent layer still describes the old gates. `CLAUDE.md` is rewritten and wins where they differ. The research loop now stops at its own gate until it is rebuilt.
+- **Rulings, later** (`results/report/EVIDENCE_LOG.md` E-2026-11-09-03). The shadow-book runner's design is approved once (`results/mission/SHADOW_RUNNER_DESIGN_2026-11-09.md`): shadow books first, on the VM as a separate user, marked on Alpaca's auction prints with a yfinance check, $1M a book. The analysts keep `docs/TEAM.md`'s process. The agent runs the free data fetchers.
+- **Built.** `shadow/`: the engine, the book file and the scoreboard, with tests (E-2026-11-09-04). No book runs yet: the fetchers, the first book and the VM install are next.
+- **The desk.** Rebuilt for the mission (E-2026-11-09-05; `.claude/README.md`): seats `market-historian-economist`, `signal-hunter`, `data-scout`, `portfolio-architect`, `execution-engineer` and `go-live-reviewer`; commands `/hunt`, `/idea`, `/explore`, `/paper`, `/scoreboard`, `/combine` and `/go-live`. `/prereg` and the event census are removed, and the research loop is a stub that stops.
+- **Found, later.** The R2 data API reads from the laptop: CRSP's daily file runs to 2025-12-31 [V: `results/mission/PHASE0_2026-11-09.md` §2].
+- **Prod.** No change. The VM is armed at `release-20261104-1` [V: `python3 -m ops.orient`].
+- **Live.** Core: verify PASS, 12 of 12 filled; official pending; snapshot equity $98,838.46 at the 2026-11-09 close [V: `python3 -m ops.orient`].
+
+**Nightly report-only checks built** (`results/report/EVIDENCE_LOG.md` E-2026-11-09-40; PR open, not merged, not installed).
+- **What.** `scripts/ops/data_qa.py` (Q1–Q8, per book) and `scripts/ops/risk_daily.py` (per account), wrapping the existing readers, on VM timers installed by a separate `install_vm --reports` (`docs/RUNBOOK.md` 8.11). Book installs and rendered units are byte-identical to before.
+- **Thresholds** are derived on the fit panels to the design's budget; the calibration note says what falls short: Q3 cannot catch one-row stale copies, Q6 13/22 on the core, Q4's split-basis names are not panel steps (`results/ops/DATA_QA_CALIBRATION_2026-11-08.md`).
+- **Push on ACT only** through the existing SMTP path; until the team lead adds the two vault secrets, a fired stop says `ACT: notification NOT delivered` and fails loudly.
+
+## 2026-11-10 (Tue)
+
+**The first shadow book** (`results/report/EVIDENCE_LOG.md` E-2026-11-10-01).
+- **Research.** Month-end Treasury demand, long IEF over the last three sessions of each month, re-run gross on the harness (`results/ideas/2026-11-10_month_end_treasury.md`): Sharpe 1.07 over 2002-09 to 2026-10-09, both halves and all five eras positive, and IEF on every other session earns 0.10 [V: `python3 results/ideas/month_end_treasury/explore.py`]. It is the old XASSET-X3 with its rule unchanged.
+- **Shadow.** `shadow/books/month_end_ief.json`, $1M, started 2026-11-10. Its first weighted decisions are 2026-11-23 to 11-25. Simulated: it sends no order.
+- **Prod.** PRs #71 and #72 merged by the team lead on 2026-11-09 and 11-10. No release.
+- **The VM.** The shadow runner is installed beside prod, at the team lead's request, as user `quantt-shadow` following the branch `shadow` (`docs/RUNBOOK.md` §8.10; E-2026-11-10-02). Its key service is active, its first run exited 0 on code `29a7006`, and its timer next fires at 18:50. Prod's units, clone and state were not touched. A first attempt at 10:12 failed at its first step and created nothing.
+
+**The first hunt** (`results/ideas/2026-11-10_hunt_all.md`; `results/report/EVIDENCE_LOG.md` E-2026-11-10-03, -04).
+- **Research.** 24 short idea cards across six mechanism types and five asset classes, ranked; each has a ledger line. Two were explored the same day, gross, on the harness:
+  - **Turn of the month in equities: set aside.** Sharpe 0.48 from 1993, and SPY on every other session also scores 0.48. It is market exposure held a fifth of the time [V: `python3 results/ideas/turn_of_month_eq/explore.py`].
+  - **Treasury auction cycle: explored, not promoted.** Sharpe 0.57, placebo 0.03, but 0.39 once the month-end sessions are removed and −0.02 since 2023 [V: `python3 results/ideas/ust_auction_cycle/explore.py`]. The long-bond short into the auction is the part to follow up.
+- **Found.** Yahoo serves today's unfinished bar dated as a close; the new research fetcher drops it. The repo's NYSE calendar is wrong before 1998 (`docs/REFERENCES.md` §12yf).
+
+**The first wide-universe test** (`results/report/EVIDENCE_LOG.md` E-2026-11-10-05, -06).
+- **Research.** Short-term reversal within industry on the 1,500 largest US stocks, from CRSP on R2 to 2025-12-31: gross Sharpe 0.96 (t 4.90), halves 1.26 and 0.67, a stale-signal control at 0.04, and 1.35 against 0.32 by market volatility [V: `results/ideas/2026-11-10_st_reversal_wide.md`]. It clears Explore. It turns over 160 times a year, and it cannot go on shadow until a live equity panel exists.
+- **Found.** The laptop's numexpr fault (`scripts/events/numexpr_fault.py`) corrupted the first run's weights, differently each time. `scripts/research/explore.py` now turns numexpr off for every Explore script, and `CLAUDE.md` landmine 11 records it. The CRSP daily file on R2 tags closed-end funds and dates each dividend, delisted funds included.
+
+**The ex-date cycle on every closed-end fund** (`results/report/EVIDENCE_LOG.md` E-2026-11-10-07).
+- **Research.** On 1,123 CEFs from CRSP (dead funds included, to 2025-12-31), a fund falls about 30bp relative to other funds over the three sessions after its ex-date, after rising about 22bp over the three before. The pre-specified book (short after, long the rest) has a gross Sharpe of 4.18, positive in every era [V: `results/ideas/2026-11-10_cef_exdate_drift.md`].
+- **Checked as an artifact.** Every eligible ex-date had volume, the ex-day drop is 1.08 times the distribution, and the effect is larger in the most liquid funds. It is not stale prices.
+- **Not shown by the gross figure.** Each event is worth 20 to 30bp, about a round trip through the spread; the shorts need borrow that paper does not charge; capacity is about $1–3M. It clears Explore, and the shadow book is the next build.
+- **Shadow.** Two more books from 2026-11-10, $1M each, on 91 funds: `cef_exdate_after` and `cef_exdate_before_after` (`results/report/EVIDENCE_LOG.md` E-2026-11-10-08). Their ex-dates are stored by the day first seen. Three shadow books now run on the VM.
+
+**A security fix to the broker client** (`results/report/EVIDENCE_LOG.md` E-2026-11-10-09).
+- **Found.** The Alpaca client's GET and order POST, and the probe's GET, followed HTTP redirects. `requests` keeps custom headers on a redirect to another host, so a 3xx would have sent both key headers wherever it pointed. Another session's review found the same fault in its report reader and passed it on at the team lead's request. There is no evidence a redirect was ever served.
+- **Fixed, not released.** Every session that carries the keys now refuses any redirect (`quantt.broker.alpaca.refuse_redirects`), and a 3xx raises naming its status; on the order POST it is the ambiguous case, never a resend. The tests run `requests`' own redirect code against a recording transport: 22 fail on the old code.
+- **Prod.** Unchanged until the team lead's next release.

@@ -46,16 +46,19 @@ class FakeSession:
     def __init__(self, get_handler=None, post_handler=None):
         self.headers = {}
         self.gets, self.posts = [], []
+        self.redirect_flags = []      # every call's allow_redirects, as passed
         self._g, self._p = get_handler, post_handler
 
-    def get(self, url, params=None, timeout=None):
+    def get(self, url, params=None, timeout=None, allow_redirects=None):
+        self.redirect_flags.append(allow_redirects)
         self.gets.append((url, dict(params or {})))
         r = self._g(url, params or {})
         if isinstance(r, Exception):
             raise r
         return r
 
-    def post(self, url, json=None, timeout=None):
+    def post(self, url, json=None, timeout=None, allow_redirects=None):
+        self.redirect_flags.append(allow_redirects)
         self.posts.append((url, json))
         r = self._p(url, json)
         if isinstance(r, Exception):
@@ -120,6 +123,19 @@ def test_a_live_or_any_non_paper_trading_endpoint_is_refused(env_file):
                 "https://paper-api.alpaca.markets.evil.com", "http://paper-api.alpaca.markets"):
         with pytest.raises(ValueError, match="paper"):
             al.AlpacaClient("cef", env_file, base_url=bad, session=FakeSession())
+
+
+def test_trading_endpoint_reads_the_paper_endpoint_sends_nothing_and_cannot_be_set(env_file,
+                                                                                 sleeps):
+    """CEF trial 55 (te4): the runner declares the account paper only when this reads exactly
+    PAPER_BASE (quantt/session/run.py `thin_rule_for`). Reading it is not a request, and it
+    cannot be overwritten to make a client claim the paper endpoint."""
+    c, s = client(env_file, sleeps)
+    assert c.trading_endpoint == al.PAPER_BASE == "https://paper-api.alpaca.markets"
+    assert s.gets == [] and s.posts == []
+    with pytest.raises(AttributeError):
+        c.trading_endpoint = "https://api.alpaca.markets"
+    assert c.trading_endpoint == al.PAPER_BASE
 
 
 def test_a_non_default_data_endpoint_is_refused(env_file):

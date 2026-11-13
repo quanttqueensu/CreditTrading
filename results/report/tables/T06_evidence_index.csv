@@ -288,3 +288,10 @@ E-2026-11-04-91,2026-11-04,live-pnl,ALPACA,§4,8,SU,"c4 paper book, 2026-11-04: 
 E-2026-11-05-20,2026-11-05,correction,ALPACA,§4,3,S,"Correction to E-2026-11-03-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-03 yet, not because the file was missing from the pull"
 E-2026-11-05-21,2026-11-05,method,ALPACA,"§4, §5",1,,Method: snapshot_live ingests a C4 pull without distribution_scores.csv and names the distribution-adjusted P&L UNMEASURED; a core pull must still carry the file
 E-2026-11-05-22,2026-11-05,correction,ALPACA,§4,3,S,"Correction to E-2026-11-04-90: its official EOD figure was UNMEASURED because eod_equity.csv had no point for 11-04 yet, not because the file was missing from the pull"
+E-2026-11-05-30,2026-11-05,result,ALPACA,"§4, §3",10,V,"The core's paper fill cost is the quoted half-spread (half a cent a share); no send time inside the window narrows it, and none of it carries over to a live MOC fill"
+E-2026-11-05-40,2026-11-05,method,ALPACA,"§3, §6",6,V,"Method: the band width re-derived from the measured paper cost lands at 4.55% (core) and 4.07% (C4); the draft recommends adopting neither, and CEF stays 55"
+E-2026-11-05-41,2026-11-05,ruling,ALPACA,"§2, §3, §6",4,SV,"Ruling: the band stays 4.8% on both books (the re-derivation at the measured cost is CLOSED at zero trials, CEF stays 55), and post-then-cross is ""not now"""
+E-2026-11-05-90,2026-11-05,live-pnl,ALPACA,§4,8,SU,"cef paper book, 2026-11-05: PASS, traded"
+E-2026-11-05-91,2026-11-05,live-pnl,ALPACA,§4,8,SU,"c4 paper book, 2026-11-05: PASS, traded"
+E-2026-11-06-90,2026-11-06,live-pnl,ALPACA,§4,8,SU,"cef paper book, 2026-11-06: PASS, traded"
+E-2026-11-06-91,2026-11-06,live-pnl,ALPACA,§4,8,SU,"c4 paper book, 2026-11-06: PASS, traded"
