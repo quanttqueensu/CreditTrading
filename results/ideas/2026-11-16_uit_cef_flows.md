@@ -340,3 +340,42 @@ changed. (5) One run in the main session, not independently reviewed.
 
 **Status after this:** the strongest idea the desk has tested: it survived an adversarial review in sample and a clean
 out-of-sample year. The open question is execution, and only paper fills at the close can answer it.
+
+## A first closing-quote reading: 2026-11-20 (one session, a reading and not a test)
+
+2026-11-20 was a termination session for one trust holding 30 municipal funds. No order was sent. Quotes were read at
+15:52, 15:57, 15:59:30 and 16:12 New York, and the official closes at 17:15. Script
+`results/ideas/uit_cef_flows/close_reading.py`, output `close_reading_2026-11-20.json`; the saved quotes are outside
+the repository in `~/quantt_research/uit_cef_flows/close_reading_2026-11-20/`.
+
+**The source is weaker than planned.** The Alpaca market-data tools returned 401 on every call, so there are no SIP
+or IEX quotes. The quotes are Yahoo's public ones: the bid and ask carry no timestamp, and the last trade lay outside
+them on 11 of 29 funds at 15:57, so they may be delayed or from one venue. VFL has no Yahoo data; 29 funds are read,
+and all 29 had a two-sided quote at every reading.
+
+| at 15:57, 29 funds | |
+|---|---|
+| quoted spread | 1 cent on 18 funds, 2 on 7, 3 on 4; median 12.4bp, mean 16.0bp, widest 33.3bp |
+| ask less the official close | mean +10.4bp, median +11.1bp, range −23.6 to +60.8bp |
+| where the close printed | inside the quote on 10 funds, below the bid on 9, above the ask on 10 |
+| last trade less the close | mean −0.4bp, median 0.0bp, mean absolute 12.8bp |
+| close less the quote's mid | mean −2.3bp, median −5.0bp |
+
+**What it says.** A buyer lifting the quoted ask at 15:57 would have paid about 10bp more than the close on average,
+and no more than the close on 10 of the 29 funds. The close was not biased against the late trade (last trade less
+close: median zero), but it moved about 13bp either way from it, so a late market order does not get the close; it
+gets the close plus roughly half the spread, with noise of the same size. Against the rule's +42.6bp over T+1..T+3
+that is about a quarter of the edge on this one session, close to the 15bp the events sleeve is modelled at. The
+15:52 and 15:59:30 readings say the same (ask less close +10.7bp and +11.2bp).
+
+**Size.** The thinnest fund (DSM) traded $650,925 on the day and the median fund $3.45M; a $5,000 order is 0.77% of
+the thinnest fund's day and a $1,000 order 0.15%. The smallest quoted ask size was 100 shares, the median 800.
+
+**The selling window on T.** The 29 funds fell 24.8bp on the day in the mean (median −22.8bp, 72% down), price only.
+PCEF fell 196.8bp the same day, so against that benchmark the funds did not lag; PCEF is mostly taxable and equity
+funds and is a poor comparison for municipal funds on a day like this. This one session shows no excess selling.
+
+**Limits.** One session, 29 funds, one trust, all municipal. Untimestamped quotes of unknown venue. The 16:12 "close"
+was the last trade, not the closing print, on 21 of 29 funds; the figures above use the 17:15 closes, all whole-cent.
+No closing-auction print or size was read. The proper reading uses Alpaca's time-stamped historical quotes for this
+session, which can still be fetched once its tools authenticate.

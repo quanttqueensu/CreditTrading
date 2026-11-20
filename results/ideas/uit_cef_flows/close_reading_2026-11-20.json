@@ -1,0 +1,190 @@
+{
+ "session": "2026-11-20",
+ "source": "Yahoo public quotes; no timestamp on bid/ask",
+ "funds_listed": 30,
+ "funds_with_data": 29,
+ "no_data": [
+  "VFL"
+ ],
+ "closes_changed_1620_to_1715": 21,
+ "reads": {
+  "1552": {
+   "spread_bp": {
+    "mean": 16.6,
+    "median": 17.6,
+    "min": 0.0,
+    "max": 33.3
+   },
+   "spread_cents": {
+    "0": 2,
+    "1": 14,
+    "2": 8,
+    "3": 4,
+    "4": 1
+   },
+   "last_trade_inside_quote": 18,
+   "ask_size_median": 1100.0,
+   "ask_size_min": 100.0,
+   "close_minus_mid_bp": {
+    "mean": -2.3,
+    "median": -5.0,
+    "min": -55.4,
+    "max": 34.8
+   },
+   "ask_minus_close_bp": {
+    "mean": 10.7,
+    "median": 11.1,
+    "min": -23.6,
+    "max": 60.8
+   },
+   "close_at_or_below_ask": 18,
+   "close_below_bid": 8,
+   "close_above_ask": 11,
+   "last_minus_close_bp": {
+    "mean": 8.9,
+    "median": 6.2,
+    "min": -34.2,
+    "max": 60.8
+   },
+   "abs_last_minus_close_bp_mean": 16.3
+  },
+  "1557": {
+   "spread_bp": {
+    "mean": 16.0,
+    "median": 12.4,
+    "min": 7.8,
+    "max": 33.3
+   },
+   "spread_cents": {
+    "1": 18,
+    "2": 7,
+    "3": 4
+   },
+   "last_trade_inside_quote": 18,
+   "ask_size_median": 800.0,
+   "ask_size_min": 100.0,
+   "close_minus_mid_bp": {
+    "mean": -2.3,
+    "median": -5.0,
+    "min": -55.4,
+    "max": 34.8
+   },
+   "ask_minus_close_bp": {
+    "mean": 10.4,
+    "median": 11.1,
+    "min": -23.6,
+    "max": 60.8
+   },
+   "close_at_or_below_ask": 19,
+   "close_below_bid": 9,
+   "close_above_ask": 10,
+   "last_minus_close_bp": {
+    "mean": -0.4,
+    "median": 0.0,
+    "min": -34.6,
+    "max": 35.5
+   },
+   "abs_last_minus_close_bp_mean": 12.8
+  },
+  "1559": {
+   "spread_bp": {
+    "mean": 16.0,
+    "median": 11.8,
+    "min": 7.8,
+    "max": 35.6
+   },
+   "spread_cents": {
+    "1": 19,
+    "2": 5,
+    "3": 5
+   },
+   "last_trade_inside_quote": 16,
+   "ask_size_median": 1000.0,
+   "ask_size_min": 100.0,
+   "close_minus_mid_bp": {
+    "mean": -3.1,
+    "median": -5.1,
+    "min": -55.4,
+    "max": 40.6
+   },
+   "ask_minus_close_bp": {
+    "mean": 11.2,
+    "median": 11.1,
+    "min": -34.6,
+    "max": 60.8
+   },
+   "close_at_or_below_ask": 19,
+   "close_below_bid": 9,
+   "close_above_ask": 10,
+   "last_minus_close_bp": {
+    "mean": 1.3,
+    "median": 0.0,
+    "min": -32.8,
+    "max": 35.5
+   },
+   "abs_last_minus_close_bp_mean": 13.9
+  },
+  "1612": {
+   "spread_bp": {
+    "mean": 15.7,
+    "median": 12.4,
+    "min": -10.4,
+    "max": 37.2
+   },
+   "spread_cents": {
+    "-1": 1,
+    "0": 1,
+    "1": 15,
+    "2": 7,
+    "3": 5
+   },
+   "last_trade_inside_quote": 11,
+   "ask_size_median": 1300.0,
+   "ask_size_min": 100.0,
+   "close_minus_mid_bp": {
+    "mean": -3.6,
+    "median": -5.1,
+    "min": -60.4,
+    "max": 40.6
+   },
+   "ask_minus_close_bp": {
+    "mean": 11.6,
+    "median": 11.2,
+    "min": -34.6,
+    "max": 70.9
+   },
+   "close_at_or_below_ask": 20,
+   "close_below_bid": 10,
+   "close_above_ask": 9,
+   "last_minus_close_bp": {
+    "mean": 3.5,
+    "median": 0.0,
+    "min": -32.8,
+    "max": 35.1
+   },
+   "abs_last_minus_close_bp_mean": 9.8
+  }
+ },
+ "dollar_volume": {
+  "min": 650925,
+  "median": 3453299,
+  "max": 31468828,
+  "thinnest": {
+   "DSM": 650925.0,
+   "DMB": 686819.0,
+   "MHF": 792575.0
+  },
+  "order_5000_pct_of_thinnest": 0.77,
+  "order_1000_pct_of_thinnest": 0.15
+ },
+ "t_day_return_bp": {
+  "funds": {
+   "mean": -24.8,
+   "median": -22.8,
+   "min": -127.9,
+   "max": 48.4
+  },
+  "share_down": 0.72,
+  "pcef": -196.8
+ }
+}
