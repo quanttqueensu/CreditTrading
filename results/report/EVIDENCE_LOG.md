@@ -4942,3 +4942,20 @@ that adds it does not exist when it is written.
 - source: `results/ideas/uit_cef_flows/oos_2026.py` @ `a4a5ccb`; `results/ideas/2026-11-16_uit_cef_flows.md` @ `a4a5ccb`; `shadow/signals/uit_termination.py` @ `a4a5ccb`; `shadow/universes/uit_terminations_v1.csv` @ `a4a5ccb`
 - supports: §4
 - status: current. Gross; no closing quotes, so whether an order gets the termination session's closing price is not shown and remains the open condition; survivors only where Yahoo has no price; the control is the calendar's own funds outside their windows; one run, not independently reviewed. The id skips to -20 because the peer session takes -08 onward
+
+### E-2026-11-20-20 · Result: a first closing-quote reading for the unit-trust rule: on one session, lifting the 15:57 ask cost about 10bp against the official close
+- kind: result
+- era: ALPACA
+- date: 2026-11-20
+- figures:
+  - asked by the team lead on 2026-11-19 ("Yes, read the quotes"); no order was sent; 2026-11-20 was a termination session for one trust holding 30 municipal closed-end funds [V]
+  - the Alpaca market-data tools returned 401 on every call, so no SIP or IEX quote was read; the quotes are Yahoo's public ones, with no timestamp on the bid and ask; VFL has no Yahoo data, so 29 funds are read, all 29 two-sided at each of four readings [V]
+  - at 15:57 New York the quoted spread was 1 cent on 18 funds, 2 on 7 and 3 on 4: median 12.4bp, mean 16.0bp, widest 33.3bp [V]
+  - the 15:57 ask less the official close: mean +10.4bp, median +11.1bp, range -23.6 to +60.8bp; the close printed inside the quote on 10 funds, below the bid on 9 and above the ask on 10; at 15:52 and 15:59:30 the mean was +10.7bp and +11.2bp [V]
+  - the last trade at 15:57 less the close: mean -0.4bp, median 0.0bp, mean absolute 12.8bp; the last trade lay outside the quoted bid and ask on 11 of 29 funds, so the quotes may be delayed or from one venue [V]
+  - the official closes are Yahoo's daily bars read at 17:15, all whole-cent; the 16:20 reading differed from them on 21 of 29 funds [V]
+  - dollar volume on the day: thinnest DSM $650,925, median $3,453,299; a $5,000 order is 0.77% of the thinnest fund's day and a $1,000 order 0.15% [V]
+  - the 29 funds' price return on the day: mean -24.8bp, median -22.8bp, 72% down; PCEF -196.8bp on Yahoo's close and previous close, not checked against a second source [S]
+- source: `results/ideas/uit_cef_flows/close_reading.py` @ `6aebfc4`; `results/ideas/uit_cef_flows/close_reading_2026-11-20.json` @ `6aebfc4`; `results/ideas/2026-11-16_uit_cef_flows.md` @ `6aebfc4`
+- supports: §4
+- status: current. One session, 29 funds, one trust, all municipal: a reading, not a test. Untimestamped quotes of unknown venue; no closing-auction print or size was read. To be redone on Alpaca's time-stamped historical quotes for this session once its tools authenticate. The saved quotes are outside the repository in `~/quantt_research/uit_cef_flows/close_reading_2026-11-20/`
