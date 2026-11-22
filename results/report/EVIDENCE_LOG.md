@@ -4959,3 +4959,17 @@ that adds it does not exist when it is written.
 - source: `results/ideas/uit_cef_flows/close_reading.py` @ `6aebfc4`; `results/ideas/uit_cef_flows/close_reading_2026-11-20.json` @ `6aebfc4`; `results/ideas/2026-11-16_uit_cef_flows.md` @ `6aebfc4`
 - supports: §4
 - status: current. One session, 29 funds, one trust, all municipal: a reading, not a test. Untimestamped quotes of unknown venue; no closing-auction print or size was read. To be redone on Alpaca's time-stamped historical quotes for this session once its tools authenticate. The saved quotes are outside the repository in `~/quantt_research/uit_cef_flows/close_reading_2026-11-20/`
+
+### E-2026-11-22-20 · Release note: the shadow branch's Alpaca client takes the later of two closing-auction prints when the daily bar agrees, as main does since PR #96
+- kind: result
+- era: ALPACA
+- date: 2026-11-22
+- figures:
+  - the other session reports the VM's shadow nightly failed three times (2026-11-20 18:54 and 20:54, 2026-11-21 07:24 New York) on AmbiguousAuctionPrint for SCD on 2026-11-20, whose two condition-M prints are 14.348 and a later 14.28, the daily bar closing 14.28; not re-read here [S]
+  - the team lead's ruling of 2026-11-22, given in the other session and recorded there as E-2026-11-22-02: "Take the later print if the daily bar agrees" [S]
+  - main's change to `quantt/broker/alpaca.py` and `quantt/tests/test_alpaca_client.py` between 70e1228 and a624e13 applied to this branch without conflict: 75 and 101 lines added, 6 removed [V]
+  - with the tests applied alone, 4 of the new client tests failed on this branch's old client; with the client change the client tests and the shadow tests pass [V]
+  - `shadow/sources.py` is unchanged: it still catches only MissingAuctionPrint, so two prints the bar does not confirm still stop every symbol's marks for that run [V]
+- source: `quantt/broker/alpaca.py` @ `d7ae72d`; `quantt/tests/test_alpaca_client.py` @ `d7ae72d`; `shadow/sources.py` @ `d7ae72d`
+- supports: §5
+- status: current, on branch `mission-work` and pushed to `shadow`; the VM's shadow runner follows `shadow` and takes it at its next run. Whether that run then completes for 2026-11-20 is not measured here
