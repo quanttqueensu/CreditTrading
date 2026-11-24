@@ -41,6 +41,16 @@ class FakeClient:
     def download_file(self, Bucket, Key, Filename):
         Path(Filename).write_bytes(self.store[Key])
 
+    def list_objects_v2(self, Bucket, Prefix, Delimiter, ContinuationToken=None):
+        """One "folder" per page, so the pagination is exercised."""
+        subs = sorted({Prefix + k[len(Prefix):].split(Delimiter)[0] + Delimiter
+                       for k in self.store if k.startswith(Prefix) and Delimiter in k[len(Prefix):]})
+        i = int(ContinuationToken or 0)
+        page = {"CommonPrefixes": [{"Prefix": p} for p in subs[i:i + 1]], "IsTruncated": i + 1 < len(subs)}
+        if page["IsTruncated"]:
+            page["NextContinuationToken"] = str(i + 1)
+        return page
+
 
 def _tree(root: Path, files: dict) -> Path:
     for rel, body in files.items():
@@ -124,3 +134,76 @@ def test_pull_never_writes_outside_data(tmp_path, bad):
 def test_pull_before_any_push_says_so(tmp_path):
     with pytest.raises(T.TeamDataError, match="nothing has been pushed"):
         T.pull(FakeClient(), "b", tmp_path / "dst", overwrite=False)
+
+
+# ---- research handoffs (team lead, 2026-11-24): one folder per name, under team-research/
+
+def test_a_handoff_has_its_own_prefix_and_manifest_and_never_touches_the_team_copy(src, tmp_path):
+    c = FakeClient()
+    T.push(c, "b", src, go=True)
+    team_manifest = c.store[T.MANIFEST_KEY]
+    h = _tree(tmp_path / "h", {"books.csv": b"B", "regime.py": b"R", ".DS_Store": b"x"})
+    c.writes.clear()
+    T.push(c, "b", h, go=True, prefix=T.handoff_prefix("regime_overlay_2026-11-24"))
+    assert c.writes == ["team-research/regime_overlay_2026-11-24/books.csv",
+                        "team-research/regime_overlay_2026-11-24/regime.py",
+                        "team-research/regime_overlay_2026-11-24/MANIFEST.json"]
+    assert c.store[T.MANIFEST_KEY] == team_manifest
+    dst = tmp_path / "pulled"
+    assert T.pull(c, "b", dst, overwrite=False, prefix=T.handoff_prefix("regime_overlay_2026-11-24")) == 2
+    assert (dst / "books.csv").read_bytes() == b"B"
+    assert sorted(p.name for p in dst.iterdir()) == ["books.csv", "regime.py"]
+
+
+def test_handoffs_lists_every_name_across_pages(tmp_path):
+    c = FakeClient()
+    for n in ("b_two", "a_one", "c_three"):
+        T.push(c, "b", _tree(tmp_path / n, {"x.csv": n.encode()}), go=True, prefix=T.handoff_prefix(n))
+    T.push(c, "b", _tree(tmp_path / "d", {"cef/p.parquet": b"P"}), go=True)   # the team copy is not a handoff
+    assert T.list_handoffs(c, "b") == ["a_one", "b_two", "c_three"]
+
+
+@pytest.mark.parametrize("bad", ["", ".", "..", "../team-data", "a/b", "-x", ".hidden", "a b", "x\\y"])
+def test_a_handoff_name_is_one_safe_segment(bad):
+    with pytest.raises(T.TeamDataError, match="handoff name"):
+        T.handoff_prefix(bad)
+
+
+def test_a_handoff_pull_never_writes_outside_its_folder(tmp_path):
+    c = FakeClient()
+    pre = T.handoff_prefix("h")
+    c.store[pre + "MANIFEST.json"] = json.dumps(
+        {"pushed_at": "t", "files": [{"path": "../escape.csv", "bytes": 1, "sha256": "0"}]}).encode()
+    with pytest.raises(T.TeamDataError, match="would write outside"):
+        T.pull(c, "b", tmp_path / "h", overwrite=False, prefix=pre)
+    assert not (tmp_path / "escape.csv").exists()
+
+
+def test_a_handoff_never_pushed_says_so(tmp_path):
+    with pytest.raises(T.TeamDataError, match="team-research/h/MANIFEST.json"):
+        T.pull(FakeClient(), "b", tmp_path / "h", overwrite=False, prefix=T.handoff_prefix("h"))
+
+
+@pytest.mark.parametrize("argv", [
+    ["push", "--handoff", "h"],                       # a handoff push must name its folder
+    ["push", "--from", "/tmp/x"],                     # --from without a handoff would replace the team copy
+    ["push", "--handoff", "../x", "--from", "/tmp/x"],
+    ["pull", "--into", "/tmp/x"],                     # --into is for handoffs only
+    ["pull", "--handoff", "h", "--into", "relative/dir"],
+])
+def test_the_command_line_refuses_before_it_opens_a_client(argv, monkeypatch):
+    def no_client():
+        raise AssertionError("make_client called")
+    monkeypatch.setattr(T, "make_client", no_client)
+    with pytest.raises(SystemExit) as e:
+        T.main(argv)
+    assert e.value.code == 2
+
+
+def test_the_command_line_pulls_a_handoff_into_quantt_research_by_default(monkeypatch, tmp_path):
+    c = FakeClient()
+    T.push(c, "b", _tree(tmp_path / "src", {"x.csv": b"X"}), go=True, prefix=T.handoff_prefix("h1"))
+    monkeypatch.setattr(T, "make_client", lambda: (c, "b"))
+    monkeypatch.setattr(T, "RESEARCH_HOME", tmp_path / "quantt_research")
+    assert T.main(["pull", "--handoff", "h1"]) == 0
+    assert (tmp_path / "quantt_research/h1/x.csv").read_bytes() == b"X"

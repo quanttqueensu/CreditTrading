@@ -96,6 +96,8 @@ read-only token (about 4 GB; `docs/DATA.md` §3, "The team's data/ copy"):
 ```bash
 python3 scripts/data/team_data.py status  # when the team copy was last pushed
 python3 scripts/data/team_data.py pull    # download it into data/
+python3 scripts/data/team_data.py handoffs                # research inputs the team lead has shared
+python3 scripts/data/team_data.py pull --handoff <name>   # one of them, into ~/quantt_research/<name>/
 ```
 
 `pull` checks every file against the manifest and never overwrites a file of yours

@@ -127,6 +127,18 @@ python3 scripts/data/team_data.py push --go   # team lead: upload it (needs a wr
 - **Never run `pull` in a prod clone**: the live book decides on `data/cef/`
   (`CLAUDE.md`, landmine 9).
 
+**Research handoffs (`team-research/<name>/`, from 2026-11-24).** When an analyst needs a
+result's inputs (a deck's backtest series, for example), the team lead pushes them as a
+named handoff, and the analyst reads it with the same read-only key: no files passed
+by hand (team lead, 2026-11-24). A handoff has its own manifest and the same checks,
+and lands in `~/quantt_research/<name>/`, never in `data/`.
+
+```bash
+python3 scripts/data/team_data.py handoffs                    # what is there
+python3 scripts/data/team_data.py pull --handoff <name>       # into ~/quantt_research/<name>/
+python3 scripts/data/team_data.py push --handoff <name> --from <folder> --go   # team lead
+```
+
 ### Credentials
 
 The keys go in the env file `$QUANTT_ENV_FILE`, or `<repo>/config/.env` when that is

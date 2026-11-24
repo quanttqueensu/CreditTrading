@@ -5851,3 +5851,17 @@ that adds it does not exist when it is written.
 - source: `quantt/broker/alpaca.py` @ `8674d2a`; `quantt/session/corp_actions.py` @ `8674d2a`; `ops/books/cef_discount_book.json` and `ops/books/c4_families_book.json` @ `8674d2a` (`corporate_actions.mode` "report"); the VM's installer output and `ops.prod_state`, read on 2026-11-24
 - supports: §1, §5
 - status: current. `halt` for either book waits for the team lead's ruling (E-2026-11-24-11)
+
+### E-2026-11-24-31 · Ruling: analysts get research inputs by reading R2, not as files passed by hand; `team_data.py` gains named research handoffs, and the regime-overlay inputs are the first, waiting on a write key
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-24
+- figures:
+  - the team lead, asked where an analyst should look for the regime-overlay inputs: "only read R2 data, this shoukd be easier for them" [V]
+  - `team_data.py` gains `handoffs`, `pull --handoff <name>` (into `~/quantt_research/<name>/`, never `data/`) and `push --handoff <name> --from <folder>`, under `team-research/<name>/` with its own manifest. The team copy's behaviour is unchanged: its tests pass as before, and the 14 new tests fail against `b07ee8f` [V]
+  - against the bucket with the current read-only key: listing the handoffs works, and the dry-run push of `regime_overlay_2026-11-24` plans 6 files. The upload itself needs a key with write access; the team copy's `push --go` was refused with AccessDenied earlier on 2026-11-24, so neither the team copy nor the handoff is in the bucket yet [V]
+  - the handoff's `regime.py` rerun on its CSVs matches the deck's `out_oas.json`: the same share of days in stress, every Sharpe within 1e-5, every return and drawdown within 1e-6. The deck's own script moves by as much between reruns, because the fit's starting-value search is random; the handoff copy is seeded, and two of its reruns agree exactly [V]
+  - the HY OAS rows in `data/spreads_daily.parquet` come from the R2 CRSP mirror to 2025-02-12 and from FRED from 2025-02-13 (`source` column). The zip sent earlier the same day called the whole series crsp-mirror; the handoff's README says which is which [V]
+- source: `scripts/data/team_data.py` @ `0fab074`; `scripts/data/tests/test_team_data.py` @ `0fab074`; `docs/SYSTEM.md` @ `0fab074` (§5 "Sharing the desk's data", the 2026-11-24 sentence); the handoff folder on the team lead's machine, `~/quantt_research/regime_overlay_2026-11-24/` (not in the repository: ICE data, and backtest series kept private)
+- supports: §5
+- status: open until the team lead puts a read-write R2 key in `config/.env` and the two pushes run
