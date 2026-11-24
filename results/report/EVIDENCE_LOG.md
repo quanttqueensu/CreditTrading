@@ -5851,3 +5851,16 @@ that adds it does not exist when it is written.
 - source: `quantt/broker/alpaca.py` @ `8674d2a`; `quantt/session/corp_actions.py` @ `8674d2a`; `ops/books/cef_discount_book.json` and `ops/books/c4_families_book.json` @ `8674d2a` (`corporate_actions.mode` "report"); the VM's installer output and `ops.prod_state`, read on 2026-11-24
 - supports: §1, §5
 - status: current. `halt` for either book waits for the team lead's ruling (E-2026-11-24-11)
+
+### E-2026-11-24-30 · The events book's first paced send went through in full, 205 of 205 orders filled, and its 17:35 VERIFY passed with the ledger booked to 2026-11-24
+- kind: result
+- era: ALPACA
+- date: 2026-11-24
+- figures:
+  - the send at 15:41:00 ET (run `20261124T204100Z`), on plan `cf260fa2cfa2…` decided at the 15:20 ET plan run: 205 orders sent, 205 accepted, 205 filled in full; 0 rejected, 0 skipped, 0 unfilled, 0 not final; exit SENT; the unit finished at 15:47:44 ET [V]
+  - the backup slot at 15:47:44 ET refused, exit 11, as designed: positions had moved since the plan, and the projected Reg T initial margin was above equity because the day's set had already filled. Nothing was sent [V]
+  - VERIFY at 17:35 ET exited 0 at 17:36:11 ET (systemd `Result=success`, `ExecMainStatus=0`). In `quantt/sleeves/run.py`, a trading day's VERIFY exits 0 only on a session whose ledger is booked with no fails, so the ledger is booked to 2026-11-24 and Wednesday's PLAN is not held back [V]. The verdict line itself was not read: the verify log and the session folder are readable only by the service user, and this check used no sudo [U]
+  - this closes the "not yet seen" of E-2026-11-23-05: the rate-limit fix of release-20261123-2 (E-2026-11-23-03) held on a full send of the book [V]
+- source: the VM's `quantt-events-send.service` and `quantt-events-verify.service` journals and `systemctl show`, read 2026-11-24 17:56 ET; the session's `send.json` and `orders.jsonl`, read at 16:07 ET as the service user; `quantt/sleeves/run.py` @ `b07ee8f` (`_verify`: the only exit 0 on a trading day follows `ledger booked to` the session)
+- supports: §1
+- status: current. The session's official P&L waits for Alpaca's end-of-day point
