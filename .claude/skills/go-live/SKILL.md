@@ -30,7 +30,7 @@ decide on. The seat is `go-live-reviewer`, with `execution-engineer` and
 | code review | bugs and lookahead, by `quant-reviewer`'s checklist; targets rebuilt from data truncated at each decision |
 | measured costs | per-fill cost against the official closing-auction print with its standard error, split by session and method; implementation shortfall. **Measured from the paper fills, never assumed** |
 | borrow | availability today for each short (read-only probe, true on its date), the measured fee where one exists |
-| capacity | position size against ADV at $1M, $5M and $10M |
+| capacity | position size against ADV at $1M, $5M and $10M. For a book that trades the close, also each order against the closing cross, a per-order MOC cap design (MOC up to a share of the forecast cross, the rest worked in the afternoon) and a live test of our impact on the print, for the team lead to rule on (`docs/SYSTEM.md` §5, 2026-11-25: rule 3 stands until then) |
 | paper against real | the closing auction, borrow fees, dividends and distributions owed on shorts, corporate actions, regulatory fees: each marked measured, estimated from a primary source, or unknown |
 | the book | correlation with the sleeves held and contribution to the combined book |
 | the bar | strategy-specific: reasoned from how often it trades and how many bets it takes; the minimum record; the live statistic and horizon that would reverse the decision |

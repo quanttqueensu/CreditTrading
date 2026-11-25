@@ -1085,6 +1085,20 @@ intended". The read-back and the measurements are in `results/ops/HEALTH_CHECK_2
 | The two C4 hedge books on the public site, which copies the shadow scoreboard (2026-11-25) | **"Keep them off the site."** They stay on the VM's scoreboard and the morning page |
 | Where the C4 study goes, and its `neutralise_row` helper (2026-11-25) | **"Push; helper inside the study."** The note, script, tables and ledger line are in `simonjarviss/quantt-research` under `desk/`; the helper lives in the study's own script, so this repository's harness is unchanged |
 
+### Team lead, 2026-11-25 — the closing auction
+
+Asked in the team lead's session, through question prompts, after the closing-auction study the team
+lead asked for on 2026-11-24 ("should we investigate if we can algorithmically beat the close everyday
+through short term volume predicitons or something?"). The study and its figures are in the team
+lead's private research repository, by the 2026-11-24 ruling that new research is private.
+`EVIDENCE_LOG` E-2026-11-25-70.
+
+| question | ruling |
+|---|---|
+| Real-money orders and order-path rule 3, given that a book's MOC orders can be a large share of these funds' closing crosses and our own impact on the print is unmeasured (paper runs no auction) | **"Decide at go-live."** Rule 3 stands: every live order is MOC. No cap is built now. A go-live proposal for a book that trades the close must carry a per-order MOC cap design (MOC up to a share of the forecast cross, the rest worked in the afternoon) and a live test of our impact on the print; the team lead rules on both there. Paper keeps its `late_market` exception |
+| A daily record of each book's would-be MOC size against a forecast of the closing cross and the realised cross | **"Build it."** Read-only: it sends nothing and is not on the live path. The script and its daily aggregates live in the private research repository. Where it runs (the laptop, or a read-only timer on the VM) comes back to the team lead with the build; nothing is installed on the VM without the team lead's go |
+| NYSE's order-imbalance history (TAQ NYSE and NYSE American), a paid data set outside the free-data rule (`docs/MISSION.md` §1 rule 7) | **"No, not now."** The free-data rule stands. Revisit only if the forward record leaves the cap's size unsettled |
+
 ## 6. Governance — where each rule lives
 
 | subject | owner |
@@ -1143,3 +1157,4 @@ intended". The read-back and the measurements are in `results/ops/HEALTH_CHECK_2
 | 2026-11-24 | §5 records that new research is private (`simonjarviss/quantt-research`), what still comes here, the Research tab, and the team lead's new public fork. | private research, for the team lead |
 | 2026-11-24 | §5 records the rulings after the health check of the three books: C4's research, waiting on repeated NAVs, HALVE/KILL on the previous close, symbol-less corporate-action rows, the events cap at 1.6×, the weekend release, the reboot. | the health check, for the team lead |
 | 2026-11-25 | §5 records the rulings on the build after the health check: the wait's 06:00 cutoff, no CEFConnect under `wait`, INFO for rows that name nothing; the missed reboot moved to the weekend release; the C4 hedge books off the public site; the C4 study private with its helper. | the health check, for the team lead |
+| 2026-11-25 | §5 records the closing-auction rulings: rule 3 stands until a go-live proposal carries an MOC cap design and a live impact test; a read-only forward record of would-be MOC size against the cross; no paid imbalance data. | the closing auction, for the team lead |
