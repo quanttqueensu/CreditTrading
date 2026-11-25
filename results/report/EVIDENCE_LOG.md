@@ -6169,3 +6169,13 @@ that adds it does not exist when it is written.
 - source: `docs/SYSTEM.md` @ `61219ed` (§5, before the rows this commit adds); `docs/SYSTEM.md` §5 "the health check of the three books" (in the commit that carries this entry)
 - supports: §5
 - status: current
+
+### E-2026-11-25-70 · Rulings on the closing auction: rule 3 stands until a go-live proposal carries an MOC cap and a live impact test; a read-only forward record is built; no paid imbalance data
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-25
+- figures:
+  - none (rulings, by question prompt on 2026-11-25: real-money orders and order-path rule 3 "Decide at go-live"; the daily forward record of would-be MOC size against the closing cross "Build it"; NYSE's order-imbalance history "No, not now". The closing-auction study they follow is in `simonjarviss/quantt-research` under `desk/`, private by the 2026-11-24 ruling)
+- source: `docs/SYSTEM.md` @ `c0e4692` (§5, before the block this commit adds); `docs/SYSTEM.md` §5 "the closing auction" (in the commit that carries this entry); `.claude/skills/go-live/SKILL.md` (the capacity row, in the same commit)
+- supports: §5
+- status: current
