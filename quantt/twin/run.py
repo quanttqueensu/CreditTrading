@@ -269,14 +269,20 @@ def with_fx_bar(deps, client, summary: dict) -> dict:
     NYSE does not, so a newer bar is fine); otherwise the summary keeps no rate, with the reason, and
     whatever needs it refuses. USD = base / rate. Called by the send's read phase (dry included) and the
     probe only: a read inside the session already held."""
-    from quantt.broker.ibkr import UnexpectedReply
+    from quantt.broker.ibkr import RequestTimedOut, UnexpectedReply
     fx = dict(summary.get("fx") or {})
     if summary.get("usd_per_base") is not None or summary["base_currency"] == "USD":
         return summary
+    # What the ExchangeRate rows said, kept beside whatever the bar says (a ledger CONTRADICTS stays).
+    fx["row_evidence"] = {"direction_check": fx.get("direction_check"), "why": fx.get("why")}
     try:
         bar = client.fx_daily_bar(summary["base_currency"])
-    except UnexpectedReply as e:
-        fx.update(why=f"{fx.get('why')}; and the USD{summary['base_currency']} bar: {e}")
+    except (UnexpectedReply, RequestTimedOut) as e:
+        # A slow or empty bar is FX UNMEASURED (the rate is refused), never a logged-out Gateway. The bar's
+        # own bound (FX_BAR_TIMEOUT_S) is below REQUEST_TIMEOUT_S, so a slow bar normally returns empty
+        # without dropping the session; this is read last, so no other read depends on the session after it.
+        fx.update(why=f"FX UNMEASURED: {fx.get('why')}; and the USD{summary['base_currency']} bar: "
+                      f"{type(e).__name__}: {e}")
         return {**summary, "fx": fx}
     fx.update(source=bar["source"], bar_date=bar["bar_date"], bar_value=bar["value"])
     today = deps.market.clock()["timestamp"].astimezone(gt.ET).date()
@@ -501,7 +507,7 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
         status.update(state, "gateway", {"logged_in": True, "why": f"{mode} connected"}, deps.utcnow().isoformat())
         try:
             pos = client.positions()
-            summary = with_fx_bar(deps, client, client.account_summary())
+            summary = client.account_summary()
         except IBKRError as e:
             # Review finding 13: a failed read still leaves a send record saying why.
             record["refusals"].append({"gate": "ibkr_read", "detail": f"{type(e).__name__}: {e}"})
@@ -516,6 +522,7 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
                 execs, exec_err = client.executions_today(since=midnight_et(now.date())), None
             except (UnexpectedReply, ValueError) as e:
                 execs, exec_err = None, f"{type(e).__name__}: {e}"
+            summary = with_fx_bar(deps, client, summary)     # last: a slow bar is FX UNMEASURED only
         except IBKRError as e:
             # A hung Gateway (RequestTimedOut: the session is dropped, the lock released) or a lost
             # session: the send stops here and still writes its record (review finding 13).
@@ -685,11 +692,17 @@ def _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_
             rec.append_jsonl(log, {"event": "intent", "order_ref": o.order_ref, "symbol": o.symbol, "side": o.side,
                                    "qty": o.qty, "session_date": F, "close_et": close, "at": deps.utcnow()})
             try:
-                res = client.place_moc(o.symbol, o.qty, o.side, o.order_ref)
+                # "submitted": the order's ids, fsynced the moment placeOrder returns (release check of
+                # 6376a3a), so its fills are the twin's even if nothing after that comes back.
+                res = client.place_moc(o.symbol, o.qty, o.side, o.order_ref,
+                                       on_submitted=lambda ids: rec.append_jsonl(
+                                           log, {"event": "submitted", **ids, "at": deps.utcnow()}))
             except Exception as e:  # noqa: BLE001 -- recorded; the batch stops; never resent
                 rec.append_jsonl(log, {"event": "error", "order_ref": o.order_ref, "symbol": o.symbol,
                                        "error": f"{type(e).__name__}: {e}", "at": deps.utcnow()})
-                stopped = f"{o.symbol}: placeOrder raised {type(e).__name__}: {e}; the batch stopped, nothing resent"
+                stopped = (f"{o.symbol}: place_moc raised {type(e).__name__}: {e} before it gave an answer; "
+                           "whether IBKR has the order is unknown (a 'submitted' line, if any, has its ids); the "
+                           "batch stopped, nothing resent")
                 break
             rec.append_jsonl(log, {"event": "placed", **res, "at": deps.utcnow()})
             if res["accepted"] is True:
@@ -732,11 +745,12 @@ def probe(deps) -> int:
         print(f"PROBE gateway LOGGED OUT or unreachable: {e}", file=deps.out)
         return 2
     try:
-        s = with_fx_bar(deps, client, client.account_summary())
+        s = client.account_summary()
         pos = client.positions()
         oo = client.open_orders()
         ex = client.executions_today(since=midnight_et(deps.utcnow().astimezone(gt.ET).date()))
         st = client.server_time()
+        s = with_fx_bar(deps, client, s)                  # last: a slow bar is FX UNMEASURED, not a logout
     except RequestTimedOut as e:
         # A Gateway that connects and then never answers is as good as down for the next send.
         status.update(state, "gateway", {"logged_in": False, "why": f"unresponsive: {e}"}, at)

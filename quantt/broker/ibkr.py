@@ -80,9 +80,11 @@ from __future__ import annotations
 import dataclasses
 import datetime as dt
 import fcntl
+import logging
 import math
 import os
 import re
+import sys
 import time
 from pathlib import Path
 from typing import Callable
@@ -119,6 +121,10 @@ CONNECT_TIMEOUT_S = 20
 # (install_twin_vm.sh, TimeoutStartSec) are the second bound, for anything that is not a request.
 REQUEST_TIMEOUT_S = 30.0
 FX_BAR_DURATION = "3 D"      # the USD rate bar's request (fx_daily_bar): the newest of three days
+# The bar's own bound, below REQUEST_TIMEOUT_S: ib_async cancels a historical request at its own timeout and
+# returns no bars, so a slow bar is FX UNMEASURED (a refusal of the rate), never a dropped session that
+# would read as an unresponsive Gateway (release check of 6376a3a).
+FX_BAR_TIMEOUT_S = 15.0
 LOCK_POLL_S = 0.5            # how often a waiting client re-tries the session lock (no socket meanwhile)
 # How long `place_moc` waits for the Gateway to say what it did with an order. Measured on nothing
 # yet: the IBKR-era record kept no acknowledgement times. The read-only week and the first armed
@@ -262,6 +268,59 @@ class IBKRConfig:
         return cls(host=env[ENV_HOST], port=port, client_id=cid, account=env[ENV_ACCOUNT])
 
 
+class AccountRedactor(logging.Filter):
+    """Replace the account id in a log record with "<account>". ib_async 2.1.0 logs the whole Trade at
+    WARNING ("IBKR API validation warning: {trade}", "Canceled order: {trade}"), and a Trade carries
+    `order.account` [V: ib_async/wrapper.py error, the installed 2.1.0; release check of 6376a3a]."""
+
+    def __init__(self, account: str):
+        super().__init__()
+        self.account = account
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            msg = record.getMessage()
+        except Exception:  # noqa: BLE001 -- a record whose args do not format: redact its parts instead
+            msg = str(record.msg)
+        if self.account in msg:
+            record.msg, record.args = msg.replace(self.account, "<account>"), None
+        if record.exc_text and self.account in record.exc_text:
+            record.exc_text = record.exc_text.replace(self.account, "<account>")
+        return True
+
+
+_REDACTED: set = set()
+
+
+def install_log_redaction(account: str) -> None:
+    """Make every log record redact `account`, from any logger, before any handler sees it. Idempotent.
+
+    Three layers: a record factory (every record, at creation); a filter on ib_async's loggers; and a
+    filter on the root handlers. With no root handler (the twin configures none, so ib_async's warnings
+    went through logging.lastResort to stderr, unfiltered), a stderr handler at WARNING is added in its
+    place. Called by IBKRClient.connect and by every twin entry point before any connection."""
+    if not account or account in _REDACTED:
+        return
+    f = AccountRedactor(account)
+    old = logging.getLogRecordFactory()
+
+    def factory(*a, **kw):
+        r = old(*a, **kw)
+        f.filter(r)
+        return r
+    logging.setLogRecordFactory(factory)
+    for name in ["ib_async"] + [n for n in list(logging.root.manager.loggerDict) if n.startswith("ib_async.")]:
+        logging.getLogger(name).addFilter(f)
+    root = logging.getLogger()
+    if not root.handlers:
+        h = logging.StreamHandler(sys.stderr)
+        h.setLevel(logging.WARNING)
+        root.addHandler(h)
+    for h in root.handlers:
+        h.addFilter(f)
+    _REDACTED.add(account)
+
+
 def fx_from_rows(base: str, summary_rows, value_rows) -> dict:
     """IBKR's OWN USD rate for a non-USD base (staging on the VM, 2026-11-26: the paper account is CAD).
 
@@ -395,6 +454,7 @@ class IBKRClient:
 
         With a session lock, the lock is taken first and released on every refusal below; a
         busy lock raises `GatewayBusy` before any socket is opened."""
+        install_log_redaction(self.config.account)     # before ib_async can log a Trade (release check)
         if self._lock_path is not None:
             self._take_session_lock()
         try:
@@ -575,7 +635,7 @@ class IBKRClient:
             raise UnexpectedReply(f"{pair}: {len(cons)} CASH contracts from reqContractDetails, not one")
         bars = list(self._blocking("reqHistoricalData", ib.reqHistoricalData, cons[0], endDateTime="",
                                    durationStr=FX_BAR_DURATION, barSizeSetting="1 day", whatToShow="MIDPOINT",
-                                   useRTH=False, timeout=REQUEST_TIMEOUT_S) or [])
+                                   useRTH=False, timeout=FX_BAR_TIMEOUT_S) or [])
         if not bars:
             raise UnexpectedReply(f"{pair}: IBKR returned no MIDPOINT daily bar (a timed-out request returns none)")
         newest = max(bars, key=lambda b: getattr(b, "date", dt.date.min))
@@ -737,7 +797,7 @@ class IBKRClient:
 
     # -------------------------------------------------------------- writes
 
-    def place_moc(self, symbol: str, qty: int, side: str, order_ref: str) -> dict:
+    def place_moc(self, symbol: str, qty: int, side: str, order_ref: str, on_submitted=None) -> dict:
         """Place ONE market-on-close order and wait for the Gateway to say what it did.
 
         Returns {"symbol", "side", "qty", "order_ref", "client_id", "order_id", "perm_id",
@@ -767,26 +827,44 @@ class IBKRClient:
         o.transmit = True
         t0 = self._monotonic()
         trade = ib.placeOrder(con, o)
-        status = self._status_of(trade)
-        found, requeries, notes = None, 0, []
-        # Wait for a definite status. A warning (ValidationError) is not one: the order may be live, so
-        # ask the Gateway's open orders, once at once and once more at the deadline (IB_WARNING_CODES).
-        while status not in ACCEPTED_STATUSES | REJECTED_STATUSES:
-            warned = status == VALIDATION_ERROR or bool(self._warnings_of(trade))
-            timed_out = self._monotonic() - t0 >= ACK_WAIT_S
-            if warned and (requeries == 0 or (timed_out and requeries == 1)):
-                found, note = self._find_open(trade)
-                requeries += 1
-                if note:
-                    notes.append(note)
-                status = self._status_of(trade)          # a re-query refreshes ib_async's own status
-                if found is not None or status in ACCEPTED_STATUSES | REJECTED_STATUSES:
+        # THE ORDER IS LIVE FROM HERE (release check of 6376a3a, 2026-11-26). Its ids go to the caller at
+        # once (`on_submitted`: the runner's durable "submitted" line), before any re-query can fail, and
+        # nothing below may escape: an error after placeOrder returns the ids with accepted None, so the
+        # batch stops ambiguously and verify can still match the order's fills.
+        ids = {"symbol": symbol, "side": side, "qty": qty, "order_ref": order_ref,
+               "client_id": getattr(trade.order, "clientId", self.config.client_id),
+               "order_id": getattr(trade.order, "orderId", None),
+               "perm_id": getattr(trade.order, "permId", 0) or 0}
+        if on_submitted is not None:
+            on_submitted(dict(ids))
+        status, found, requeries, notes = self._status_of(trade), None, 0, []
+        try:
+            # Wait for a definite status. A warning (ValidationError) is not one: the order may be live, so
+            # ask the Gateway's open orders, once at once and once more at the deadline (IB_WARNING_CODES).
+            while status not in ACCEPTED_STATUSES | REJECTED_STATUSES:
+                warned = status == VALIDATION_ERROR or bool(self._warnings_of(trade))
+                timed_out = self._monotonic() - t0 >= ACK_WAIT_S
+                if warned and (requeries == 0 or (timed_out and requeries == 1)):
+                    found, note = self._find_open(trade)
+                    requeries += 1
+                    if note:
+                        notes.append(note)
+                    status = self._status_of(trade)      # a re-query refreshes ib_async's own status
+                    if found is not None or status in ACCEPTED_STATUSES | REJECTED_STATUSES:
+                        break
+                if timed_out:
                     break
-            if timed_out:
-                break
-            self._wait(ACK_POLL_S)
-            status = self._status_of(trade)
-        if status in REJECTED_STATUSES:
+                self._wait(ACK_POLL_S)
+                status = self._status_of(trade)
+        except IBKRError as e:
+            notes.append(f"after placeOrder: {type(e).__name__}: {e}; the order may be live")
+            status, found = self._status_of(trade), None
+            after_error = True
+        else:
+            after_error = False
+        if after_error:
+            accepted = None                              # live or not, unknown: the runner stops
+        elif status in REJECTED_STATUSES:
             accepted = False                             # Cancelled / Inactive: IBKR refused it
         elif status in ACCEPTED_STATUSES:
             accepted = True
@@ -797,13 +875,10 @@ class IBKRClient:
             accepted = None                              # ambiguous: the runner stops and never resends
         msgs = [str(getattr(e, "message", e)) for e in (getattr(trade, "log", None) or [])
                 if getattr(e, "message", "")]
-        return {"symbol": symbol, "side": side, "qty": qty, "order_ref": order_ref,
-                "client_id": getattr(trade.order, "clientId", self.config.client_id),
-                "order_id": getattr(trade.order, "orderId", None),
-                "perm_id": getattr(trade.order, "permId", 0) or 0,
+        return {**ids, "perm_id": getattr(trade.order, "permId", 0) or ids["perm_id"],
                 "status": status, "accepted": accepted, "messages": (msgs + notes)[-5:],
                 "warnings": self._warnings_of(trade), "found_open": found is not None, "requeries": requeries,
-                "ack_s": round(self._monotonic() - t0, 3)}
+                "error_after_submit": after_error, "ack_s": round(self._monotonic() - t0, 3)}
 
     @staticmethod
     def _status_of(trade) -> str:

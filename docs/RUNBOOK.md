@@ -1662,7 +1662,7 @@ trading mode, read-only flags, precautions and auto-restart at every start.
 
 The probe (09:00, 12:00, 15:15 and Sunday 19:30), the send and verify write "LOGGED OUT" into
 `status.json`, shown by `python3 -m ops.orient` (IBKR TWIN) and `python3 -m ops.daily_page`.
-Nothing alerts. To see why: `sudo tail -n 60 /var/log/quantt-twin/ibgw.out.log` (the twin's logs are in root's `/var/log/quantt-twin`, staging `/var/log/quantt-twin-staging`, since 2026-11-25: systemd opens them as root)
+Nothing alerts. To see why: `sudo tail -n 60 /var/log/quantt-twin/ibgw.out.log` (the twin's logs are in root's `/var/log/quantt-twin`, staging `/var/log/quantt-twin-staging`, since 2026-11-25: systemd opens them as root). **These logs can hold the paper account id.** IBC writes it into `ibgw.out.log` in the Gateway's dialog titles (e.g. "<id> Trader Workstation Configuration (Simulated Trading)"), and IBC's output is not filtered. The twin's own processes redact it from every log record (`quantt/broker/ibkr.py` `install_log_redaction`, installed by every entry point and by every connect: ib_async logs whole Trades, which carry it). The directory is root:quantt 0750, so `quantt-shadow` and other users cannot read it; never copy these logs into a tracked file, a report or a message (2026-11-26)
 (IBC logs each dialog it meets; a second-factor dialog is named there). To log in by hand:
 `sudo systemctl start quantt-ibgw-vnc.service`, then from the laptop
 `ssh -L 5947:127.0.0.1:5947 quantt-vm` and a VNC viewer on `localhost:5947`; it closes when

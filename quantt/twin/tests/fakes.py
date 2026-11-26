@@ -89,6 +89,9 @@ class World:
         self.ledger = None              # {currency: (ExchangeRate, NetLiquidationByCurrency)} incl. "BASE"
         self.fx_bars = None             # [(date, close)] for USD<base> MIDPOINT daily bars; None: no contract
         self.fx_requests = 0
+        self.fx_timeout = None          # the timeout the bar request was given
+        self.fx_raise = None            # an exception the bar request raises
+        self.requery_error = None       # an exception reqAllOpenOrders raises (set mid-batch by a hook)
         self.connections: list = []
         self.before_place = None        # hook: called before each placeOrder
         self.next_order_id = 100
@@ -195,6 +198,8 @@ def stub_module(world: World):
                     for s, q in world.positions.items()]
 
         def reqAllOpenOrders(self):
+            if world.requery_error is not None:
+                raise world.requery_error
             if world.blind_all_open:
                 return [t for t in world.open if t.order.clientId == self.client_id]
             return list(world.open)
@@ -226,6 +231,9 @@ def stub_module(world: World):
                               formatDate=1, keepUpToDate=False, chartOptions=(), timeout=60):
             assert getattr(con, "secType", "") == "CASH" and whatToShow == "MIDPOINT" and barSizeSetting == "1 day"
             world.fx_requests += 1
+            world.fx_timeout = timeout
+            if world.fx_raise is not None:
+                raise world.fx_raise
             return [types.SimpleNamespace(date=d, close=c) for d, c in (world.fx_bars or [])]
 
         def placeOrder(self, con, order):

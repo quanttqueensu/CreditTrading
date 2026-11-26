@@ -366,8 +366,11 @@ def _verify(deps, date, scheduled: bool = False) -> int:
     log_rows = rec.read_jsonl(day / "orders.jsonl")
     intents = [r for r in log_rows if r.get("event") == "intent"]
     placed = [r for r in log_rows if r.get("event") == "placed"]
-    by_perm = {r["perm_id"]: r for r in placed if r.get("perm_id")}
-    by_cid = {(r.get("client_id"), r.get("order_id")): r for r in placed}
+    # A "submitted" line has the order's ids from the moment placeOrder returned (release check of
+    # 6376a3a): an order whose answer never came is still the twin's, and its fills are booked.
+    known = [r for r in log_rows if r.get("event") == "submitted"] + placed
+    by_perm = {r["perm_id"]: r for r in known if r.get("perm_id")}
+    by_cid = {(r.get("client_id"), r.get("order_id")): r for r in known}
     orders = st["orders"]
     order_by_ref = {o["order_ref"]: o for o in orders}
     problems, fails, notes = [], [], []
@@ -464,7 +467,7 @@ def _verify(deps, date, scheduled: bool = False) -> int:
     scores = {n: score_twin(n, slugs, before, bookings, prices, rejected, orders, fills) for n in books.BOOK_NAMES}
     pnl = slug_pnl(new, prices)
     prev = _prev_pnl(state, F)
-    nlv = _nlv(state, summ, new, pnl, comm, comm_missing, F)
+    nlv = _nlv(state, summ, new, pnl, comm, comm_missing, F, prices=prices)
     rows = []
     for n in books.BOOK_NAMES:
         a = alp[n]
@@ -602,8 +605,11 @@ def _prev_pnl(state: Path, F: dt.date) -> dict:
     return {}
 
 
-def _nlv(state: Path, summ: dict, new: dict, pnl: dict, comm: float, comm_missing: int, F) -> dict:
-    """IBKR's net liquidation, and the REPORT-ONLY residual against the ledger (module docstring)."""
+def _nlv(state: Path, summ: dict, new: dict, pnl: dict, comm: float, comm_missing: int, F, *,
+         prices: dict | None = None) -> dict:
+    """IBKR's net liquidation, and the REPORT-ONLY residual against the ledger (module docstring). A held
+    symbol with no official close makes the residual UNMEASURED, and the names are listed (release check
+    of 6376a3a: never a residual that silently leaves a holding out)."""
     out = {"net_liquidation": summ["net_liquidation"], "base_currency": summ["base_currency"], "residual_usd": None,
            "usd_per_base": summ.get("usd_per_base")}
     if summ.get("usd_per_base") is None:
@@ -617,8 +623,14 @@ def _nlv(state: Path, summ: dict, new: dict, pnl: dict, comm: float, comm_missin
     if any((new["sleeves"].get(LEGACY) or {}).get("shares", {}).values()):
         out["why"] = "legacy still holds shares seeded with no cost; residual measured once it is flat"
         return out
-    if any(v is None for v in pnl.values()) or comm_missing:
-        out["why"] = "a held symbol has no official close, or a commission report is missing; residual UNMEASURED"
+    unpriced = sorted({s for r in new["sleeves"].values() for s, q in (r.get("shares") or {}).items()
+                       if q and (prices or {}).get(s) is None}) if prices is not None else []
+    if any(v is None for v in pnl.values()) or comm_missing or unpriced:
+        out["unpriced"] = unpriced
+        out["why"] = ((f"{len(unpriced)} held symbol(s) with no official close ({', '.join(unpriced[:20])})"
+                       if unpriced else "a held symbol has no official close" if any(v is None for v in pnl.values())
+                       else "") + (f"; {comm_missing} commission report(s) missing" if comm_missing else "")
+                      + "; residual UNMEASURED").lstrip("; ")
         return out
     total = sum(pnl.values())
     commsum = comm + sum(json.loads((d / "verify.json").read_text()).get("commissions") or 0.0
