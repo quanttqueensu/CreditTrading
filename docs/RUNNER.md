@@ -288,7 +288,8 @@ books run byte-identically, and the twin only imports their checks and the ledge
   executions).
 - **The gates at the send**: DRY_RUN exactly "0" (rule 4); not staging (`QUANTT_TWIN_STAGING`
   set refuses whatever else is set); armed (`<state>/AUTO_ARMED`, or `<F>/APPROVED` naming this
-  plan_sha, from `approve --sha` after `send --dry`); no global or twin halt; the Gateway
+  plan_sha and session F, from `approve --session F --sha` after `send --dry --session F`); no
+  global or twin halt; the Gateway
   reachable and logged into the expected paper account (else REFUSED [gateway], a missed
   session); the ledger summing to IBKR's positions; every earlier STARTED session booked; rule 2
   (`quantt/twin/guard.py`: STARTED, ANY open order at IBKR from any client id, the twin's own
@@ -357,6 +358,14 @@ books run byte-identically, and the twin only imports their checks and the ledge
   backup's timer starts nothing (systemd merges it), and a backup that starts refuses on STARTED or
   the order log (`config.py` THE SEND'S PLACEMENT DEADLINE). The feed arms
   SIGALRM at its own stop time plus the request timeout plus 30 s, before the next twin window.
+- **A warning is not a rejection (release check, 2026-11-26).** ib_async 2.1.0 marks an order
+  `ValidationError` on its warning codes (105, 110, 165, 321, 329, 399, 404, 434, 492, 10167,
+  2100-2199) while the order stays live at IBKR (404: a short held for a locate). `place_moc`
+  then asks the Gateway's open orders; an order found there is accepted, its warning recorded
+  (`warnings` in the order log). Only Cancelled or Inactive refuses; a warned order that cannot be
+  found by the deadline is ambiguous and stops the batch. `connect` passes `raiseSyncErrors=True`,
+  so a failed positions sync refuses rather than leaving an empty cache. status.json keeps
+  `last_session_send`, the last send run that was not IDLE, for orient and the daily page.
 - **The display (final review 2).** Xvfb runs with `-nolisten tcp -nolisten local` (no abstract
   socket) and `-auth` with a cookie made at each start in the unit's tmpfs directory (0600,
   quantt). The installer first shows, as `quantt`, that the display is up and takes its own cookie,

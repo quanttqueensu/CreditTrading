@@ -324,7 +324,9 @@ def _verify(deps, date, scheduled: bool = False) -> int:
         raise TwinRefused(f"the ledger is booked to {before['session']}; not booking {F} again")
     day.mkdir(exist_ok=True)
     started = (day / "STARTED").exists()
-    send_d = json.loads((day / "send.json").read_text()) if (day / "send.json").exists() else None
+    # Release check 2: with STARTED, the record of the run that wrote it (send.json, written once); a
+    # later backup's own record never stands in for it. Without, the newest run's record.
+    send_d = run.started_send_record(day) if started else run.latest_send_record(day)
     alp = {n: alpaca_side(n, states[n], F) for n in books.BOOK_NAMES}
     at = deps.utcnow().isoformat()
     held_syms = sorted(ledger.totals(before))
@@ -379,7 +381,8 @@ def _verify(deps, date, scheduled: bool = False) -> int:
     if send_d is None:
         fails.append("STARTED exists and send.json does not: the send did not finish")
     elif send_d.get("stopped"):
-        fails.append(f"the send stopped: {send_d['stopped']}")
+        fails.append(f"the send stopped: {send_d['stopped']} ({send_d.get('sent')} sent, "
+                     f"{len(rejected)} rejected, of {len(send_d.get('orders') or [])} order(s))")
 
     read, source = _read_ibkr(deps, state, day, F, at, now.date())
     if read is None:

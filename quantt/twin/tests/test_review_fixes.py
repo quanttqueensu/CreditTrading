@@ -289,7 +289,7 @@ def test_a_failed_positions_read_still_writes_a_send_record(tmp_path):
     from quantt.broker.ibkr import IBKRClient, IBKRConfig
     d.ibkr = lambda mode: IBKRClient(IBKRConfig("127.0.0.1", 4002, 31, F.ACCOUNT), mode=mode, ib_module=mod)
     assert run.send(d) == run.EXIT_REFUSED
-    send = json.loads((st["twin"] / DAY / "send.json").read_text())
+    send = run.latest_send_record(st["twin"] / DAY)
     assert send["refusals"][0]["gate"] == "ibkr_read"
 
 

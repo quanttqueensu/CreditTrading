@@ -11,7 +11,8 @@ from ops import orient
 from ops import prod_state as ps
 
 STATUS = {"version": 1, "gateway": {"logged_in": False, "why": "NotConnected: refused", "at": "2026-11-27T14:00:00+00:00"},
-          "last_send": {"session_date": "2026-11-27", "exit": "REFUSED", "orders": 0, "refusals": ["gateway"]},
+          "last_send": {"session_date": "2026-11-27", "exit": "IDLE", "orders": 0, "refusals": []},
+          "last_session_send": {"session_date": "2026-11-27", "exit": "REFUSED", "orders": 0, "refusals": ["gateway"]},
           "tally": {"cef": {"sessions": 1, "both_traded": 0, "twin_full": 0, "twin_orders": 0, "alpaca_full": 5,
                             "alpaca_orders": 5, "twin_bp": None, "alpaca_bp": 9.1, "reconciled": 0, "double_sends": 0,
                             "refused_shorts": 0}}}
@@ -43,6 +44,7 @@ def test_twin_vm_reads_the_gateway_state_and_the_tally(tmp_path):
     assert run.calls[0][1]["input"] == ps.TWIN_SCRIPT
     text = "\n".join(f"{a} {b}" for a, b in ps.twin_lines(tw))
     assert "LOGGED OUT" in text and "side-by-side cef" in text
+    assert "last session send 2026-11-27 REFUSED" in text and "IDLE" not in text
 
 
 def test_the_twin_script_only_reads():

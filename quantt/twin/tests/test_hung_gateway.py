@@ -73,7 +73,7 @@ def test_a_hung_read_at_the_send_writes_a_record_and_sends_nothing(tmp_path):
     mod.IB.reqExecutions = hang
     d.ibkr = lambda mode: client(w, lock, mode=mode, mod=mod)
     assert run.send(d) == run.EXIT_REFUSED and w.placed == []
-    send = json.loads((st["twin"] / "2026-11-27" / "send.json").read_text())
+    send = run.latest_send_record(st["twin"] / "2026-11-27")
     assert send["refusals"][0]["gate"] == "ibkr_read" and "RequestTimedOut" in send["refusals"][0]["detail"]
 
 
