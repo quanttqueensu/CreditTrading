@@ -72,6 +72,11 @@ def main(argv=None) -> int:
     fd.add_argument("--require-sandbox", action="store_true", help="refuse unless inside its systemd sandbox")
     args = ap.parse_args(argv)
     env = dict(os.environ)
+    # Before anything can connect or log (release check of 6376a3a): ib_async logs whole Trades, which
+    # carry the account id. IBKRClient.connect installs it too; the account itself is checked there.
+    from quantt.broker.ibkr import ENV_ACCOUNT, install_log_redaction
+    if env.get(ENV_ACCOUNT):
+        install_log_redaction(env[ENV_ACCOUNT])
     if args.cmd == "feed":
         try:
             fdeps = _feed_deps(env)
