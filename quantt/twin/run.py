@@ -79,6 +79,7 @@ class Deps:
     memory: Callable[[], dict] = None
     own_clone: Path = config.REPO                    # the clone the twin runs from (its own halts)
     unit_env: Callable[[str], str] = None            # unit -> its loaded Environment (books' arming)
+    firewall_status: Path = config.FIREWALL_STATUS   # root's record of the port filter (read only)
 
     def __post_init__(self):
         if self.cfg is None:
@@ -336,7 +337,6 @@ def _gateway_down(deps, state, e) -> None:
 def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> int:
     from quantt.broker.ibkr import IBKRError, NotConnected, OpenOrdersUnknown, UnexpectedReply, WrongAccount
     out, env = deps.out, deps.env
-    run_t0 = deps.utcnow()                       # the unit's run limit counts from here (config.SEND_RUN_LIMIT_S)
     state = setup(deps)
     states = books.book_states(env)
     mode = "dry" if dry else "send"
@@ -346,8 +346,7 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
     if not dry and session is not None:
         raise TwinRefused("--session is for --dry only: a real send is always for today's session")
     row, asof = session_for(deps.market, F)
-    record = {"mode": mode, "session_date": F, "clock": now, "staging": staging(env), "refusals": [],
-              "run_started_utc": run_t0}
+    record = {"mode": mode, "session_date": F, "clock": now, "staging": staging(env), "refusals": []}
     if row is None:
         print(f"twin {mode}: {F} is not a trading day; nothing to send", file=out)
         return _finish(deps, state, None, record, EXIT_IDLE, scheduled=False)
@@ -572,19 +571,17 @@ def _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_
         log = day / "orders.jsonl"
         sent, rejected, stopped = [], [], None
         refused_close = set()
-        stop_placing = record["run_started_utc"] + dt.timedelta(
-            seconds=config.SEND_RUN_LIMIT_S - config.SEND_RUN_MARGIN_S)
         for i, o in enumerate(orders):
             if o.leg == 2 and o.symbol in refused_close:
                 rec.append_jsonl(log, {"event": "skipped_open_leg", "order_ref": o.order_ref, "symbol": o.symbol,
                                        "at": deps.utcnow()})
                 continue
             now = (deps.utcnow() + skew).astimezone(gt.ET)
-            if now >= t["stop_batch"] or deps.utcnow() >= stop_placing:
-                stopped = (f"cutoff: {now:%H:%M:%S} ET is at or after {t['stop_batch']:%H:%M} ET"
-                           if now >= t["stop_batch"] else
-                           f"run limit: {config.SEND_RUN_LIMIT_S - config.SEND_RUN_MARGIN_S} s since the run "
-                           f"started (the unit is killed at {config.SEND_RUN_LIMIT_S} s); nothing more placed")
+            if now >= t["place_by"]:
+                # The session's own deadline (config.SEND_PLACE_MARGIN_S before the batch stop), never a
+                # count from the run's start; the unit's kill a minute later is the backstop.
+                stopped = (f"cutoff: {now:%H:%M:%S} ET is at or after {t['place_by']:%H:%M} ET "
+                           f"(the batch stop {t['stop_batch']:%H:%M} less {config.SEND_PLACE_MARGIN_S} s)")
                 for o2 in orders[i:]:
                     rec.append_jsonl(log, {"event": "cutoff", "order_ref": o2.order_ref, "symbol": o2.symbol,
                                            "at": deps.utcnow()})
@@ -628,7 +625,7 @@ def probe(deps) -> int:
     state = setup(deps)
     client = deps.ibkr("read")
     at = deps.utcnow().isoformat()
-    status.update(state, "firewall", firewall_record(state, deps.utcnow()), at)
+    status.update(state, "firewall", firewall_record(deps.firewall_status, deps.utcnow()), at)
     try:
         client.connect()
     except GatewayBusy as e:
@@ -671,15 +668,15 @@ def probe(deps) -> int:
     return 0
 
 
-FIREWALL_FILE = "firewall.json"
 FIREWALL_STALE = dt.timedelta(minutes=15)
 
 
-def firewall_record(state: Path, now: dt.datetime) -> dict:
-    """The port filter's state as the probe unit's root check wrote it (`<state>/firewall.json`,
-    by ibgw_check_firewall.sh --status, just before this probe; final review 3), for status.json.
-    Missing, unreadable or older than FIREWALL_STALE is UNMEASURED, never "in force"."""
-    p = Path(state) / FIREWALL_FILE
+def firewall_record(path: Path, now: dt.datetime) -> dict:
+    """The port filter's state as the probe unit's root check wrote it (config.FIREWALL_STATUS, in root's
+    own directory, by ibgw_check_firewall.sh --status just before this probe; final review 3), for
+    status.json. Missing, unreadable or older than FIREWALL_STALE is UNMEASURED, never "in force"."""
+    p = Path(path)
+    FIREWALL_FILE = str(p)
     if not p.exists():
         return {"in_force": None, "detail": f"UNMEASURED: no {FIREWALL_FILE} (the probe unit's check did not run)"}
     try:

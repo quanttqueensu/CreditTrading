@@ -1644,7 +1644,7 @@ trading mode, read-only flags, precautions and auto-restart at every start.
 
 The probe (09:00, 12:00, 15:15 and Sunday 19:30), the send and verify write "LOGGED OUT" into
 `status.json`, shown by `python3 -m ops.orient` (IBKR TWIN) and `python3 -m ops.daily_page`.
-Nothing alerts. To see why: `sudo tail -n 60 /home/quantt/quantt_state/twin/logs/ibgw.out.log`
+Nothing alerts. To see why: `sudo tail -n 60 /var/log/quantt-twin/ibgw.out.log` (the twin's logs are in root's `/var/log/quantt-twin`, staging `/var/log/quantt-twin-staging`, since 2026-11-25: systemd opens them as root)
 (IBC logs each dialog it meets; a second-factor dialog is named there). To log in by hand:
 `sudo systemctl start quantt-ibgw-vnc.service`, then from the laptop
 `ssh -L 5947:127.0.0.1:5947 quantt-vm` and a VNC viewer on `localhost:5947`; it closes when
@@ -1664,9 +1664,11 @@ asked for 2FA**: if it did, IBC cannot log in unattended and the stored login do
 - **One mode at a time.** Release and staging keep their Gateway session lock in their own state
   directories, so hand runs (`run_twin.sh`) must be in the mode the installed units are in;
   `run_twin.sh` reads the installed send unit and refuses the other mode. Every hand run is bounded
-  (`timeout`: 10 minutes, the feed 100), as every unit is (`TimeoutStartSec`: send 480 s, so a hung
-  12:30 run is killed before 12:40; verify and probe 600 s). A killed send never leads to a second
-  set: STARTED, written before the first order, refuses the backup.
+  (`timeout`: 10 minutes, the feed 100), as every unit is (`TimeoutStartSec`: send 1080 s, so the
+  first slot's run is killed at 12:48 on a 13:00 close, a minute after the batch stops placing at
+  12:47; verify and probe 600 s). A killed send never leads to a second set: STARTED, written
+  before the first order, refuses the backup, and a backup timer that fires while the first run is
+  still going starts nothing.
 
 The twin's units set `QUANTT_BOOKS_CLONE=/home/quantt/prod/quantt-alpaca` (the books' clone):
 a halt written there stops the twin too, and a book whose own send is `DRY_RUN=1`, lacks its

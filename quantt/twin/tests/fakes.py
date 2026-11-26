@@ -357,4 +357,5 @@ def deps_for(states, world, market, env, *, out=None, utcnow=None):
                 utcnow=utcnow or (lambda: market.now.astimezone(dt.timezone.utc)),
                 out=out if out is not None else io.StringIO(),
                 memory=lambda: {"ibgw_memory_peak_bytes": 1, "mem_available_kb": 2},
-                own_clone=states["own_clone"], unit_env=lambda unit: UNIT_ENV[unit])
+                own_clone=states["own_clone"], unit_env=lambda unit: UNIT_ENV[unit],
+                firewall_status=states["twin"].parent / "ibgw-status" / "firewall.json")

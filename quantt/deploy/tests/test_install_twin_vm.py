@@ -361,7 +361,8 @@ def test_the_install_proves_the_access_both_ways_and_that_the_guard_refused_the_
                                                 "check_feed_and_guard")]
     assert order == sorted(order)
     md = t[t.index("make_feed_dirs() {"):t.index("# ---------------------------------------------------------------- units")]
-    assert 'chmod 2750 "${FEED}"' in md and 'chmod 2750 "${FEED}/requests"' in md
+    assert '"${BIN}/own_dir.py" "${FEED}" "${RUN_USER}" "${SHADOW_USER}" 2750' in md
+    assert '"${BIN}/own_dir.py" "${FEED}/requests" "${SHADOW_USER}" "${RUN_USER}" 2750' in md
     ms = t[t.index("make_state() {"):t.index("make_feed_dirs() {")]
     assert 'if [ ! -e "${lockf}" ]; then' in ms                          # the lock's inode is never replaced
 
