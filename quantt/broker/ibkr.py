@@ -383,8 +383,16 @@ class IBKRClient:
             # that times out is only LOGGED, leaving an empty or partial cache that `positions()` would
             # return as the account [V: ib_async/ib.py connect/connectAsync, the installed 2.1.0]. With
             # True it raises ConnectionError, refused here as NotConnected (epoch and the saved read).
+            # fetchFields (release check of 300b884, 2026-11-26): no ORDERS_OPEN and no ORDERS_COMPLETE at
+            # startup, for every client. ib_async 2.1.0 makes those two requests only for a connection
+            # that is not readonly [V: ib/py connectAsync, the installed 2.1.0], so the armed send would
+            # have been the first ever to make them, and with raiseSyncErrors a slow completed-orders
+            # reply refuses the send. The twin never reads the cache they fill: the guard and
+            # open_orders() ask reqAllOpenOrders() themselves, and place_moc judges an order only from it.
+            sf = self._mod.StartupFetch
             ib.connect(c.host, c.port, clientId=c.client_id, timeout=CONNECT_TIMEOUT_S,
-                       readonly=(self.mode == "read"), raiseSyncErrors=True)
+                       readonly=(self.mode == "read"), raiseSyncErrors=True,
+                       fetchFields=sf.POSITIONS | sf.ACCOUNT_UPDATES | sf.SUB_ACCOUNT_UPDATES | sf.EXECUTIONS)
         except Exception as e:  # noqa: BLE001 -- re-raised as the named refusal, never swallowed
             raise NotConnected(f"could not open an API session to {c.host}:{c.port} as client "
                                f"{c.client_id}: {type(e).__name__}: {e}. The Gateway is down or "
@@ -716,16 +724,22 @@ class IBKRClient:
         return out
 
     def _find_open(self, trade):
-        """(the order as one of the Gateway's open orders now, or None; a note when the query failed).
-        Matched on this client's id and order id, or on the permanent id. A failed query is never read
-        as "absent and refused": it returns None with the reason, and the caller's answer stays None."""
+        """(the order as one of the GATEWAY's open orders now, or None; a note when the query failed).
+
+        ONLY `reqAllOpenOrders()`, the Gateway's answer (release check of 300b884, 2026-11-26).
+        `ib.openTrades()` is the client's LOCAL cache: every trade whose status is not a DoneState
+        [V: ib_async/ib.py openTrades, the installed 2.1.0], and placeOrder puts the new trade there
+        before the Gateway replies, so a warned order (ValidationError is not done) always found
+        ITSELF there and was counted accepted although IBKR may never have taken it. Matched on the
+        permanent id, on this client's id and order id, or on the order ref. A failed query is never
+        read as "absent and refused": None with the reason, and the caller's answer stays None."""
         ib = self._need()
         oid = getattr(trade.order, "orderId", None)
         cid = getattr(trade.order, "clientId", self.config.client_id)
         perm = getattr(trade.order, "permId", 0) or 0
+        ref = getattr(trade.order, "orderRef", "") or ""
         try:
             rows = list(self._blocking("reqAllOpenOrders", ib.reqAllOpenOrders) or [])
-            rows += list(ib.openTrades() or [])
         except RequestTimedOut:
             raise
         except Exception as e:  # noqa: BLE001 -- named in the order's messages; the order stays ambiguous
@@ -734,8 +748,9 @@ class IBKRClient:
             o = getattr(t, "order", None)
             if o is None:
                 continue
-            if (getattr(o, "orderId", None) == oid and getattr(o, "clientId", None) == cid) or \
-                    (perm and (getattr(o, "permId", 0) or 0) == perm):
+            if (perm and (getattr(o, "permId", 0) or 0) == perm) \
+                    or (oid is not None and getattr(o, "orderId", None) == oid and getattr(o, "clientId", None) == cid) \
+                    or (ref and (getattr(o, "orderRef", "") or "") == ref):
                 return t, None
         return None, None
 

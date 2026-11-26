@@ -91,6 +91,33 @@ def test_a_short_held_for_a_locate_does_not_stop_the_batch(tmp_path):
     assert iwm and iwm[0]["accepted"] is True and iwm[0]["warnings"] == [404]
 
 
+def test_a_warned_then_cancelled_first_leg_sends_no_second_leg(tmp_path):
+    """Release check of 300b884: the order must be found in the GATEWAY's answer, never in the client's
+    own cache (openTrades), which holds every order it just placed until a done status arrives."""
+    st, w, mk, d, out = world_and_books(tmp_path, legacy={"NAD": 40})     # NAD: +40 now, -30 wanted
+    armed(st)
+    w.warn = {"NAD": (321, "Cancelled")}                     # leg 1 warned, then IBKR cancels it
+    run.send(d)
+    nad = [o for _, sym, o in w.placed if sym == "NAD"]
+    assert len(nad) == 1, out.getvalue()                     # leg 1 only: the opening leg never goes
+    events = [json.loads(x) for x in (st["twin"] / DAY / "orders.jsonl").read_text().splitlines()]
+    assert any(e["event"] == "skipped_open_leg" and e["symbol"] == "NAD" for e in events)
+    placed = [e for e in events if e["event"] == "placed" and e["symbol"] == "NAD"]
+    assert placed[0]["accepted"] is False and placed[0]["warnings"] == [321]
+
+
+def test_the_open_order_query_never_reads_the_clients_own_cache():
+    w = F.World()
+    w.warn = {"PDI": (404, "open")}
+    c = trade_client(w)
+
+    def cache(*a):
+        raise AssertionError("openTrades (the client's own cache) was read to judge an order")
+    c.ib.openTrades = cache
+    r = c.place_moc("PDI", 10, "sell", "twin-20261127-PDI-1")
+    assert r["accepted"] is True and r["found_open"]          # found in reqAllOpenOrders, the Gateway's answer
+
+
 # -- 2. the record of the run that wrote STARTED is never overwritten ------------------------------
 
 def stop_on(symbol, w):
@@ -213,3 +240,39 @@ def test_a_failed_positions_sync_refuses_the_connection():
                      sleep=lambda s: None)
     with pytest.raises(I.NotConnected, match="positions request timed out"):
         c.connect()
+
+
+# -- release check of 300b884: no open- or completed-order requests at connect ------------------------
+
+@pytest.mark.parametrize("mode", ["read", "trade"])
+def test_no_client_asks_for_open_or_completed_orders_at_connect(mode):
+    w = F.World()
+    I.IBKRClient(I.IBKRConfig("127.0.0.1", 4002, 33, F.ACCOUNT), mode=mode, ib_module=F.stub_module(w),
+                 sleep=lambda s: None).connect()
+    kw = w.connect_kwargs[-1]
+    sf = F.StartupFetch
+    assert kw["raiseSyncErrors"] is True and kw["fetchFields"] is not None
+    assert not kw["fetchFields"] & sf.ORDERS_OPEN and not kw["fetchFields"] & sf.ORDERS_COMPLETE
+    assert kw["fetchFields"] & sf.POSITIONS and kw["fetchFields"] & sf.ACCOUNT_UPDATES
+
+
+def test_the_fetch_flags_are_the_installed_librarys_names():
+    ib = pytest.importorskip("ib_async.ib")
+    assert {m.name for m in ib.StartupFetch} == {m.name for m in F.StartupFetch}
+    assert "fetchFields" in inspect.signature(ib.IB.connect).parameters
+
+
+def test_the_guard_still_asks_the_gateway_for_open_orders():
+    w = F.World()
+    calls = []
+    mod = F.stub_module(w)
+    real = mod.IB.reqAllOpenOrders
+
+    def counted(self):
+        calls.append(1)
+        return real(self)
+    mod.IB.reqAllOpenOrders = counted
+    c = I.IBKRClient(I.IBKRConfig("127.0.0.1", 4002, 33, F.ACCOUNT), mode="read", ib_module=mod,
+                     sleep=lambda s: None).connect()
+    c.open_orders()
+    assert calls == [1]

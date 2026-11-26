@@ -361,10 +361,12 @@ books run byte-identically, and the twin only imports their checks and the ledge
 - **A warning is not a rejection (release check, 2026-11-26).** ib_async 2.1.0 marks an order
   `ValidationError` on its warning codes (105, 110, 165, 321, 329, 399, 404, 434, 492, 10167,
   2100-2199) while the order stays live at IBKR (404: a short held for a locate). `place_moc`
-  then asks the Gateway's open orders; an order found there is accepted, its warning recorded
+  then asks the Gateway's open orders (`reqAllOpenOrders` only, never `openTrades`, the client's
+  own cache, which holds the order just placed); an order found there is accepted, its warning recorded
   (`warnings` in the order log). Only Cancelled or Inactive refuses; a warned order that cannot be
   found by the deadline is ambiguous and stops the batch. `connect` passes `raiseSyncErrors=True`,
-  so a failed positions sync refuses rather than leaving an empty cache. status.json keeps
+  so a failed positions sync refuses rather than leaving an empty cache, and asks for no open or
+  completed orders at startup (`fetchFields` without `ORDERS_OPEN` and `ORDERS_COMPLETE`). status.json keeps
   `last_session_send`, the last send run that was not IDLE, for orient and the daily page.
 - **The display (final review 2).** Xvfb runs with `-nolisten tcp -nolisten local` (no abstract
   socket) and `-auth` with a cookie made at each start in the unit's tmpfs directory (0600,
