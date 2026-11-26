@@ -60,20 +60,34 @@ def load(path: Path = CONFIG_PATH) -> TwinConfig:
     return TwinConfig(float(f), True)
 
 
+# NYSE's scheduled 13:00 early closes, copied from NYSE's own page (docs/REFERENCES.md §12ib:
+# https://www.nyse.com/markets/hours-calendars, "Holidays & Trading Hours", read 2026-11-26).
+# Dated, not a rule: the 2026-11-25 build's rule ("the day after Thanksgiving, December 24 and
+# July 3, every year") was wrong in both directions. July 3 2026 is a full holiday, there is no
+# July early close in 2027, and 24 December 2027 is the observed Christmas holiday. A year not
+# listed here makes the twin refuse by name until someone copies that year's page in.
+EARLY_CLOSES_1300 = frozenset({
+    dt.date(2026, 11, 27), dt.date(2026, 12, 24),
+    dt.date(2027, 11, 26),
+    dt.date(2028, 7, 3), dt.date(2028, 11, 24),
+})
+EARLY_CLOSE_YEARS = frozenset({2026, 2027, 2028})
+
+
 def expected_close(day: dt.date) -> str:
     """The NYSE close this repo expects on a trading day, "HH:MM", to check Alpaca's calendar row
     against (review of the build, finding 14: refuse when they disagree, as the books do on
     whether a day trades). `ops/schedule/nyse_calendar.py` knows full closes only and treats early
     closes as trading days; it is not changed here (the Alpaca books read it). The early closes
-    NYSE has scheduled for years [S: NYSE holiday schedule, not re-read in this build]: the day
-    after Thanksgiving, December 24, and July 3, each at 13:00 when it is a trading day. Any other
-    early close (a special one) makes the twin refuse, by name, which is the safe direction."""
-    from ops.schedule.nyse_calendar import _nth_weekday, is_trading_day
+    are NYSE's own dated list (EARLY_CLOSES_1300, above). A year outside EARLY_CLOSE_YEARS raises
+    LookupError, which the send turns into a named refusal: never a guessed close."""
+    from ops.schedule.nyse_calendar import is_trading_day
     if not is_trading_day(day):
         raise ValueError(f"{day} is not a trading day by nyse_calendar")
-    thanksgiving = _nth_weekday(day.year, 11, 3, 4)
-    early = {thanksgiving + dt.timedelta(days=1), dt.date(day.year, 12, 24), dt.date(day.year, 7, 3)}
-    return "13:00" if day in early else "16:00"
+    if day.year not in EARLY_CLOSE_YEARS:
+        raise LookupError(f"no NYSE early-close list for {day.year} in quantt/twin/config.py; "
+                          "copy it from NYSE's holidays page before trading that year")
+    return "13:00" if day in EARLY_CLOSES_1300 else "16:00"
 
 
 def close_et(day: dt.date, calendar_close: str) -> dt.datetime:

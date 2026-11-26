@@ -149,7 +149,10 @@ def session_for(market, day: dt.date) -> tuple:
                           f"trading={is_trading_day(day)}; not choosing one")
     if not rows:
         return None, None
-    want = config.expected_close(day)
+    try:
+        want = config.expected_close(day)
+    except LookupError as e:
+        raise TwinRefused(str(e)) from None
     if rows[0]["close"] != want:
         raise TwinRefused(f"Alpaca's calendar closes {day} at {rows[0]['close']}; this repo expects {want} "
                           "(quantt/twin/config.expected_close); not choosing one")

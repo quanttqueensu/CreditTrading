@@ -294,9 +294,18 @@ def test_a_failed_positions_read_still_writes_a_send_record(tmp_path):
 
 
 @pytest.mark.parametrize("day,close", [(dt.date(2026, 11, 27), "13:00"), (dt.date(2026, 12, 24), "13:00"),
-                                       (dt.date(2026, 11, 30), "16:00"), (dt.date(2026, 12, 31), "16:00")])
+                                       (dt.date(2026, 11, 30), "16:00"), (dt.date(2026, 12, 31), "16:00"),
+                                       (dt.date(2026, 7, 2), "16:00"), (dt.date(2027, 7, 2), "16:00"),
+                                       (dt.date(2027, 11, 26), "13:00"), (dt.date(2027, 12, 23), "16:00"),
+                                       (dt.date(2028, 7, 3), "13:00"), (dt.date(2028, 11, 24), "13:00")])
 def test_the_expected_close(day, close):
+    """NYSE's dated list (hours-calendars page, read 2026-11-26), not a yearly rule."""
     assert config.expected_close(day) == close
+
+
+def test_a_year_without_an_early_close_list_refuses():
+    with pytest.raises(LookupError, match="no NYSE early-close list for 2029"):
+        config.expected_close(dt.date(2029, 1, 2))
 
 
 def test_a_calendar_close_the_repo_does_not_expect_refuses():
