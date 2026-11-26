@@ -162,3 +162,37 @@ def test_the_residual_names_the_unpriced_holdings(tmp_path):
     summ = {"net_liquidation": NLV, "base_currency": "USD", "usd_per_base": 1.0, "fx": {}}
     r = verify._nlv(tmp_path, summ, new, {"cef": None}, 0.0, 0, dt.date(2026, 11, 27), prices={"PDI": 20.0})
     assert r["residual_usd"] is None and r["unpriced"] == ["NAD"] and "1 held symbol(s) with no official close (NAD)" in r["why"]
+
+
+# ---- release check of 85f5a1e (2026-11-26): the contradiction reaches the RECORDS, and the account
+# id never rides out on an exception's text.
+
+def test_the_ledgers_contradiction_reaches_send_json_and_status_json(tmp_path):
+    """A CONTRADICTS between IBKR's ledger row and its USDCAD bar must be in what is kept, not only
+    in the return value (CLAUDE.md: two sources that disagree are reported, never dropped)."""
+    from quantt.twin.tests.test_fx import BARS as FX_BARS, cad_send as fx_cad_send
+    inverted = {**LEDGER, "USD": (1 / 1.40, 500_000.0)}
+    st, w, mk, d, out = fx_cad_send(tmp_path, ledger=inverted, fx_bars=FX_BARS)
+    assert run.send(d) == run.EXIT_SENT, out.getvalue()
+    kept = run.started_send_record(st["twin"] / "2026-11-27")["buying_power"]["fx"]
+    assert kept["row_evidence"]["direction_check"].startswith("CONTRADICTS")
+    d.out = io.StringIO()
+    assert run.probe(d) == 0
+    g = json.loads((st["twin"] / "status.json").read_text())["gateway"]
+    assert g["fx"]["row_evidence"]["direction_check"].startswith("CONTRADICTS")
+
+
+def test_a_sync_error_naming_the_account_reaches_no_file_and_no_stdout(tmp_path):
+    """ib_async's connect sync names the account ("account updates for <id>", ib.py around 2072) in
+    the ConnectionError it raises; the twin's refusal is written to status.json, send.json and stdout."""
+    from quantt.twin.tests.test_fx import cad_send as fx_cad_send
+    st, w, mk, d, out = fx_cad_send(tmp_path)
+    w.sync_error = f"account updates for {F.ACCOUNT} request timed out"
+    assert run.send(d) == run.EXIT_REFUSED
+    d.out2 = io.StringIO()
+    d.out = d.out2
+    run.probe(d)
+    assert F.ACCOUNT not in out.getvalue() and F.ACCOUNT not in d.out2.getvalue()
+    for p in st["twin"].rglob("*"):
+        if p.is_file():
+            assert F.ACCOUNT not in p.read_text(errors="ignore"), p

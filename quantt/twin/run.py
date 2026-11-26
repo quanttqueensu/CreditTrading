@@ -315,7 +315,7 @@ def bp_check(orders, positions: dict, summary: dict, fraction: float) -> tuple:
     r = {"buying_power": summary["buying_power"], "base_currency": summary["base_currency"],
          "usd_per_base": summary["usd_per_base"], "fit_fraction": fraction, "need_usd": round(need, 2),
          "fx": {k: fx.get(k) for k in ("tag", "currency", "base_per_usd", "source", "bar_date", "direction_check",
-                                       "why")}}
+                                       "why", "row_evidence")}}
     if summary["usd_per_base"] is None:
         return r, (f"buying power is in {summary['base_currency']} and IBKR gave no usable USD exchange rate "
                    f"({fx.get('why') or 'none'}); the "
@@ -767,7 +767,7 @@ def probe(deps) -> int:
            "positions": len(pos), "gross_shares": sum(abs(q) for q in pos.values()),
            "open_orders": len(oo), "executions_today": len(ex), "server_skew_s": round(skew, 1),
            "fx": {k: (s.get("fx") or {}).get(k) for k in ("tag", "currency", "base_per_usd", "source", "direction_check",
-                                                            "bar_date", "why")},
+                                                            "bar_date", "why", "row_evidence")},
            **deps.memory()}
     d = state / "probe"
     d.mkdir(exist_ok=True)

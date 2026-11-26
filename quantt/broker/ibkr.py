@@ -166,7 +166,23 @@ _ORDER_REF_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
 class IBKRError(RuntimeError):
-    """Base for everything this client raises. Messages never hold the account id."""
+    """Base for everything this client raises. Messages never hold the account id.
+
+    ENFORCED HERE, not only by the callers' care (release check of 85f5a1e, 2026-11-26): ib_async's
+    own exceptions carry the account (its connect sync names the request "account updates for <id>",
+    ib.py around 2072), and a message built from `{e}` would carry it into status.json, send.json, the
+    feed's manifest and stdout. Every account registered by install_log_redaction (IBKRClient.connect
+    and every twin entry point call it before any connection) is replaced by "<account>" in the
+    message, whoever builds it."""
+
+    def __init__(self, *args):
+        super().__init__(*(_scrub_accounts(a) if isinstance(a, str) else a for a in args))
+
+
+def _scrub_accounts(text: str) -> str:
+    for acct in _REDACTED:
+        text = text.replace(acct, "<account>")
+    return text
 
 
 class MissingSetting(IBKRError):
@@ -522,8 +538,9 @@ class IBKRClient:
                        readonly=(self.mode == "read"), raiseSyncErrors=True, account=c.account,
                        fetchFields=sf.POSITIONS | sf.ACCOUNT_UPDATES | sf.SUB_ACCOUNT_UPDATES | sf.EXECUTIONS)
         except Exception as e:  # noqa: BLE001 -- re-raised as the named refusal, never swallowed
+            why = str(e).replace(c.account, "<account>")    # ib_async names the account in its sync errors
             raise NotConnected(f"could not open an API session to {c.host}:{c.port} as client "
-                               f"{c.client_id}: {type(e).__name__}: {e}. The Gateway is down or "
+                               f"{c.client_id}: {type(e).__name__}: {why}. The Gateway is down or "
                                f"not logged in") from None
         self.ib = ib
         try:
