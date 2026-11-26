@@ -1659,6 +1659,10 @@ asked for 2FA**: if it did, IBC cannot log in unattended and the stored login do
   `flatten_ibkr_account.py`) is not built.
 - Halt the twin: `sudo -u quantt sh -c 'echo why > /home/quantt/quantt_state/twin/HALT'`.
 
+The twin's units set `QUANTT_BOOKS_CLONE=/home/quantt/prod/quantt-alpaca` (the books' clone):
+a halt written there stops the twin too, and a book whose own send is `DRY_RUN=1`, lacks its
+`AUTO_ARMED` or is halted holds at the twin (RUNNER.md, "Each book's OWN arming").
+
 ### 9.7 An UNBOOKED session (a person repairs it)
 
 `<state>/twin/<day>/UNBOOKED.json` names why verify could not book the session after its last

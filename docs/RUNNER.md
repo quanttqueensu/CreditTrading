@@ -255,6 +255,20 @@ books run byte-identically, and the twin only imports their checks and the ledge
   fit's smaller opening excepted), and a target off its current with no order must carry the
   plan's own note (no trade, not shortable, flip deferred); otherwise that book holds, named.
   `plan_sha` covers the orders only, so this is what binds the targets the twin trades to.
+- **Each book's OWN arming binds its slugs at the twin (CLAUDE.md order-path rule 4; the switch
+  branch's review, 2026-11-25).** A book's slugs trade at the twin only if that book's own send is
+  armed and not halted: its send unit's loaded `DRY_RUN` is exactly `0` (`systemctl show <unit> -p
+  Environment`, read-only: `quantt-cef-session.service`, `quantt-c4-session.service` as
+  `install_vm.py` names them, and `quantt-events-send.service`), its `<book state>/AUTO_ARMED`
+  exists, and no global or per-book halt is active in either clone or in `<book state>/HALT`.
+  Otherwise that book's slugs hold, and the record names why ("cef: its own send is DRY_RUN=1
+  (rule 4)"). A unit that cannot be read holds its book; it is never taken as armed. So the team
+  lead's `DRY_RUN=1` on a book stops it at both brokers, during the side-by-side and after a switch.
+- **The books' clone (re-review N1).** The twin runs from its own clone; the books run from
+  theirs, where a person writes `ops/HALT.md` and `ops/HALT_<book>.md`. `QUANTT_BOOKS_CLONE`
+  (required, no default) names it: every halt is read in BOTH clones (a global one stops the whole
+  twin; a book's holds that book), and the events book's `min_order_usd` and each book's
+  corporate-action mode are read from the books' clone, the files the books actually run with.
 - **Holds and minimums.** An events sleeve the plan holds is held at the TWIN ledger's shares
   (finding 8). An events change in a symbol under the events book's `min_order_usd` holds the
   events slugs there, as the events book sends nothing that small; core and C4 have no minimum.
@@ -283,7 +297,19 @@ books run byte-identically, and the twin only imports their checks and the ledge
   whole plan; an `intent` line is fsynced before each `placeOrder`. A rejection skips that symbol
   (a refused short is named); an order not acknowledged within `ACK_WAIT_S` stops the batch, and
   nothing is ever resent; the backup slot then refuses (STARTED without DONE).
-- **Verify** runs at 17:45, 18:30, 20:30 and 23:00. The first slot that reaches the Gateway saves
+- **When an opening leg fails (re-review 3).** For a change-of-side symbol, the slugs opening the
+  new side get only what filled beyond the closing: a refused, skipped or unfilled leg 2 leaves them
+  at their current shares (or at zero, if they held the old side), and only the closing side shares
+  leg 1's fill (`verify.change_of_side_targets`, in the twin; `ledger.py` unchanged). legacy +200
+  NAD and cef targeting -50, with leg 1 SELL 200 filled and leg 2 refused, ends legacy 0, cef 0,
+  the account 0.
+- **The saved read is the read (re-review 1).** `<day>/ibkr_read.json` is written ONCE, by an
+  exclusive create, and never overwritten; a run on the session day reads IBKR only while no read
+  is saved; for a session before today IBKR is never read (its executions are today's), so a past
+  session books from its saved read or is left UNBOOKED. The timer run (no `--date`) first books
+  every earlier STARTED session that is neither booked nor UNBOOKED, from its saved read, then
+  today's; a 07:00 slot exists for that catch-up after a reboot that missed the evening slots.
+- **Verify** runs at 07:00 (catch-up), 17:45, 18:30, 20:30 and 23:00. The first slot that reaches the Gateway saves
   the raw read (executions with commission reports, positions, open orders, account summary) to
   `<day>/ibkr_read.json` at once, and the official closes to `prints.json`; a later slot books
   from them when the Gateway or Alpaca fails (finding 1). A crossed share with no official close
@@ -301,9 +327,10 @@ books run byte-identically, and the twin only imports their checks and the ledge
   from the twin ledger. `--aggregates` is the form for a committed note.
 - **The weekend check.** `send --dry --session D` runs every gate on D's saved plans against
   IBKR's positions now, read-only, and transmits nothing whatever DRY_RUN says.
-- **Port access (finding 6).** An nftables table (`quantt/deploy/ibgw_firewall.py`, loaded at
-  boot before the Gateway) lets only uid `quantt` connect to the paper API ports on loopback, and
-  `quantt` or the admin login user (sshd opens `ssh -L` as that user) to the VNC port.
+- **Port access (finding 6, re-review 4).** An nftables table (`quantt/deploy/ibgw_firewall.py`,
+  loaded at boot before the Gateway) lets only uid `quantt` connect to ports 4002/7497, on any
+  address, and `quantt` or the admin login user (sshd opens `ssh -L` as that user) to 5947. The
+  Gateway's unit will not start unless `ibgw_check_firewall.sh` finds the accept and reject rules.
 - **The Gateway** runs under Xvfb and IBC 3.24.2 with the stored PAPER login (team lead,
   2026-11-25: "Yes, store the paper login"). IBC's repository was archived on 2026-09-01: no
   fixes will come, and a Gateway change that breaks its dialogs leaves the Gateway logged out
