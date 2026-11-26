@@ -6,6 +6,7 @@ made-up strings in the paper shape, never a real account's."""
 from __future__ import annotations
 
 import datetime as dt
+import enum
 import json
 import types
 from pathlib import Path
@@ -18,6 +19,16 @@ ACCOUNT = "DU0000001"            # a made-up paper-shaped id; never a real accou
 class _Status:
     def __init__(self, status):
         self.status = status
+
+
+class StartupFetch(enum.Flag):
+    """ib_async 2.1.0's StartupFetch members, by name (pinned against the library by a test)."""
+    POSITIONS = enum.auto()
+    ORDERS_OPEN = enum.auto()
+    ORDERS_COMPLETE = enum.auto()
+    ACCOUNT_UPDATES = enum.auto()
+    SUB_ACCOUNT_UPDATES = enum.auto()
+    EXECUTIONS = enum.auto()
 
 
 class _Log:
@@ -38,6 +49,17 @@ class _Later:
             self._left -= 1
             return self._first
         return self._then
+
+    def peek(self):
+        return self._first if self._left > 0 else self._then
+
+
+_DONE = frozenset({"Filled", "Cancelled", "ApiCancelled", "Inactive"})     # ib_async OrderStatus.DoneStates
+
+
+def _current(t) -> str:
+    st = t.orderStatus
+    return st.peek() if isinstance(st, _Later) else st.status
 
 
 class _Trade:
@@ -63,13 +85,15 @@ class World:
         self.reject = set()             # symbols whose order the Gateway rejects
         self.silent = set()             # symbols whose order is never acknowledged
         self.nlv, self.bp, self.base = 1_000_000.0, 4_000_000.0, "USD"
-        self.usd_rate = None            # base per USD, for a non-USD base
+        self.usd_rate = None            # base per USD, for a non-USD base (accountValues)
+        self.ledger = None              # {currency: (ExchangeRate, NetLiquidationByCurrency)} incl. "BASE"
         self.connections: list = []
         self.before_place = None        # hook: called before each placeOrder
         self.next_order_id = 100
         self.unknown_symbols = set()    # symbols reqContractDetails cannot resolve
         self.next_perm = 9000
         self.sync_error = None          # e.g. "positions request timed out": the connect's initial sync fails
+        self.connect_kwargs: list = []  # what each connect asked of ib_async
         self.warn = {}                  # symbol -> (warning code, "absent" | "open" | a later status)
 
     def fill_all_at(self, prices: dict, when: dt.datetime) -> None:
@@ -119,12 +143,16 @@ def stub_module(world: World):
             self.client_id = None
             self.readonly = None
             self._up = False
+            self._trades = []           # this connection's LOCAL cache (ib_async wrapper.trades)
 
         @staticmethod
         def sleep(secs=0.02):
             return True
 
-        def connect(self, host, port, clientId, timeout=4, readonly=False, account="", raiseSyncErrors=False):
+        def connect(self, host, port, clientId, timeout=4, readonly=False, account="", raiseSyncErrors=False,
+                    fetchFields=None):
+            world.connect_kwargs.append({"readonly": readonly, "raiseSyncErrors": raiseSyncErrors,
+                                         "fetchFields": fetchFields})
             if not world.reachable:
                 raise ConnectionRefusedError("stub: nothing listening")
             if world.sync_error:
@@ -145,8 +173,13 @@ def stub_module(world: World):
             return list(world.accounts)
 
         def accountSummary(self, account=""):
-            return [types.SimpleNamespace(account=ACCOUNT, tag="NetLiquidation", value=str(world.nlv), currency=world.base),
+            rows = [types.SimpleNamespace(account=ACCOUNT, tag="NetLiquidation", value=str(world.nlv), currency=world.base),
                     types.SimpleNamespace(account=ACCOUNT, tag="BuyingPower", value=str(world.bp), currency=world.base)]
+            for cur, (rate, nlv) in (world.ledger or {}).items():      # the $LEDGER:ALL rows
+                rows.append(types.SimpleNamespace(account=ACCOUNT, tag="ExchangeRate", value=str(rate), currency=cur))
+                rows.append(types.SimpleNamespace(account=ACCOUNT, tag="NetLiquidationByCurrency", value=str(nlv),
+                                                  currency=cur))
+            return rows
 
         def accountValues(self, account=""):
             if world.usd_rate is None:
@@ -165,7 +198,10 @@ def stub_module(world: World):
             return list(world.open)
 
         def openTrades(self):
-            return [t for t in world.open if t.order.clientId == self.client_id]
+            # ib_async 2.1.0 ib.py: every trade in the LOCAL cache whose status is not a DoneState,
+            # including an order this client just placed and IBKR never took (release check, 300b884).
+            # The Gateway's own answer is reqAllOpenOrders (world.open).
+            return [t for t in self._trades if _current(t) not in _DONE]
 
         def reqExecutions(self, flt=None):
             return list(world.executions)
@@ -190,6 +226,11 @@ def stub_module(world: World):
             order.permId = world.next_perm
             world.next_perm += 1
             world.placed.append((self.client_id, con.symbol, order))
+            t = self._place(con, order)
+            self._trades.append(t)               # ib_async caches the trade before the Gateway replies
+            return t
+
+        def _place(self, con, order):
             if con.symbol in world.reject:
                 return _Trade(con, order, "Inactive")
             if con.symbol in world.silent:
@@ -221,6 +262,7 @@ def stub_module(world: World):
 
     m = types.ModuleType("ib_async_stub")
     m.IB, m.Stock, m.Order, m.ExecutionFilter = IB, Stock, Order, ExecutionFilter
+    m.StartupFetch = StartupFetch
     return m
 
 

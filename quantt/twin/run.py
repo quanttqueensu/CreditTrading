@@ -264,10 +264,13 @@ def bp_check(orders, positions: dict, summary: dict, fraction: float) -> tuple:
     against `fraction` x IBKR's BuyingPower in USD. Over it: refused, with the factor that would
     have fitted, because the scale-fit is not on main (a labelled difference from the books)."""
     need = gt.buying_power_needed(orders, positions, {o.symbol: o.est_price for o in orders})
+    fx = summary.get("fx") or {}
     r = {"buying_power": summary["buying_power"], "base_currency": summary["base_currency"],
-         "usd_per_base": summary["usd_per_base"], "fit_fraction": fraction, "need_usd": round(need, 2)}
+         "usd_per_base": summary["usd_per_base"], "fit_fraction": fraction, "need_usd": round(need, 2),
+         "fx": {k: fx.get(k) for k in ("tag", "currency", "base_per_usd", "source", "direction_check", "why")}}
     if summary["usd_per_base"] is None:
-        return r, (f"buying power is in {summary['base_currency']} and IBKR gave no USD exchange rate; the "
+        return r, (f"buying power is in {summary['base_currency']} and IBKR gave no usable USD exchange rate "
+                   f"({fx.get('why') or 'none'}); the "
                    "openings' need cannot be judged, so nothing is sent")
     bp_usd = summary["buying_power"] * summary["usd_per_base"]
     target = fraction * bp_usd
@@ -707,6 +710,7 @@ def probe(deps) -> int:
            "net_liquidation": s["net_liquidation"], "buying_power": s["buying_power"],
            "positions": len(pos), "gross_shares": sum(abs(q) for q in pos.values()),
            "open_orders": len(oo), "executions_today": len(ex), "server_skew_s": round(skew, 1),
+           "fx": {k: (s.get("fx") or {}).get(k) for k in ("tag", "currency", "base_per_usd", "source", "direction_check")},
            **deps.memory()}
     d = state / "probe"
     d.mkdir(exist_ok=True)
@@ -716,6 +720,12 @@ def probe(deps) -> int:
     print(f"PROBE gateway logged in; base {s['base_currency']}; net liquidation {s['net_liquidation']:,.2f}; "
           f"buying power {s['buying_power']:,.2f}; {len(pos)} position(s); {len(oo)} open order(s); "
           f"{len(ex)} execution(s) today; server clock {skew:+.1f}s from this machine's", file=deps.out)
+    # Read-only evidence for the rate (staging, 2026-11-26): every ExchangeRate row seen, currency and
+    # value only, never the account id.
+    rows = (s.get("fx") or {}).get("rows") or []
+    print("PROBE ExchangeRate rows: " + ("; ".join(f"{r['source']} {r['currency']} {r['value']}" for r in rows)
+                                         or "none") + f"; USD rate used: {(s.get('fx') or {}).get('base_per_usd')} "
+          f"({(s.get('fx') or {}).get('source')}; direction {(s.get('fx') or {}).get('direction_check')})", file=deps.out)
     return 0
 
 

@@ -7,7 +7,7 @@
 #   commands: probe                       read the account (read-only)
 #             epoch                       once: seed the ledger
 #             send --dry [--session D]    everything but the transmission, any day
-#             approve --sha <plan_sha>    the team lead's per-day approval
+#             approve --session YYYY-MM-DD --sha <plan_sha>   the team lead's approval for that session
 #             verify | compare [--aggregates] | cancel-open (list only)
 #             feed --slot intraday|after-close|evening   B10's read-only feed, unsandboxed, by hand
 #   --tree/--python name the install's own clone and venv (release: the twin's clone, never the

@@ -337,6 +337,15 @@ install_gateway() {
     [ -d "${GW_DIR}/jars" ] || die "no ${GW_DIR}/jars after the install: IBC needs the offline Gateway"
     as_quantt sh -c 'printf "%s\n" "$1" > "$2"' sh "${GW_VERSION} ${GW_SHA256}" "${marker}"
   fi
+  # The bundled JRE that ibgw_run.sh passes to IBC (--java-path), and install4j's record of the JRE it
+  # installed with: the unattended install leaves a TEMPORARY /tmp path in .install4j/inst_jre.cfg
+  # (staging, 2026-11-26), which IBC reads when no --java-path is given. Pointed at the installed JRE,
+  # as quantt, so nothing that reads it can be sent to /tmp.
+  as_quantt test -x "${GW_DIR}/jre/bin/java" || die "no ${GW_DIR}/jre/bin/java: the Gateway's bundled JRE is missing"
+  if as_quantt test -f "${GW_DIR}/.install4j/inst_jre.cfg"; then
+    as_quantt sh -c 'printf "%s\n" "$1" > "$2.new" && mv "$2.new" "$2"' sh "${GW_DIR}/jre" "${GW_DIR}/.install4j/inst_jre.cfg" \
+      || die "could not point ${GW_DIR}/.install4j/inst_jre.cfg at ${GW_DIR}/jre"
+  fi
   vm="${GW_DIR}/ibgateway.vmoptions"
   [ -f "${vm}" ] || die "${vm} is missing: IBC reads the JVM options from it"
   # As quantt (final check 1): root never writes, chowns or renames in the Gateway's directory.
@@ -723,7 +732,14 @@ check_listeners() {
   step "nothing the Gateway runs listens beyond loopback"
   sleep 20
   bad="$(ss -ltnH 2>/dev/null | awk '{print $4}' | grep -E ':(4001|4002|7496|7497|5947)$' | grep -vE '^(127\.0\.0\.1|\[::1\]):' || true)"
-  [ -z "${bad}" ] || die "a Gateway or VNC port listens beyond loopback: ${bad}. Stop quantt-ibgw.service and fix the Gateway's API settings (docs/RUNBOOK.md §9.3)"
+  if [ -n "${bad}" ]; then
+    # The Gateway listens on every interface (*:4002; staging 2026-11-26): IBC 3.24.2 has no key for
+    # "localhost only". Accepted ONLY while the table's input rule drops those ports from beyond
+    # loopback, as the check script proves now; refused otherwise.
+    sh "${BIN}/ibgw_check_firewall.sh" "$(id -u "${RUN_USER}")" "$(id -u "${SHADOW_USER}")" \
+      || die "a Gateway or VNC port listens beyond loopback (${bad}) and the input drop rule is NOT in force (above). Stop quantt-ibgw.service NOW; re-run bootstrap_ibgw.sh (docs/RUNBOOK.md §9.3)"
+    echo "   ${bad} listens beyond loopback; the input rule drops every packet to it that is not on loopback (proved above)"
+  fi
   ss -ltnH 2>/dev/null | awk '{print $4}' | grep -E ':(4002|7497)$' && echo "   the API port is open on loopback (logged in)" \
     || echo "   the API port is not open yet: the Gateway is starting or IBC could not log in (read ${LOGS}/ibgw.out.log; then: sudo -u quantt ... quantt.twin probe)"
 }
