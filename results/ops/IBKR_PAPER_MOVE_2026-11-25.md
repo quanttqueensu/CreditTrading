@@ -109,7 +109,8 @@ Either source showing a set already headed for the auction refuses. The resubmit
 - **One paper username, so one IB Gateway and one weekly login.**
   - The Gateway runs as the native ARM64 build at a pinned version and sha256: stable 10.50.1h when read [V].
   - It runs under Xvfb, from a systemd unit, as `quantt`.
-  - VNC listens on 127.0.0.1 only, and the team lead reaches it through `ssh -L`. No port opens and no IBKR password is stored anywhere (October §2.9).
+  - VNC listens on 127.0.0.1 only, for a manual login through `ssh -L`. No port opens.
+  - **The login is automatic** (team lead, 2026-11-25: "Yes, store the paper login"). It uses a separate paper-only password, stored by the team lead in the vault, read into memory at boot, and typed into the Gateway by IBC 3.24.2, pinned. IBC is archived, but the most-used Gateway container image still bundles it. If the paper login asks for 2FA, the Gateway stays logged out until the team lead approves it, and the probe shows it.
 - **IBKR's support stance and the weekly cycle.** IBKR says headless running is "not supported" [V]. The Gateway restarts itself daily and needs a person to log in after the Saturday-night reset [V]. The team lead logs in on Sunday evening, or on Monday before 15:30.
 - **Memory.** The VM has 944 MB (measured 2026-11-25). IBKR's 4,000 MB is a heap ceiling, not resident use, and its own pages disagree on it [U]. One public measurement of a logged-in paper Gateway is 459–494 MB [U].
   - The Gateway's unit gets a `MemoryMax`, so a blow-up kills the Gateway and never an Alpaca runner.
