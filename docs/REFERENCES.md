@@ -2168,6 +2168,33 @@ one. `docs/STANDARD.md` adopts them voluntarily.
 | [PSEUDO] | a "minimum backtest length (MinBTL) that an investor should require given the number of trials attempted"; "the credibility problem of "holding-out" when the researcher had access to the full sample anyway" | [S] 2026-11-22 | Bailey, Borwein, López de Prado and Zhu, Pseudo-Mathematics and Financial Charlatanism, authors' preprint 2014-04-01, https://carmamaths.org/jon/backtest.pdf (the published version returned 403; it may differ) |
 | [AIMA] | the 2025 illustrative DDQ modules include "Governance of the Investment Manager", "Operations and Risk Management" and "Models and Systematic Trading"; the questions are for members only | [S] 2026-11-22 | https://www.aima.org/compass/ddqs/individual-modules-2025-versions.html. Topics only; no requirement is taken from it |
 
+## 12ib. IBKR paper, accounts and the connection, as read for the move of the paper books (added 2026-11-25)
+
+Read 2026-11-25 by plain HTTPS GET, with no login, for `results/ops/IBKR_PAPER_MOVE_2026-11-25.md`. FAQ pages carry no date.
+
+| fact | status | source |
+|---|---|---|
+| "Each IBKR account is only allowed one paper trading account." A second one needs a linked account, funded, with a second username, which requests that account's paper account | [V] | IBKR FAQ 35803475 (`interactivebrokers.com/lib/cstools/faq/#/content/35803475`) |
+| "It is not possible to create more than one username for a paper trading account" | [V] | IBKR FAQ 51691324 |
+| "A paper trading account will not be opened until your account has been funded"; the amount is not stated | [V] | `ibkrguides.com/clientportal/aboutpapertradingaccounts.htm` ("Last updated on October 22, 2026") |
+| A paper account starts with USD 1,000,000; a reset can be "up to five times your production account value", requested before 16:00 for the next business day | [V] | IBKR FAQ 32644862 |
+| A paper account "will be deactivated after six (6) months of no activity" | [V] | IBKR FAQ 66001515 |
+| The TWS API needs "a funded and opened IBKR Pro account" | [V] | `interactivebrokers.com/docs/` TWS API, notes and limitations, requirements |
+| A free trial account can connect an API program, but "neither real-time market data nor historical candlesticks are provided for any product that requires a paid subscription" | [V] (the FAQ's summary line) | IBKR FAQ 29082409, as listed in FAQ 29082421 |
+| MOC through IBKR: NYSE, NYSE MKT and NYSE Arca until 15:50 ET with no cancel or reduction after; Nasdaq until 15:55 with no cancel or change after 15:50 | [V] | `interactivebrokers.com/en/trading/orders/moc.php` |
+| NYSE Arca's closing freeze at 15:59 on NYSE's own page, which disagrees with IBKR's 15:50 for Arca | [V]; which cut-off IBKR enforces [U] | `nyse.com/trade/trading-information` |
+| Cboe BZX: MOC rejected after 15:55, and no cancel after 15:55 | [V] | `cboe.com/notices/content/?id=54595` |
+| IB Gateway stable 10.50.1h (built 2026-11-16); a Linux ARM64 standalone build is shipped | [V] | `download2.interactivebrokers.com/installers/ibgateway/stable-standalone/version.json` |
+| Memory "recommended … 4000" MB for API users; headless running "not supported"; daily auto-restart, with a re-login after the Saturday reset | [V] | `interactivebrokers.com/docs/` TWS API memory allocation; third-party integrations FAQ |
+| Paper fills are simulated "from the top of the book"; "Auction" is among the unsupported order types; nothing is said about MOC | [V] | `ibkrguides.com/clientportal/aboutpapertradingaccounts.htm` |
+| Without shared live data, paper receives "delayed data, as available"; US non-professional data costs USD 1.50 a month each for Networks A, B and C; market data needs USD 500 of equity | [V] | IBKR FAQs 1136176599, 26561453, 35807733; `interactivebrokers.ca/en/pricing/market-data-pricing.php` |
+| Pacing: 50 messages a second at the default 100 market-data lines | [V] | `interactivebrokers.com/docs/` TWS API pacing limitations |
+| "OAuth 2.0 is not available to Individual account structures"; OAuth 1.0a lists Advisor, Broker, Proprietary Trading Group and Hedge Fund accounts; first-party examples include "organizations looking to trade their own capital", by application to apiintegration@interactivebrokers.com | [V] | `interactivebrokers.com/docs/web-api/authentication/` (introduction; oauth-2 register; oauth-1a first-party registration process) |
+| Proprietary Trading Group: "Configure sub-accounts and limits for different traders and strategies"; in IB Canada's guide, "each sub account is margined separately. For maintenance and liquidation purposes, all accounts are consolidated" | [V] | `interactivebrokers.com/en/accounts/proprietary-trading-group.php`; `interactivebrokers.ca/en/accounts/account-guide.php` |
+| Whether a Proprietary Trading Group's paper account holds paper sub-accounts; whether OAuth works with paper; whether either is offered through IB Canada | [U] | the Org and Advisor Portal paper guides and IBKR's FAQ search were read; none says |
+| A logged-in paper Gateway's working set measured at 459–494 MB | [U] (one vendor's measurement) | rocketedge.com, 2026-11-18 |
+| Azure Linux pay-as-you-go, this region: B2pts_v2 (2 vCPU, 1 GiB) $0.0092/h; B2pls_v2 (2 vCPU, 4 GiB) $0.0368/h; B2ps_v2 (2 vCPU, 8 GiB) $0.0736/h | [V] | `prices.azure.com/api/retail/prices`; sizes from `learn.microsoft.com/en-us/azure/virtual-machines/sizes/general-purpose/bpsv2-series` |
+
 ## DASH-1. The public site's content sources (added 2026-11-23)
 
 | claim | source | status |
