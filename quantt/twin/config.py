@@ -36,9 +36,31 @@ CANCEL_REFUSE_MIN = 10       # the freeze: NYSE cancels no MOC after it (cancel-
 SLOT_SLACK = dt.timedelta(minutes=5)
 assert SEND_SLOT_MIN[0] > SEND_SLOT_MIN[1] > REFUSE_FROM_MIN > STOP_BATCH_MIN > CANCEL_REFUSE_MIN
 
+# The twin's other fixed times, New York, as its timers fire them (install_twin_vm.sh; pinned there by
+# quantt/twin/tests/test_feed.py). The feed (quantt/twin/feed.py) keeps off the Gateway around them.
+VERIFY_ET = dt.time(17, 45)
+PROBE_ET = (dt.time(9, 0), dt.time(12, 0), dt.time(15, 15))
+
+# THE GATEWAY SESSION LOCK (quantt/broker/ibkr.py, THE SESSION LOCK; B10). Every IBKRClient the desk
+# builds takes this one file's flock from connect to disconnect, so the twin's phases and the feed are
+# never connected at the same moment. It lives in the twin's own state directory (0700, quantt), so no
+# other user can take it. The twin's phases WAIT for it up to TWIN_LOCK_WAIT_S (the feed keeps clear of
+# their windows, so a wait is a backstop, never the plan); the feed never waits (quantt/twin/feed.py).
+GATEWAY_LOCK_NAME = ".gateway.lock"
+TWIN_LOCK_WAIT_S = 90.0
+
 
 class ConfigError(RuntimeError):
     """The twin's settings file is missing a key or holds a value outside its range."""
+
+
+def gateway_lock_path(state: Path) -> Path:
+    """`<twin state>/.gateway.lock`, refusing a directory that is not the twin's (named `twin`)."""
+    state = Path(state)
+    if state.name != STATE_DIR_NAME:
+        raise ConfigError(f"the Gateway lock lives in the twin's state directory (named {STATE_DIR_NAME!r}); "
+                          f"{state} is not it")
+    return state / GATEWAY_LOCK_NAME
 
 
 @dataclasses.dataclass(frozen=True)

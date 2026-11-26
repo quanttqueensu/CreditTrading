@@ -605,6 +605,19 @@ EVENTS_UNIT_FILES = ("quantt-events-secret.service",) + tuple(
 # shell installer by test_site_unit_names_are_the_ones_the_site_installer_writes.
 SITE_UNIT_FILES = ("quantt-site.service", "quantt-site.timer")
 
+# The IBKR twin (quantt/twin/, its installer quantt/deploy/install_twin_vm.sh, docs/RUNBOOK.md §9): the
+# Gateway, its guard and VNC, two key services, and a service and timer for each of send, verify, probe
+# and B10's two read-only feed slots. Registered here in the build that brought the feed, as the note on
+# SHADOW_UNIT_FILES asks (the twin's own units had not been), so a C4 or `--reports` install does not
+# refuse beside them. THE SEND UNITS SEND ORDERS (the IBKR paper account). Knowing their names changes
+# nothing about them: this installer never writes, starts, stops or arms them. Pinned to the shell
+# installer's ALL_UNITS by test_twin_unit_names_are_the_ones_the_twin_installer_writes.
+TWIN_UNIT_FILES = (
+    "quantt-ibgw.service", "quantt-ibgw-guard.service", "quantt-ibgw-vnc.service", "quantt-ibgw-secret.service",
+    "quantt-twin-secret.service") + tuple(
+    f"quantt-twin-{job}.{kind}" for job in ("send", "verify", "probe", "feed-close", "feed-evening")
+    for kind in ("service", "timer"))
+
 
 class ReportVm(VmBook):
     @property
@@ -1030,7 +1043,7 @@ def dormant_overrides(run_cmd: Callable, layout: "Layout", units=ALL_UNIT_FILES,
     # shadow/deploy/install_shadow_vm.sh (RUNBOOK 8.10), which runs its own daemon-reload.
     # They are ours too. See SHADOW_UNIT_FILES for what refusing them cost.
     known = (set(units) | set(REPORT_UNIT_FILES) | set(SHADOW_UNIT_FILES) | set(EVENTS_UNIT_FILES)
-             | set(SITE_UNIT_FILES))
+             | set(SITE_UNIT_FILES) | set(TWIN_UNIT_FILES))
     for d in roots if unexpected_prefixes else ():
         for f in sorted(d.glob("*")) if d.is_dir() else ():
             if (f.name.startswith(unexpected_prefixes) and f.suffix in (".service", ".timer")

@@ -268,6 +268,12 @@ def _finish(deps, state: Path, day: Path | None, record: dict, code: int, *, sch
 
 
 def _gateway_down(deps, state, e) -> None:
+    """Record a logged-out or unreachable Gateway for orient. A BUSY session lock (B10: another of
+    this desk's processes, the feed, is connected) says nothing about the login, so it is not
+    written as "logged out"; the phase still refuses, and its own record says why."""
+    from quantt.broker.ibkr import GatewayBusy
+    if isinstance(e, GatewayBusy):
+        return
     status.update(state, "gateway", {"logged_in": False, "why": f"{type(e).__name__}: {e}"},
                   deps.utcnow().isoformat())
 
@@ -521,12 +527,15 @@ def probe(deps) -> int:
     buying power, and COUNTS of positions, open orders and today's executions. Read-only by
     construction: a read client (`IBKRClient` mode "read": no place, no cancel). The
     printed lines are aggregates; the full reading goes to `<state>/probe/<stamp>.json`."""
-    from quantt.broker.ibkr import IBKRError, NotConnected, WrongAccount
+    from quantt.broker.ibkr import GatewayBusy, IBKRError, NotConnected, WrongAccount
     state = setup(deps)
     client = deps.ibkr("read")
     at = deps.utcnow().isoformat()
     try:
         client.connect()
+    except GatewayBusy as e:
+        print(f"PROBE gateway BUSY (not read): {e}", file=deps.out)
+        return 2
     except (NotConnected, WrongAccount) as e:
         _gateway_down(deps, state, e)
         print(f"PROBE gateway LOGGED OUT or unreachable: {e}", file=deps.out)

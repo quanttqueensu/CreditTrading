@@ -12,6 +12,8 @@
 #                      read): a different candidate refuses, naming it, rather than install an
 #                      unread version.
 #   unzip              to unpack the pinned IBC release.
+#   nftables           THE GUARD (install_twin_vm.sh): only user quantt may connect to the Gateway's
+#                      API port; not pinned (not read).
 #   libxtst6 libxi6 libxrender1 fontconfig fonts-dejavu-core
 #                      the X libraries and a font set a Java GUI needs to draw under Xvfb [S: the
 #                      usual set for Java AWT on a minimal Ubuntu]; not pinned (not read).
@@ -30,7 +32,7 @@ step() { echo "== $*"; }
 
 XVFB_VERSION="2:21.1.12-1ubuntu1.9"
 X11VNC_VERSION="0.9.16-10"
-OTHERS="unzip libxtst6 libxi6 libxrender1 fontconfig fonts-dejavu-core"
+OTHERS="unzip nftables libxtst6 libxi6 libxrender1 fontconfig fonts-dejavu-core"
 
 [ "$(id -u)" -eq 0 ] || die "run as root (sudo)"
 [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "x86_64" ] || die "unknown machine $(uname -m)"
@@ -55,4 +57,5 @@ step "install"
 DEBIAN_FRONTEND=noninteractive apt-get install -y -q "xvfb=${XVFB_VERSION}" "x11vnc=${X11VNC_VERSION}" ${OTHERS}
 command -v Xvfb >/dev/null || die "Xvfb is not on PATH after the install"
 command -v x11vnc >/dev/null || die "x11vnc is not on PATH after the install"
+command -v nft >/dev/null || die "nft is not on PATH after the install"
 echo "done: Xvfb $(dpkg-query -W -f='${Version}' xvfb), x11vnc $(dpkg-query -W -f='${Version}' x11vnc)"

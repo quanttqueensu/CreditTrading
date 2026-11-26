@@ -7,6 +7,7 @@
 #   sudo sh run_twin.sh send --dry [--session D]           everything but the transmission, any day
 #   sudo sh run_twin.sh approve --sha <plan_sha>           the team lead's per-day approval
 #   sudo sh run_twin.sh verify | compare [--aggregates] | cancel-open (list only)
+#   sudo sh run_twin.sh feed --slot intraday|after-close|evening   B10's read-only feed, unsandboxed, by hand
 #   sudo sh run_twin.sh --staging <dir> --python <py> <command ...>   the same against a staging install
 #
 # It refuses a bare `send` (orders go only from quantt-twin-send.service, armed by the team lead) and
@@ -20,17 +21,18 @@ STATE_ROOT="${RUN_HOME}/quantt_state"
 CODE="${RUN_HOME}/prod/quantt-alpaca"
 PY="${RUN_HOME}/venv/bin/python"
 STATE="${STATE_ROOT}/twin"
+FEED="/srv/quantt-ibkr-feed"
 STAGE_ENV=""
 die() { echo "REFUSED: $*" >&2; exit 2; }
 
 [ "$(id -u)" -eq 0 ] || die "run as root (sudo); it switches to ${RUN_USER} itself"
 if [ "${1:-}" = "--staging" ]; then
   [ $# -ge 4 ] && [ "$3" = "--python" ] || die "usage: --staging <dir> --python <py> <command>"
-  CODE="$2"; PY="$4"; STATE="$(dirname "$2")/state/twin"; STAGE_ENV="QUANTT_TWIN_STAGING=1"; shift 4
+  CODE="$2"; PY="$4"; STATE="$(dirname "$2")/state/twin"; FEED="/srv/quantt-ibkr-feed-staging"; STAGE_ENV="QUANTT_TWIN_STAGING=1"; shift 4
 fi
 [ $# -ge 1 ] || die "usage: sudo sh $0 probe|epoch|send --dry|approve|verify|compare|cancel-open"
 case "$1" in
-  probe|epoch|approve|verify|compare) ;;
+  probe|epoch|approve|verify|compare|feed) ;;
   send)
     dry=0; for a in "$@"; do [ "${a}" = "--dry" ] && dry=1; done
     [ "${dry}" -eq 1 ] || die "a hand-run send is not offered; use 'send --dry'. Orders go only from quantt-twin-send.service"
@@ -56,4 +58,5 @@ exec runuser -u "${RUN_USER}" -- sh -c '
   exec "$@"' sh env HOME="${RUN_HOME}" DRY_RUN=1 ${STAGE_ENV} \
   QUANTT_STATE_DIR="${STATE}" ${BOOK_ENV} QUANTT_ENV_FILE=/run/quantt/alpaca.env \
   QUANTT_TWIN_ALPACA_DATA_BOOK=cef QUANTT_IBKR_HOST=127.0.0.1 QUANTT_IBKR_PORT=4002 QUANTT_IBKR_CLIENT_ID=39 \
+  QUANTT_IBKR_FEED_DIR="${FEED}" \
   PYTHONUNBUFFERED=1 "${PY}" -B -m quantt.twin "$@"

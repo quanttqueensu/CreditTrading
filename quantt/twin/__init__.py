@@ -8,6 +8,7 @@ paper account, and booked to a per-strategy ledger. PAPER ONLY.
     python3 -m quantt.twin verify                    17:45: book the executions, score them
     python3 -m quantt.twin compare [--aggregates]    the side-by-side table so far
     python3 -m quantt.twin cancel-open [--confirm N] human-run: list, then cancel, resting orders
+    python3 -m quantt.twin feed --slot S              B10: READ-ONLY IBKR bars for the shadow books (feed.py)
 
 WHY (team lead, 2026-11-25; results/ops/IBKR_PAPER_MOVE_2026-11-25.md on its own branch). The
 books' orders must be MOC, and Alpaca paper under-fills `cls` (CLAUDE.md order-path rule 3's paper

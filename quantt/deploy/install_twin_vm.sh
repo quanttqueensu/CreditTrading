@@ -31,6 +31,30 @@
 #   quantt-ibgw.service                Xvfb + IBC + the Gateway; config.ini generated into tmpfs
 #   quantt-ibgw-vnc.service            ON DEMAND only: x11vnc on 127.0.0.1:5947 for a manual login
 #   quantt-twin-send / -verify / -probe .service + .timer
+#   quantt-ibgw-guard.service          THE GUARD (below): nftables, loaded before the Gateway, which Requires= it
+#   /srv/quantt-ibkr-feed[-staging]    B10's feed directory (quantt:quantt-shadow 2750) and its requests/
+#                                      (quantt-shadow:quantt 2750); <state>/twin/.gateway.lock (0600, quantt)
+#   quantt-twin-feed-close / -evening .service + .timer   B10's READ-ONLY market-data producer, sandboxed
+#
+# B10, THE FEED (team lead 2026-11-25: "we can trade/interacti with ibrk quotes to run shadow books / test
+# ideas"; quantt/twin/feed.py). The trading user's read-only producer writes IBKR's daily bars into the feed
+# directory, which the shadow user (quantt-shadow, docs/RUNBOOK.md 8.10) reads; the shadow user asks for
+# symbols by writing files into requests/. Staging writes /srv/quantt-ibkr-feed-staging, never the release
+# directory the shadow books read. Its units are sandboxed in the plan feed's pattern (RUNBOOK 8.15): /home
+# hidden but for the code, the venv and the books' state (read-only) and the Gateway lock; one writable
+# directory; requests/ read-only; every key directory but the core's Alpaca market-data key (/run/quantt)
+# inaccessible (the IBKR account id reaches it through EnvironmentFile=, read by systemd before the
+# sandbox). It needs the network for Alpaca's calendar, so it is not IP-restricted; the GUARD is what keeps
+# every other user off the Gateway. It has no RestrictSUIDSGID: its session directories are setgid (2750).
+#
+# THE GUARD. File permissions cannot stop a local process from opening a loopback TCP connection, and the
+# Gateway trusts 127.0.0.1, so without this any user on the VM (the shadow runner included, whose unit has
+# full network) could connect to the API port and send orders. quantt-ibgw-guard.service loads an nftables
+# table that rejects, for every local user but quantt, a TCP connection to the Gateway's API ports (4001,
+# 4002, 7496, 7497) on the Gateway's host, and rejects every loopback TCP connection the shadow user makes
+# except DNS (port 53): that also covers the on-demand VNC and any API port a GUI change could open.
+# quantt-ibgw.service Requires= the guard, so the Gateway does not run without it. The install proves it:
+# a connection attempt as quantt-shadow must be refused AND the guard's counter must move.
 #
 # THE TIMES (New York; the runner, not the timer, knows holidays and early closes: quantt/twin/config.py)
 #   send     12:30 12:40 15:30 15:40 Mon-Fri. On a 16:00 close the 12:3x/12:4x runs idle; on a
@@ -87,9 +111,20 @@ MEM_MAX="600M"
 GW_HOST="127.0.0.1"
 GW_PORT="4002"
 
-JOB_TIMERS="quantt-twin-send.timer quantt-twin-verify.timer quantt-twin-probe.timer"
-JOB_SERVICES="quantt-twin-send.service quantt-twin-verify.service quantt-twin-probe.service"
-ALL_UNITS="${JOB_TIMERS} ${JOB_SERVICES} quantt-twin-secret.service quantt-ibgw-secret.service quantt-ibgw.service quantt-ibgw-vnc.service"
+JOB_TIMERS="quantt-twin-send.timer quantt-twin-verify.timer quantt-twin-probe.timer quantt-twin-feed-close.timer quantt-twin-feed-evening.timer"
+JOB_SERVICES="quantt-twin-send.service quantt-twin-verify.service quantt-twin-probe.service quantt-twin-feed-close.service quantt-twin-feed-evening.service"
+ALL_UNITS="${JOB_TIMERS} ${JOB_SERVICES} quantt-twin-secret.service quantt-ibgw-secret.service quantt-ibgw-guard.service quantt-ibgw.service quantt-ibgw-vnc.service"
+
+# B10: the feed's reader, its directories, the guard. SHADOW_USER = shadow/deploy/install_shadow_vm.sh SVC_USER.
+SHADOW_USER="quantt-shadow"
+GUARD_NFT="${BIN}/ibgw_guard.nft"
+GUARD_TABLE="quantt_ibgw_guard"
+API_PORTS="4001, 4002, 7496, 7497"
+# The runtime directories that hold a key or a login are hidden from the feed: every /run/quantt-* present at
+# install (feed_hidden) and these, but never the core's /run/quantt (the feed reads Alpaca's calendar with that
+# market-data key, as the twin does). One that appears later is caught at run time: the feed's own check
+# (--require-sandbox) refuses while any /run/quantt-* directory is reachable, until this script is re-run.
+FEED_HIDDEN_FIXED="/run/quantt-twin /run/quantt-ibgw /run/quantt-ibgw-ibc /run/quantt-shadow"
 
 MODE="install"; VAULT=""; PRECAUTIONS=""; STAGING=""; PY=""; TAG=""
 die() { echo "REFUSED: $*" >&2; exit 2; }
@@ -116,19 +151,24 @@ parse() {
   case "${PRECAUTIONS}" in keep|bypass) ;; *) die "--order-precautions keep|bypass is required (no default; quantt/deploy/ibc_config.py explains the trade-off)" ;; esac
   case "${GW_PORT}" in 4002|7497) ;; *) die "--gateway-port ${GW_PORT} is not a paper API port (4002, 7497)" ;; esac
   case "${HEAP_MB}" in *[!0-9]*|"") die "--heap-mb must be a number of megabytes" ;; esac
+  # THE GUARD is an nftables rule on the Gateway's address, so the host must be an IPv4 literal.
+  case "${GW_HOST}" in *[!0-9.]*|""|.*|*.) die "--gateway-host ${GW_HOST} must be an IPv4 address (the guard's rule names it)" ;; esac
   if [ -n "${STAGING}" ]; then
     [ -n "${PY}" ] || die "--staging needs --python <the staging venv's python>"
     CODE="${STAGING}"
     STATE="$(dirname "${STAGING}")/state/twin"
-    IDS="41 42 43"
+    IDS="41 42 43 44"
+    FEED="/srv/quantt-ibkr-feed-staging"
   else
     [ -z "${PY}" ] || die "--python is for --staging only; a release runs the prod venv"
     PY="${PROD_PY}"
     CODE="${PROD}"
     STATE="${STATE_ROOT}/twin"
-    IDS="31 32 33"
+    IDS="31 32 33 34"
+    FEED="/srv/quantt-ibkr-feed"
   fi
   LOGS="${STATE}/logs"
+  VENV_DIR="$(dirname "$(dirname "${PY}")")"
 }
 
 # ---------------------------------------------------------------- checks (RUNBOOK §8.3 shape)
@@ -156,7 +196,8 @@ check_layout() {
   id -u "${RUN_USER}" >/dev/null 2>&1 || die "user ${RUN_USER} does not exist"
   [ -d "${STATE_ROOT}" ] || die "${STATE_ROOT} does not exist; prod is not installed here"
   [ -x "${PY}" ] || die "${PY} is not an executable interpreter"
-  for f in quantt/twin/run.py quantt/broker/ibkr.py quantt/deploy/ibc_config.py quantt/deploy/vm/ibgw_run.sh ops/twin/ibkr_twin.json; do
+  for f in quantt/twin/run.py quantt/broker/ibkr.py quantt/deploy/ibc_config.py quantt/deploy/vm/ibgw_run.sh ops/twin/ibkr_twin.json \
+           quantt/twin/feed.py quantt/broker/ibkr_market.py ops/twin/ibkr_feed.json; do
     [ -f "${CODE}/${f}" ] || die "${CODE}/${f} is missing"
   done
   # The books the twin reads, and the variable naming each one's state directory, from the twin's
@@ -177,6 +218,15 @@ check_layout() {
   command -v x11vnc >/dev/null 2>&1 || die "x11vnc not installed; run bootstrap_ibgw.sh first"
   command -v unzip >/dev/null 2>&1 || die "unzip not installed; run bootstrap_ibgw.sh first"
   command -v curl >/dev/null 2>&1 || die "curl not installed"
+  NFT_BIN="$(command -v nft)" || die "nft not installed (nftables); run bootstrap_ibgw.sh first: THE GUARD needs it"
+  id -u "${SHADOW_USER}" >/dev/null 2>&1 || die "user ${SHADOW_USER} does not exist; install the shadow runner first (docs/RUNBOOK.md 8.10): the feed is written for it"
+  getent group "${SHADOW_USER}" >/dev/null || die "group ${SHADOW_USER} does not exist"
+  for g in $(id -nG "${SHADOW_USER}"); do
+    [ "${g}" != "${RUN_USER}" ] || die "${SHADOW_USER} is in group ${RUN_USER}: it could enter ${RUN_HOME}; remove it"
+  done
+  LOCK_NAME="$(cd "${CODE}" && as_quantt "${PY}" -B -c 'from quantt.twin.config import GATEWAY_LOCK_NAME as n; print(n)')" \
+    || die "cannot read the Gateway lock's name from ${CODE}/quantt/twin/config.py"
+  case "${LOCK_NAME}" in *[!A-Za-z0-9._-]*|""|*/*) die "the Gateway lock name '${LOCK_NAME}' is not a plain file name" ;; esac
   [ -n "$(swapon --show=NAME --noheadings)" ] || die "no swap is active (bootstrap.sh makes a 2 GB /swapfile)"
   for u in ${ALL_UNITS}; do
     for d in "${UNIT_DIR}/${u}.d" "/run/systemd/system/${u}.d" "/usr/lib/systemd/system/${u}.d"; do
@@ -296,19 +346,68 @@ install_ibc() {
 }
 
 install_bin() {
-  step "the Gateway's start files, root-owned, in ${BIN}"
+  step "the Gateway's start files and THE GUARD's rules, root-owned, in ${BIN}"
   install -d -o root -g root -m 755 "${BIN}"
   install -o root -g root -m 755 "${CODE}/quantt/deploy/vm/ibgw_run.sh" "${BIN}/ibgw_run.sh"
   install -o root -g root -m 644 "${CODE}/quantt/deploy/ibc_config.py" "${BIN}/ibc_config.py"
+  render_guard > "${GUARD_NFT}.new"
+  chmod 644 "${GUARD_NFT}.new"
+  "${NFT_BIN}" -c -f "${GUARD_NFT}.new" || die "nft rejects the guard's rules (${GUARD_NFT}.new); nothing was loaded"
+  mv "${GUARD_NFT}.new" "${GUARD_NFT}"
+  echo "   ${GUARD_NFT}: only uid $(id -u "${RUN_USER}") (${RUN_USER}) may connect to ${GW_HOST} ports ${API_PORTS}"
+}
+
+render_guard() {
+  # One nft transaction: create-if-absent, delete, define. Re-loading it replaces the table atomically.
+  quid="$(id -u "${RUN_USER}")"; suid="$(id -u "${SHADOW_USER}")"
+  if [ "${GW_HOST}" = "127.0.0.1" ]; then dst4="127.0.0.0/8"; else dst4="${GW_HOST}"; fi
+  echo "# ${GUARD_NFT}: WRITTEN by quantt/deploy/install_twin_vm.sh (THE GUARD, ${TAG}). Loaded by"
+  echo "# quantt-ibgw-guard.service; quantt-ibgw.service Requires= it. Re-run the installer rather than editing."
+  echo "table inet ${GUARD_TABLE}"
+  echo "delete table inet ${GUARD_TABLE}"
+  echo "table inet ${GUARD_TABLE} {"
+  echo "  chain output {"
+  echo "    type filter hook output priority 0; policy accept;"
+  echo "    ip daddr ${dst4} tcp dport { ${API_PORTS} } meta skuid != ${quid} counter reject with tcp reset"
+  if [ "${GW_HOST}" = "127.0.0.1" ]; then
+    echo "    ip6 daddr ::1 tcp dport { ${API_PORTS} } meta skuid != ${quid} counter reject with tcp reset"
+  fi
+  echo "    oifname \"lo\" meta skuid ${suid} tcp dport != 53 counter reject with tcp reset"
+  echo "  }"
+  echo "}"
 }
 
 make_state() {
   step "state directory ${STATE} (0700, ${RUN_USER})"
   install -d -o "${RUN_USER}" -g "${RUN_USER}" -m 700 "$(dirname "${STATE}")" "${STATE}" "${LOGS}"
+  # The Gateway session lock (quantt/broker/ibkr.py). Created once and never replaced: a new inode
+  # under a held lock would let a second process connect beside the first.
+  lockf="${STATE}/${LOCK_NAME}"
+  [ ! -L "${lockf}" ] || die "${lockf} is a symlink"
+  if [ ! -e "${lockf}" ]; then
+    install -o "${RUN_USER}" -g "${RUN_USER}" -m 600 /dev/null "${lockf}"
+  fi
+  [ "$(stat -c '%U:%G %a' "${lockf}")" = "${RUN_USER}:${RUN_USER} 600" ] || die "${lockf} is $(stat -c '%U:%G %a' "${lockf}"), not ${RUN_USER}:${RUN_USER} 600"
   [ ! -e "${STATE}/AUTO_ARMED" ] || echo "   WARNING: ${STATE}/AUTO_ARMED exists (kept); the units are DRY_RUN=1"
   if [ -n "${STAGING}" ] && [ -e "${STATE}/AUTO_ARMED" ]; then
     die "${STATE}/AUTO_ARMED exists in a STAGING state directory; remove it (staging never sends)"
   fi
+}
+
+make_feed_dirs() {
+  step "B10 feed directory ${FEED} (${RUN_USER}:${SHADOW_USER} 2750) and ${FEED}/requests (${SHADOW_USER}:${RUN_USER} 2750)"
+  # /srv, not /home/quantt (the plan feed's reason, RUNBOOK 8.15): a feed under prod's home would need the
+  # shadow user let into it. Setgid, so the producer's files take the reader's group (the producer also
+  # checks every file it writes). requests/ is the shadow user's, setgid to quantt's group, so the files
+  # it drops are readable by the producer and by nobody else; the producer's unit sees it read-only.
+  install -d -m 0755 -o root -g root /srv
+  [ ! -L "${FEED}" ] && [ ! -L "${FEED}/requests" ] || die "${FEED} or its requests directory is a symlink"
+  install -d -m 2750 -o "${RUN_USER}" -g "${SHADOW_USER}" "${FEED}"
+  chown "${RUN_USER}:${SHADOW_USER}" "${FEED}"
+  chmod 2750 "${FEED}"
+  install -d -m 2750 -o "${SHADOW_USER}" -g "${RUN_USER}" "${FEED}/requests"
+  chown "${SHADOW_USER}:${RUN_USER}" "${FEED}/requests"
+  chmod 2750 "${FEED}/requests"
 }
 
 # ---------------------------------------------------------------- units
@@ -392,6 +491,77 @@ StandardError=append:${LOGS}/$1.err.log
 UNIT
 }
 
+feed_hidden() {
+  # every /run/quantt-* directory present now, and the fixed list; never /run/quantt itself
+  { for d in /run/quantt-*; do [ -d "${d}" ] && echo "${d}"; done; for d in ${FEED_HIDDEN_FIXED}; do echo "${d}"; done; } \
+    | sort -u | tr '\n' ' ' | sed 's/ $//'
+}
+
+feed_service() {
+  # $1 unit stem (close|evening), $2 slot, $3 client id. B10's READ-ONLY producer, sandboxed (header, B10).
+  if [ -n "${STAGING}" ]; then
+    run="/usr/bin/env DRY_RUN=1 QUANTT_TWIN_STAGING=1 ${PY} -B -m quantt.twin feed --slot $2 --require-sandbox"
+    stage_env="Environment=QUANTT_TWIN_STAGING=1"
+  else
+    run="${PY} -B -m quantt.twin feed --slot $2 --require-sandbox"
+    stage_env="# release mode: QUANTT_TWIN_STAGING unset"
+  fi
+  hidden="$(for d in ${FEED_HIDDEN}; do printf -- '-%s ' "${d}"; done | sed 's/ $//')"
+  unit_file "quantt-twin-feed-$1.service" <<UNIT
+# quantt-twin-feed-$1.service : B10, IBKR's daily bars for the shadow books ($2), READ ONLY, ${TAG}.
+# WRITTEN by quantt/deploy/install_twin_vm.sh. It sends nothing (a read client; quantt/twin/feed.py);
+# DRY_RUN=1 is set all the same. It writes only ${FEED}; the shadow user reads it.
+[Unit]
+Description=QUANTT IBKR market-data feed, $2, read only (${TAG})
+Wants=quantt-secret.service quantt-twin-secret.service quantt-ibgw.service
+After=quantt-secret.service quantt-twin-secret.service quantt-ibgw.service
+
+[Service]
+Type=oneshot
+User=${RUN_USER}
+Group=${RUN_USER}
+UMask=0027
+WorkingDirectory=${CODE}
+Environment=DRY_RUN=1
+${stage_env}
+Environment=QUANTT_STATE_DIR=${STATE}
+${BOOK_LINES}Environment=QUANTT_ENV_FILE=${CORE_ENV_FILE}
+Environment=QUANTT_TWIN_ALPACA_DATA_BOOK=${DATA_BOOK}
+Environment=QUANTT_IBKR_HOST=${GW_HOST}
+Environment=QUANTT_IBKR_PORT=${GW_PORT}
+Environment=QUANTT_IBKR_CLIENT_ID=$3
+Environment=QUANTT_IBKR_FEED_DIR=${FEED}
+EnvironmentFile=${TWIN_RUN}/ibkr.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=${run}
+SuccessExitStatus=3 5
+ProtectSystem=strict
+ProtectHome=tmpfs
+BindReadOnlyPaths=${CODE} ${VENV_DIR}${BOOK_DIRS}
+BindPaths=${STATE}/${LOCK_NAME}
+ReadWritePaths=${FEED}
+ReadOnlyPaths=${FEED}/requests
+InaccessiblePaths=${hidden}
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProcSubset=pid
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+MemoryMax=200M
+Nice=10
+TimeoutStartSec=6000
+StandardOutput=append:${LOGS}/feed-$1.out.log
+StandardError=append:${LOGS}/feed-$1.err.log
+UNIT
+}
+
 timer() {
   # $1 phase, $2.. OnCalendar lines
   ph="$1"; shift
@@ -410,6 +580,22 @@ write_units() {
     --secret ibkr-paper-username=IBKR_PAPER_USERNAME --secret ibkr-paper-password=IBKR_PAPER_PASSWORD
   secret_service quantt-twin-secret.service quantt-twin "${TWIN_RUN}/ibkr.env" \
     --secret ibkr-paper-account-id=QUANTT_IBKR_ACCOUNT
+  unit_file quantt-ibgw-guard.service <<UNIT
+# quantt-ibgw-guard.service : THE GUARD (header). Only ${RUN_USER} may connect to the Gateway's API ports.
+# WRITTEN by quantt/deploy/install_twin_vm.sh; the rules are ${GUARD_NFT}. Stopping it stops the Gateway.
+[Unit]
+Description=QUANTT IB Gateway API guard (nftables; ${TAG})
+Before=quantt-ibgw.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=${NFT_BIN} -f ${GUARD_NFT}
+ExecStop=${NFT_BIN} delete table inet ${GUARD_TABLE}
+
+[Install]
+WantedBy=multi-user.target
+UNIT
   unit_file quantt-ibgw.service <<UNIT
 # quantt-ibgw.service : Xvfb + IBC + the IB Gateway ${GW_VERSION} (paper), as ${RUN_USER}. ${TAG}.
 # WRITTEN by quantt/deploy/install_twin_vm.sh. The IBC config holding the paper password is generated
@@ -417,7 +603,8 @@ write_units() {
 [Unit]
 Description=QUANTT IB Gateway (paper) under Xvfb and IBC (${TAG})
 Wants=network-online.target quantt-ibgw-secret.service
-After=network-online.target quantt-ibgw-secret.service
+Requires=quantt-ibgw-guard.service
+After=network-online.target quantt-ibgw-secret.service quantt-ibgw-guard.service
 
 [Service]
 Type=simple
@@ -462,9 +649,16 @@ UNIT
   job_service send "$1" "SuccessExitStatus=3 5 10" "send"
   job_service verify "$2" "# verify exits 0 PASS or 1 FAIL; a FAIL shows as a failed unit" "verify"
   job_service probe "$3" "# probe exits 0 logged in, 2 logged out (shown failed, on purpose)" "probe"
+  FEED_HIDDEN="$(feed_hidden)"
+  feed_service close after-close "$4"
+  feed_service evening evening "$4"
   timer send "Mon..Fri *-*-* 12:30:00" "Mon..Fri *-*-* 12:40:00" "Mon..Fri *-*-* 15:30:00" "Mon..Fri *-*-* 15:40:00"
   timer verify "Mon..Fri *-*-* 17:45:00"
   timer probe "Mon..Fri *-*-* 09:00:00" "Mon..Fri *-*-* 12:00:00" "Mon..Fri *-*-* 15:15:00" "Sun *-*-* 19:30:00"
+  # B10: after the close (13:20 runs on a 13:00 close, 16:20 on a 16:00 close; the runner idles the other),
+  # and once in the evening, after the shadow runner's 18:50 run has written its requests.
+  timer feed-close "Mon..Fri *-*-* 13:20:00" "Mon..Fri *-*-* 16:20:00"
+  timer feed-evening "Mon..Fri *-*-* 20:20:00"
   for u in ${JOB_SERVICES}; do
     n="$(grep -c '^Environment=DRY_RUN=1$' "${UNIT_DIR}/${u}")" || true
     [ "${n}" = "1" ] || die "${UNIT_DIR}/${u} does not carry exactly one Environment=DRY_RUN=1"
@@ -485,7 +679,8 @@ enable_units() {
   # shellcheck disable=SC2086
   systemctl stop ${JOB_TIMERS} 2>/dev/null || true
   systemctl daemon-reload
-  systemctl enable quantt-ibgw-secret.service quantt-twin-secret.service quantt-ibgw.service >/dev/null
+  systemctl enable quantt-ibgw-secret.service quantt-twin-secret.service quantt-ibgw-guard.service quantt-ibgw.service >/dev/null
+  systemctl restart quantt-ibgw-guard.service || die "quantt-ibgw-guard.service failed: the Gateway does not start without THE GUARD"
   systemctl restart quantt-ibgw-secret.service || die "quantt-ibgw-secret.service failed; read ${LOGS}/quantt-ibgw-secret.err.log (names only)"
   systemctl restart quantt-twin-secret.service || die "quantt-twin-secret.service failed; read ${LOGS}/quantt-twin-secret.err.log"
   systemctl restart quantt-ibgw.service || die "quantt-ibgw.service failed to start; read ${LOGS}/ibgw.err.log"
@@ -502,17 +697,48 @@ check_listeners() {
     || echo "   the API port is not open yet: the Gateway is starting or IBC could not log in (read ${LOGS}/ibgw.out.log; then: sudo -u quantt ... quantt.twin probe)"
 }
 
+as_reader() { runuser -u "${SHADOW_USER}" -- "$@"; }
+
+guard_count() {
+  "${NFT_BIN}" list table inet "${GUARD_TABLE}" \
+    | awk '/dport/ && /skuid !=/ {for (i = 1; i < NF; i++) if ($i == "packets") s += $(i + 1)} END {print s + 0}'
+}
+
+check_feed_and_guard() {
+  step "B10: the feed's access both ways, and THE GUARD"
+  [ "$(stat -c '%U:%G %a' "${FEED}")" = "${RUN_USER}:${SHADOW_USER} 2750" ] || die "${FEED} is $(stat -c '%U:%G %a' "${FEED}")"
+  [ "$(stat -c '%U:%G %a' "${FEED}/requests")" = "${SHADOW_USER}:${RUN_USER} 2750" ] || die "${FEED}/requests is $(stat -c '%U:%G %a' "${FEED}/requests")"
+  as_reader test -r "${FEED}" && as_reader test -x "${FEED}" || die "${SHADOW_USER} cannot read ${FEED}"
+  if as_reader test -w "${FEED}"; then die "${SHADOW_USER} can WRITE ${FEED}"; fi
+  as_reader test -w "${FEED}/requests" || die "${SHADOW_USER} cannot write ${FEED}/requests"
+  as_quantt test -r "${FEED}/requests" && as_quantt test -x "${FEED}/requests" || die "${RUN_USER} cannot read ${FEED}/requests"
+  if as_quantt test -w "${FEED}/requests"; then die "${RUN_USER} can write ${FEED}/requests (it must only read them)"; fi
+  if as_reader test -x "${RUN_HOME}"; then die "${SHADOW_USER} can enter ${RUN_HOME}"; fi
+  if as_reader test -x "${STATE}"; then die "${SHADOW_USER} can enter the twin's state ${STATE}"; fi
+  "${NFT_BIN}" list table inet "${GUARD_TABLE}" >/dev/null || die "THE GUARD's table is not loaded; stop quantt-ibgw.service"
+  before="$(guard_count)"
+  as_reader /usr/bin/python3 -I -c 'import socket, sys
+s = socket.socket(); s.settimeout(3)
+sys.exit(0 if s.connect_ex((sys.argv[1], int(sys.argv[2]))) else 1)' "${GW_HOST}" "${GW_PORT}" \
+    || die "${SHADOW_USER} OPENED a connection to the Gateway's API port ${GW_HOST}:${GW_PORT}. Stop quantt-ibgw.service NOW and read ${GUARD_NFT}"
+  after="$(guard_count)"
+  [ "${after}" -gt "${before}" ] || die "the shadow user's connection failed, but not at THE GUARD (its counter stayed at ${before}): read ${GUARD_NFT}"
+  echo "   ${SHADOW_USER}: reads ${FEED}, writes only ${FEED}/requests, and its connection to ${GW_HOST}:${GW_PORT} was refused by the guard"
+}
+
 summary() {
   cat <<DONE
 
 IBKR twin installed (${TAG}). NOT ARMED: every twin job unit has DRY_RUN=1, no AUTO_ARMED was written$( [ -n "${STAGING}" ] && echo ", and STAGING forces DRY_RUN=1 and QUANTT_TWIN_STAGING=1: it can never send" ).
   state ${STATE}; code ${CODE}; Gateway ${GW_VERSION} (heap ${HEAP_MB} MB, MemoryMax ${MEM_MAX}); IBC ${IBC_VERSION}; order precautions: ${PRECAUTIONS}
+  B10 feed: ${FEED} (read by ${SHADOW_USER}); timers 13:20/16:20 after-close and 20:20 evening; THE GUARD ${GUARD_NFT}
 
 NEXT, BY HAND (docs/RUNBOOK.md §9):
  1. Read the login:     sudo tail -n 40 ${LOGS}/ibgw.out.log
  2. Probe (read-only):  sudo sh ${CODE}/quantt/deploy/vm/run_twin.sh $( [ -n "${STAGING}" ] && echo "--staging ${STAGING} --python ${PY} " )probe
  3. The epoch (once):   sudo sh ${CODE}/quantt/deploy/vm/run_twin.sh $( [ -n "${STAGING}" ] && echo "--staging ${STAGING} --python ${PY} " )epoch
  4. The dry check:      sudo sh ${CODE}/quantt/deploy/vm/run_twin.sh $( [ -n "${STAGING}" ] && echo "--staging ${STAGING} --python ${PY} " )send --dry --session <YYYY-MM-DD>
+ 5. The feed by hand:   sudo sh ${CODE}/quantt/deploy/vm/run_twin.sh $( [ -n "${STAGING}" ] && echo "--staging ${STAGING} --python ${PY} " )feed --slot intraday   (in a session, outside the twin's windows)
 DONE
   systemctl list-timers 'quantt-twin-*' --no-pager || true
 }
@@ -539,9 +765,11 @@ main() {
   install_ibc
   install_bin
   make_state
+  make_feed_dirs
   write_units
   enable_units
   check_listeners
+  check_feed_and_guard
   summary
 }
 

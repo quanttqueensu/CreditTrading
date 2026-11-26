@@ -283,6 +283,50 @@ books run byte-identically, and the twin only imports their checks and the ledge
   Either shows as "LOGGED OUT" in orient's IBKR TWIN section and on the daily page; no alert
   leaves the VM ("No phone").
 
+### The IBKR market-data feed for the shadow books (B10, as built 2026-11-25), READ ONLY
+
+Team lead, 2026-11-25: "we can trade/interacti with ibrk quotes to run shadow books / test ideas". The
+rule that cannot bend: the shadow user never reaches the Gateway's API port, because the Gateway can
+send orders. The code: `quantt/broker/ibkr_market.py`, `quantt/twin/feed.py` (its docstring is the
+design), `ops/twin/ibkr_feed.json`, the feed units and THE GUARD in `quantt/deploy/install_twin_vm.sh`;
+on the shadow branch, `shadow/ibkr_feed.py`.
+
+- **Who talks to the Gateway.** Only the trading user. `python3 -m quantt.twin feed --slot ...` builds an
+  `IBKRClient` in READ mode (client id 34; staging 44), which refuses `place_moc`, `cancel` and
+  `global_cancel`; `MarketReader` refuses any other client and names no order method (a test reads its
+  source). The shadow user only reads files, and asks for symbols by dropping `<slug>.txt` into
+  `/srv/quantt-ibkr-feed/requests/`.
+- **THE GUARD.** File permissions cannot stop a local process opening a loopback socket, and the Gateway
+  trusts 127.0.0.1. `quantt-ibgw-guard.service` loads an nftables table that rejects a TCP connection to
+  the API ports (4001, 4002, 7496, 7497) from every local user but `quantt`, and every loopback TCP
+  connection from `quantt-shadow` except DNS. The Gateway's unit `Requires=` it. The installer proves it
+  with a connection attempt as `quantt-shadow` that must be refused with the guard's counter moving.
+- **One Gateway session.** Every `IBKRClient` the desk builds takes the flock on
+  `<twin state>/.gateway.lock` from connect to disconnect (`quantt/broker/ibkr.py`, THE SESSION LOCK).
+  The twin's phases wait up to 90 s for it (`config.TWIN_LOCK_WAIT_S`); the feed never waits and stands
+  down. A busy lock is never written to `status.json` as a logged-out Gateway. The feed also keeps off
+  the twin's windows: the send (close − 35 to close − 10, for the session's close and both standard
+  closes), verify 17:40–17:55, the probes and the Gateway's 03:00 restart.
+- **What it fetches.** Every key of `targets` in each book's latest plan, then the requests, strictly
+  validated, capped at `max_symbols`. Daily TRADES bars (`reqHistoricalData`, regular hours, 6 months),
+  one request at a time, 10 s apart (`ops/twin/ibkr_feed.json` owns these settings and their sources;
+  IBKR's strictest family, applied to daily bars on purpose); a
+  pacing violation or a lost connection stops the run and nothing is retried. Intraday runs (by hand
+  only) also stream quotes for 12 s per batch of 40 lines at `reqMarketDataType(3)`, never a paid
+  regulatory snapshot.
+- **Labels.** Bars are `source=ibkr`, `data_type=historical`: never called live or delayed, because IBKR
+  does not say. Each quote value is labelled by the tick type that carried it (66 to 76 are delayed) and
+  the type IBKR reported: live, frozen, delayed, delayed_frozen, or unlabelled when the two disagree.
+  ib_async defaults the reported type to live, so the tick type decides: a delayed tick is never written
+  as live. A symbol
+  IBKR will not serve is UNMEASURED with IBKR's codes and words; nothing is filled in. A bar dated after
+  the last complete session (close + 20 min) is dropped and counted.
+- **Times.** 13:20 and 16:20 (`after-close`: the slot that matches the session's close runs, the other
+  idles), 20:20 (`evening`: re-reads the day and counts the closes IBKR revised since the after-close
+  run). Never in the twin's windows.
+- **It is data, not evidence.** The manifest's label says so: IBKR's daily bar is not the official
+  closing-auction print, and nothing here counts toward any live statistic.
+
 ## As built (2026-11-09): the daily P&L report, beside the runner and outside its order path
 
 **The job.** `scripts/ops/pnl_report.py` (timers `quantt-{cef,c4}-pnl`, 20:30 and 20:35 ET;
