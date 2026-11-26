@@ -1590,9 +1590,12 @@ for the run-time identity check). `quantt-ibgw-secret.service` writes the first 
 
 ### 9.2 Packages (TL, sudo)
 
-`sudo sh <code>/quantt/deploy/vm/bootstrap_ibgw.sh`: pinned `xvfb` and `x11vnc`, `unzip` and
-the X libraries. No Java: the Gateway installer bundles its JRE. It checks that swap is on (the
-2 GB `/swapfile` from §8.2) and never makes a second one.
+`sudo sh <tree>/quantt/deploy/vm/bootstrap_ibgw.sh --tree <tree> --admin-user azureuser`: pinned
+`xvfb` and `x11vnc`, `unzip`, `nftables` and the X libraries, and the port filter
+(`quantt-ibgw-firewall.service`, table `inet quantt_ibgw`: only uid `quantt` reaches ports
+4002/7497 on loopback, and `quantt` or the admin user port 5947). No Java: the Gateway installer
+bundles its JRE. It checks that swap is on (the 2 GB `/swapfile` from §8.2) and never makes a
+second one.
 
 ### 9.3 Install: staging first, then the release (TL, sudo)
 
@@ -1600,12 +1603,17 @@ Staging (Thursday 2026-11-26, Thanksgiving): copy the local tree to
 `/home/quantt/twin-staging/tree` (root-owned, not writable by `quantt`), build a venv from its
 `requirements.txt` at `/home/quantt/twin-staging/venv`, then
 `sudo sh /home/quantt/twin-staging/tree/quantt/deploy/install_twin_vm.sh --vault <vault>
---order-precautions bypass --staging /home/quantt/twin-staging/tree --python
+--order-precautions bypass --staging --tree /home/quantt/twin-staging/tree --python
 /home/quantt/twin-staging/venv/bin/python`. Staging forces `DRY_RUN=1` and
-`QUANTT_TWIN_STAGING=1` on every command line: it can never send. The release install is the
-same command without `--staging/--python`, from the prod clone at a release tag on origin.
-`--order-precautions` has no default (keep or bypass: `quantt/deploy/ibc_config.py` sets out the
-trade-off; for review). The installer downloads the Gateway and IBC, refuses on any sha256 other
+`QUANTT_TWIN_STAGING=1` on every command line: it can never send. The release install runs from
+the twin's OWN clone and venv, never the Alpaca books' clone: clone the repository to
+`/home/quantt/prod/quantt-twin`, check out the release tag, build `/home/quantt/venv-twin` from
+its `requirements.txt`, then `sudo sh /home/quantt/prod/quantt-twin/quantt/deploy/install_twin_vm.sh
+--vault <vault> --order-precautions bypass --tree /home/quantt/prod/quantt-twin --python
+/home/quantt/venv-twin/bin/python`. `--order-precautions bypass` is the decided value for this
+paper account (coordinator, 2026-11-25: the twin's own size and buying-power checks apply); the
+flag stays required. Memory: `--heap-mb`, `--memory-high`, `--memory-max` (320, 520M, 600M as
+first settings; the probe writes `MemoryPeak` and `MemAvailable` into `status.json`). The installer downloads the Gateway and IBC, refuses on any sha256 other
 than its pins (naming both), installs the Gateway as `quantt` with `-Xmx320m`, writes the units
 with `DRY_RUN=1`, starts the Gateway, and checks that no Gateway or VNC port listens beyond
 loopback. It refuses inside 12:20-13:00, 15:20-16:00 and 17:30-18:00 on weekdays.
@@ -1626,7 +1634,8 @@ trading mode, read-only flags, precautions and auto-restart at every start.
    `run_twin.sh approve --sha <plan_sha>`, and sets `DRY_RUN=0` in
    `/etc/systemd/system/quantt-twin-send.service` (release install only) and `daemon-reload`.
    On 2026-11-27 (13:00 close) the send fires at 12:30, with 12:40 as backup.
-5. 17:45: `quantt-twin-verify`; then `run_twin.sh compare`.
+5. 17:45 (retries 18:30, 20:30, 23:00): `quantt-twin-verify`; then `run_twin.sh ... compare`.
+   Every `run_twin.sh` call takes `--tree <clone> --python <venv python>` (and `--staging`).
 
 ### 9.5 A logged-out Gateway, and two-factor
 
@@ -1649,6 +1658,15 @@ asked for 2FA**: if it did, IBC cannot log in unattended and the stored login do
   book is flattened by its own plan. A dedicated flatten tool (the archived
   `flatten_ibkr_account.py`) is not built.
 - Halt the twin: `sudo -u quantt sh -c 'echo why > /home/quantt/quantt_state/twin/HALT'`.
+
+### 9.7 An UNBOOKED session (a person repairs it)
+
+`<state>/twin/<day>/UNBOOKED.json` names why verify could not book the session after its last
+slot (no IBKR read was saved, or a crossed share has no official close). Every later send refuses
+until it is repaired. Repair: book the session from `<day>/ibkr_read.json` and the official
+closes with `quantt/sleeves/ledger.py` `apply`, exactly as verify would; check the result sums to
+IBKR's positions; write `ledger.json`, `<day>/ledger_before.json` and `<day>/verify.json` with
+`ledger_applied: true`; then delete `UNBOOKED.json`. Never price a crossed share from a bar.
 
 ## Open questions (for the TL)
 

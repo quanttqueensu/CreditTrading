@@ -241,9 +241,27 @@ books run byte-identically, and the twin only imports their checks and the ledge
   `events/<sleeve>`, and `legacy`, the account's positions at the epoch (`epoch`, once),
   flattened by the first session in the same order list as the books' openings.
 - **The order.** combined target − IBKR position, one MOC order a symbol (`orderType=MOC`,
-  `tif=DAY`, SMART, USD), `orderRef = twin-<YYYYMMDD>-<SYM>`, in `transmit_sequence` order. A
-  flip is one order at IBKR. The time is IBKR's 15:50 cut-off for every venue (contract §4.3).
+  `tif=DAY`, SMART, USD), `orderRef = twin-<YYYYMMDD>-<SYM>-<leg>`, in `transmit_sequence` order.
+  The time is IBKR's 15:50 cut-off for every venue (contract §4.3).
   **Rule 3's `late_market` exception does not apply here: the twin sends MOC.**
+- **A change to the contract's "one MOC order a symbol" (independent review, 2026-11-25, finding
+  2).** When the net order takes a symbol through zero, the twin sends TWO orders on the SAME side:
+  leg `-1` to zero, then leg `-2` to open the other side. Why: IBKR may refuse the opening short,
+  and a refused short must never block the reduction in front of it. If leg 1 is refused, leg 2 is
+  not sent. It is still never both sides of a symbol; the books' own flip rule (close today, open
+  later) is kept in spirit. The ledger books the SUM of a symbol's fills, as before.
+- **Target integrity (finding 4).** A core or C4 plan's orders must start at its targets'
+  `current` and end at its `target` (a deferred flip's closing leg and a binding buying-power
+  fit's smaller opening excepted), and a target off its current with no order must carry the
+  plan's own note (no trade, not shortable, flip deferred); otherwise that book holds, named.
+  `plan_sha` covers the orders only, so this is what binds the targets the twin trades to.
+- **Holds and minimums.** An events sleeve the plan holds is held at the TWIN ledger's shares
+  (finding 8). An events change in a symbol under the events book's `min_order_usd` holds the
+  events slugs there, as the events book sends nothing that small; core and C4 have no minimum.
+- **Contracts and the calendar.** Every symbol is resolved by `reqContractDetails` (a read)
+  before the gates, the dry check included; an unresolved one is a named refusal. Alpaca's close
+  for the session must equal `config.expected_close` (13:00 the day after Thanksgiving, on 24
+  December and on 3 July), or the send refuses.
 - **When** (`quantt/twin/config.py`, from the calendar close): slots close − 30 and − 20 min
   (15:30, 15:40; 12:30, 12:40 on a 13:00 close, which 2026-11-27 is), refused from close − 15,
   the batch stopped at close − 12; verify at 17:45, the same day (IBKR keeps only today's
@@ -265,9 +283,16 @@ books run byte-identically, and the twin only imports their checks and the ledge
   whole plan; an `intent` line is fsynced before each `placeOrder`. A rejection skips that symbol
   (a refused short is named); an order not acknowledged within `ACK_WAIT_S` stops the batch, and
   nothing is ever resent; the backup slot then refuses (STARTED without DONE).
-- **Verify** books only executions the twin's log says it placed (a foreign execution FAILs the
-  day unbooked), with `quantt/sleeves/ledger.py` `apply`, and requires the ledger to sum to
-  IBKR's positions on every symbol. Both brokers' fills are scored against the same official
+- **Verify** runs at 17:45, 18:30, 20:30 and 23:00. The first slot that reaches the Gateway saves
+  the raw read (executions with commission reports, positions, open orders, account summary) to
+  `<day>/ibkr_read.json` at once, and the official closes to `prints.json`; a later slot books
+  from them when the Gateway or Alpaca fails (finding 1). A crossed share with no official close
+  yet waits (PENDING); after 23:00 the session is left `UNBOOKED.json` for a person and the send
+  refuses until it is repaired. It is idempotent, checks that the ledger is the one STARTED was
+  built on (its sha), and writes every slug's value at the official close (`slug_pnl`) on EVERY
+  session, a no-send one included. It books only executions the twin's log says it placed (a
+  foreign execution FAILs the day unbooked), with `quantt/sleeves/ledger.py` `apply`, and requires
+  the ledger to sum to IBKR's positions on every symbol. Both brokers' fills are scored against the same official
   close (`fetch_prints`, condition M); crossed shares are counted apart and never scored.
   IBKR's NetLiquidation is recorded; its residual against the ledger is report only.
 - **compare** prints, per book and session: orders, filled in full, fill vs close for the twin
@@ -276,6 +301,9 @@ books run byte-identically, and the twin only imports their checks and the ledge
   from the twin ledger. `--aggregates` is the form for a committed note.
 - **The weekend check.** `send --dry --session D` runs every gate on D's saved plans against
   IBKR's positions now, read-only, and transmits nothing whatever DRY_RUN says.
+- **Port access (finding 6).** An nftables table (`quantt/deploy/ibgw_firewall.py`, loaded at
+  boot before the Gateway) lets only uid `quantt` connect to the paper API ports on loopback, and
+  `quantt` or the admin login user (sshd opens `ssh -L` as that user) to the VNC port.
 - **The Gateway** runs under Xvfb and IBC 3.24.2 with the stored PAPER login (team lead,
   2026-11-25: "Yes, store the paper login"). IBC's repository was archived on 2026-09-01: no
   fixes will come, and a Gateway change that breaks its dialogs leaves the Gateway logged out
