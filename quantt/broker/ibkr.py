@@ -61,14 +61,30 @@ WHAT IT WILL NOT DO
 THE LIBRARY. `ib_async` only, imported inside `connect` (CLAUDE.md landmine 10: bare `ib_insync`
 hangs forever on Python 3.12+). Tests pass a stub module as `ib_module`, so nothing imports the
 library and no socket opens (root conftest.py, ops/netguard.py).
+
+THE SESSION LOCK (added 2026-11-25 for B10, the IBKR market-data feed, quantt/twin/feed.py). The
+Gateway serves the twin's send, verify and probe AND, since B10, a read-only feed producer. They
+must never be connected at the same moment (the contract: one Gateway session, one weekly login,
+and a feed that cannot slow or confuse a send). So a client built with `session_lock=<path>` takes
+an exclusive `flock` on that file BEFORE `ib.connect` and holds it until `disconnect` (or the
+process's end: the kernel drops it on a crash). A second client waits up to `lock_wait_s`, then
+raises `GatewayBusy` (a `NotConnected`: the caller's existing "Gateway down" path) WITHOUT opening
+a socket. Every client the desk builds passes the same path, `quantt.twin.config.gateway_lock_path`
+(the twin's state directory's `.gateway.lock`); quantt/twin/tests/test_feed_lock.py fails if a
+non-test IBKRClient is ever built without one. `session_lock=None` keeps the old behaviour, which
+only the client's own unit tests use. The lock is a flock on the twin's own 0700 state, so only
+user quantt can take it: the shadow user cannot hold the Gateway hostage.
 """
 from __future__ import annotations
 
 import dataclasses
 import datetime as dt
+import fcntl
 import math
+import os
 import re
 import time
+from pathlib import Path
 from typing import Callable
 
 # The paper API ports and nothing else: IB Gateway paper 4002, TWS paper 7497 [S: IBKR's API
@@ -90,6 +106,7 @@ ENV_ACCOUNT = "QUANTT_IBKR_ACCOUNT"
 REQUIRED_ENV = (ENV_HOST, ENV_PORT, ENV_CLIENT_ID, ENV_ACCOUNT)
 
 CONNECT_TIMEOUT_S = 20
+LOCK_POLL_S = 0.5            # how often a waiting client re-tries the session lock (no socket meanwhile)
 # How long `place_moc` waits for the Gateway to say what it did with an order. Measured on nothing
 # yet: the IBKR-era record kept no acknowledgement times. The read-only week and the first armed
 # sends measure it (`ack_s` in the runner's order log).
@@ -130,6 +147,10 @@ class WrongAccount(IBKRError):
 
 class NotConnected(IBKRError):
     """The Gateway could not be reached or is not logged in (the twin's MISSED session)."""
+
+
+class GatewayBusy(NotConnected):
+    """Another of this desk's processes holds the Gateway session lock; no socket was opened."""
 
 
 class ReadOnlyClient(IBKRError):
@@ -229,14 +250,22 @@ class IBKRClient:
     `ib_module` is the `ib_async` module, injected by tests as a stub; None imports the real one
     inside `connect`. `sleep` waits between acknowledgement polls; it defaults to the connected
     IB object's own `sleep`, which runs the library's event loop (a plain `time.sleep` would not
-    let the acknowledgement arrive)."""
+    let the acknowledgement arrive).
+
+    `session_lock` / `lock_wait_s`: the Gateway session lock (module docstring, THE SESSION LOCK).
+    `lock_sleep` waits between lock polls; no event loop exists yet, so it is a plain sleep."""
 
     def __init__(self, config: IBKRConfig, *, mode: str, ib_module=None,
-                 monotonic: Callable[[], float] = time.monotonic, sleep: Callable[[float], None] | None = None):
+                 monotonic: Callable[[], float] = time.monotonic, sleep: Callable[[float], None] | None = None,
+                 session_lock: Path | str | None = None, lock_wait_s: float = 0.0,
+                 lock_sleep: Callable[[float], None] = time.sleep):
         if not isinstance(config, IBKRConfig):
             raise TypeError("config must be an IBKRConfig")
         if mode not in ("read", "trade"):
             raise ValueError(f"mode {mode!r} must be 'read' or 'trade'")
+        if isinstance(lock_wait_s, bool) or not isinstance(lock_wait_s, (int, float)) \
+                or not math.isfinite(lock_wait_s) or lock_wait_s < 0:
+            raise ValueError(f"lock_wait_s {lock_wait_s!r} must be a non-negative number of seconds")
         self.config = config
         self.mode = mode
         self._mod = ib_module
@@ -244,6 +273,10 @@ class IBKRClient:
         self._sleep = sleep
         self.ib = None
         self._contracts: dict = {}
+        self._lock_path = None if session_lock is None else Path(session_lock)
+        self._lock_wait_s = float(lock_wait_s)
+        self._lock_sleep = lock_sleep
+        self._lock_fd = None
 
     def __repr__(self) -> str:
         c = self.config
@@ -258,7 +291,52 @@ class IBKRClient:
 
         A refused or timed-out connection is `NotConnected`: on this desk it means the Gateway is
         down or logged out (the weekly login, a crash, a reboot), which is the twin's most likely
-        failure (contract §8 N1). It is named, never retried here: the next timer slot retries."""
+        failure (contract §8 N1). It is named, never retried here: the next timer slot retries.
+
+        With a session lock, the lock is taken first and released on every refusal below; a
+        busy lock raises `GatewayBusy` before any socket is opened."""
+        if self._lock_path is not None:
+            self._take_session_lock()
+        try:
+            return self._connect()
+        except BaseException:
+            self._release_session_lock()
+            raise
+
+    def _take_session_lock(self) -> None:
+        if self._lock_fd is not None:
+            return
+        try:
+            fd = os.open(self._lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        except OSError as e:
+            raise NotConnected(f"cannot open the Gateway session lock {self._lock_path} "
+                               f"({type(e).__name__}); no session was opened") from None
+        deadline = self._monotonic() + self._lock_wait_s
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if self._monotonic() >= deadline:
+                    try:
+                        holder = os.pread(fd, 120, 0).decode("ascii", "replace").strip() or "holder not recorded"
+                    except OSError:
+                        holder = "holder unreadable"
+                    os.close(fd)
+                    raise GatewayBusy(f"another process holds the Gateway session lock {self._lock_path} "
+                                      f"({holder}) after {self._lock_wait_s:g}s; no session was opened, "
+                                      f"so the two never share the Gateway") from None
+                self._lock_sleep(LOCK_POLL_S)
+        os.ftruncate(fd, 0)
+        os.pwrite(fd, f"pid {os.getpid()} client {self.config.client_id} mode {self.mode}\n".encode(), 0)
+        self._lock_fd = fd
+
+    def _release_session_lock(self) -> None:
+        if self._lock_fd is not None:
+            fd, self._lock_fd = self._lock_fd, None
+            os.close(fd)            # closing the descriptor drops the flock
+
+    def _connect(self) -> "IBKRClient":
         if self._mod is None:
             import ib_async as _ib        # noqa: F401  only here (landmine 10: never ib_insync)
             self._mod = _ib
@@ -286,11 +364,14 @@ class IBKRClient:
         return self
 
     def disconnect(self) -> None:
-        if self.ib is not None:
-            try:
-                self.ib.disconnect()
-            finally:
-                self.ib = None
+        try:
+            if self.ib is not None:
+                try:
+                    self.ib.disconnect()
+                finally:
+                    self.ib = None
+        finally:
+            self._release_session_lock()
 
     def _need(self):
         if self.ib is None:

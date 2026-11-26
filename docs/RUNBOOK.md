@@ -1591,9 +1591,12 @@ for the run-time identity check). `quantt-ibgw-secret.service` writes the first 
 ### 9.2 Packages (TL, sudo)
 
 `sudo sh <tree>/quantt/deploy/vm/bootstrap_ibgw.sh --tree <tree> --admin-user azureuser`: pinned
-`xvfb` and `x11vnc`, `unzip`, `nftables` and the X libraries, and the port filter
-(`quantt-ibgw-firewall.service`, table `inet quantt_ibgw`: only uid `quantt` reaches ports
-4002/7497 on loopback, and `quantt` or the admin user port 5947). No Java: the Gateway installer
+`xvfb` and `x11vnc`, `unzip`, `nftables` and the X libraries, and the ONE port filter
+(`quantt-ibgw-firewall.service`, table `inet quantt_ibgw`, which B10's guard was merged into: only
+uid `quantt` connects to the API ports 4001, 4002, 7496 and 7497 on any address; `quantt` or the admin
+user to 5947; and `quantt-shadow` to no loopback TCP port but DNS). The Gateway's unit checks it
+before every start; the installer checks it, and proves it with a refused connection as
+`quantt-shadow` whose counter must move. No Java: the Gateway installer
 bundles its JRE. It checks that swap is on (the 2 GB `/swapfile` from §8.2) and never makes a
 second one.
 
@@ -1671,6 +1674,57 @@ until it is repaired. Repair: book the session from `<day>/ibkr_read.json` and t
 closes with `quantt/sleeves/ledger.py` `apply`, exactly as verify would; check the result sums to
 IBKR's positions; write `ledger.json`, `<day>/ledger_before.json` and `<day>/verify.json` with
 `ledger_applied: true`; then delete `UNBOOKED.json`. Never price a crossed share from a bar.
+
+### 9.8 The IBKR market-data feed for the shadow books (B10)
+
+Design: `docs/RUNNER.md` "The IBKR market-data feed for the shadow books". It sends nothing; the
+install is part of §9.3's (the same script, both modes).
+
+**What it holds.** `/srv/quantt-ibkr-feed/<YYYY-MM-DD>/` (staging: `/srv/quantt-ibkr-feed-staging/`):
+`bars-<run>.csv` (daily TRADES bars, every row `source=ibkr`, `data_type=historical`),
+`quotes-<run>.csv` (intraday runs only, each value labelled live, frozen, delayed, delayed_frozen or
+unlabelled) and `manifest-<run>.json`, written last: the files' sha256, the counts, every UNMEASURED
+symbol with IBKR's codes and words, the rejected request lines, why a run stopped, and how many closes
+changed since the session's previous run. No file holds an account id. Kept 30 days.
+
+**Permissions.**
+
+| path | owner:group | mode | who writes, who reads |
+|---|---|---|---|
+| `/srv/quantt-ibkr-feed` and each session directory | `quantt:quantt-shadow` | 2750 | quantt writes; quantt-shadow reads |
+| its files | `quantt:quantt-shadow` | 0640 | the same; the producer refuses a file without that group and mode |
+| `/srv/quantt-ibkr-feed/requests` | `quantt-shadow:quantt` | 2750 | quantt-shadow writes `<slug>.txt`; quantt reads (its unit sees it read-only) |
+| `<twin state>/.gateway.lock` | `quantt:quantt` | 0600 | the twin and the feed; quantt-shadow cannot reach it |
+
+The installer checks each line both ways and that `quantt-shadow` is not in group `quantt`, and that
+a connection from `quantt-shadow` to the API port is refused by the port filter (§9.2; its counter must move). If
+that check fails it stops and says to stop `quantt-ibgw.service` at once.
+
+**A request file** is plain ASCII, one ticker a line (`[A-Z]{1,5}`, an optional `.X` class), `#`
+comments, at most 16 KiB, owned by `quantt-shadow`, one link, not a symlink; at most 32 files and 200
+requested symbols in all. A bad line is named by file and line number in the manifest and its text is
+never copied. The books' own symbols always come first.
+
+**How a shadow book opts in** (nothing changes for a book that does not). On the shadow branch, the
+book's json adds a refresh command and a panel:
+
+```json
+"refresh": [["python3", "-B", "-m", "shadow.ibkr_feed", "request", "<slug>", "--feed", "/srv/quantt-ibkr-feed", "--universe", "<universe>"],
+            ["python3", "-B", "-m", "shadow.ibkr_feed", "panel", "ibkr_<universe>_px", "--feed", "/srv/quantt-ibkr-feed", "--universe", "<universe>"]],
+"panels": {"px_ibkr": {"path": "ibkr_<universe>_px.parquet", "date_col": "date", "required_asof": true}}
+```
+
+The first asks for the universe in the next feed run (19:05 picks up what the 18:50 shadow run asked);
+the second writes the panel from the newest manifest, refusing any file whose sha256 does not match.
+
+**By hand** (TL, sudo; read-only): `sudo sh <code>/quantt/deploy/vm/run_twin.sh feed --slot intraday`
+during a session and outside the twin's windows (send, every verify slot, the probes). It refuses inside them and stands down if the twin
+holds the Gateway. **The first run is the measurement this build could not make**: which data types
+the paper account gets (read `quote_labels` and `unmeasured` in the manifest), whether bars come at all,
+and whether the 16:20 bar is final (`revision` in the 19:05 manifest).
+
+**Stop it:** `sudo systemctl disable --now quantt-twin-feed-close.timer quantt-twin-feed-evening.timer`.
+Nothing of the twin depends on it.
 
 ## Open questions (for the TL)
 

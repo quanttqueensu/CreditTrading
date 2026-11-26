@@ -1,27 +1,30 @@
-"""The nftables ruleset that lets only the twin's user reach the Gateway's API and VNC ports. Stdlib only.
+"""The ONE nftables table that keeps every local user but the twin's off the IB Gateway. Stdlib only.
 
-    python3 -I -B ibgw_firewall.py --quantt-uid 1001 --admin-uid 1000 > /etc/quantt/ibgw.nft
+    python3 -I -B ibgw_firewall.py --quantt-uid 1001 --admin-uid 1000 --shadow-uid 1002 > /etc/quantt/ibgw.nft
 
-WHY (independent review of the build, 2026-11-25, finding 6). The Gateway's API port and the
-on-demand VNC port listen on loopback, and loopback is open to every local user: `quantt-shadow`
-runs an unreleased branch, and any process on the VM could connect to port 4002 and place orders
-on the paper account under the logged-in paper session (the stored login makes that session
-always on). So connections to those ports are filtered by the CONNECTING socket's owner, in the
-`output` hook, where loopback traffic is seen with its sender's uid:
-  * the paper API ports (4002 Gateway, 7497 TWS): user `quantt` only (the twin runs as quantt);
-  * the VNC port 5947: `quantt`, and the admin login user, because `ssh -L` forwarding is opened
-    by sshd as the user who logged in (azureuser), and the VNC exists for exactly that person.
-    The reviewer asked for quantt only; that would make the manual-login fallback unreachable, so
-    the admin uid is the one named exception, passed explicitly, never guessed.
-The rule matches the destination PORT with NO address condition (re-review 4): loopback is all of
-127.0.0.0/8 and ::1, and the VM's own addresses reach a local listener too, so an address
-condition would leave a way round it. Everyone else gets a TCP reset. Replies from the Gateway go out with the Gateway's own uid
-(quantt) and a source port, not a destination port, so they are not filtered.
+WHY (independent review of the build, 2026-11-25, finding 6; B10's guard, merged here the same day).
+The Gateway's API and the on-demand VNC listen on loopback, and loopback is open to every local
+user. The Gateway trusts 127.0.0.1 and the stored paper login keeps its session always on, so any
+process on the VM could connect and send orders on the paper account. `quantt-shadow` runs an
+unreleased branch and has full network. So connections are filtered by the CONNECTING socket's
+owner, in the `output` hook, where local traffic is seen with its sender's uid:
+  * the Gateway's API ports, paper and live (4002 / 7497 and 4001 / 7496, so a settings change on
+    the Gateway cannot open a way round): user `quantt` only;
+  * the VNC port 5947: `quantt`, and the admin login user, because `ssh -L` forwarding is opened by
+    sshd as the user who logged in, and the VNC exists for exactly that person (the one exception,
+    passed explicitly, never guessed);
+  * the shadow user (B10's rule): NO loopback TCP connection at all but DNS (port 53), which covers
+    the VNC and any port a Gateway change could open.
+The port rules carry NO address condition (re-review 4): loopback is all of 127.0.0.0/8 and ::1, and
+the VM's own addresses reach a local listener too. Everyone refused gets a TCP reset, counted.
+Replies from the Gateway go out with the Gateway's own uid (quantt) and a source port, not a
+destination port, so they are not filtered.
 
 THE TABLE is its own (`inet quantt_ibgw`), deleted and re-made by each load, so loading is
 idempotent and never touches another table's rules. `quantt-ibgw-firewall.service` loads it at
-boot, before `quantt-ibgw.service`, which Requires= it (install_twin_vm.sh); the installer refuses
-unless the loaded table holds the rules for this machine's uids.
+boot, before `quantt-ibgw.service`, which Requires= it; `quantt/deploy/vm/ibgw_check_firewall.sh`
+checks it before every Gateway start and, with a live refused connection as the shadow user and its
+counter moving, at every install (install_twin_vm.sh).
 """
 from __future__ import annotations
 
@@ -29,27 +32,30 @@ import argparse
 import sys
 
 TABLE = "quantt_ibgw"
-API_PORTS = (4002, 7497)
+API_PORTS = (4001, 4002, 7496, 7497)
 VNC_PORT = 5947
+DNS_PORT = 53
 
 
-def render(quantt_uid: int, admin_uid: int) -> str:
-    for name, v in (("quantt uid", quantt_uid), ("admin uid", admin_uid)):
+def render(quantt_uid: int, admin_uid: int, shadow_uid: int) -> str:
+    uids = {"quantt uid": quantt_uid, "admin uid": admin_uid, "shadow uid": shadow_uid}
+    for name, v in uids.items():
         if isinstance(v, bool) or not isinstance(v, int) or v <= 0:
             raise ValueError(f"{name} {v!r} must be a positive integer (root, 0, is never let through)")
-    if quantt_uid == admin_uid:
-        raise ValueError("the quantt uid and the admin uid must differ")
+    if len(set(uids.values())) != 3:
+        raise ValueError("the quantt, admin and shadow uids must all differ")
     ports = ", ".join(str(p) for p in (*API_PORTS, VNC_PORT))
     api = ", ".join(str(p) for p in API_PORTS)
     return f"""# GENERATED by quantt/deploy/ibgw_firewall.py; loaded by quantt-ibgw-firewall.service.
-# Only uid {quantt_uid} (quantt) may connect to the Gateway's paper API ports on loopback; uid
-# {quantt_uid} and the admin uid {admin_uid} to its VNC port. Everyone else is reset.
+# Only uid {quantt_uid} (quantt) may connect to the Gateway's API ports; uid {quantt_uid} and the admin
+# uid {admin_uid} to its VNC port; the shadow uid {shadow_uid} to no loopback TCP port but DNS.
 table inet {TABLE}
 delete table inet {TABLE}
 table inet {TABLE} {{
     chain output {{
         type filter hook output priority 0; policy accept;
         tcp dport {{ {ports} }} jump gate
+        oifname "lo" meta skuid {shadow_uid} tcp dport != {DNS_PORT} counter reject with tcp reset
     }}
     chain gate {{
         meta skuid {quantt_uid} accept
@@ -65,8 +71,9 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--quantt-uid", type=int, required=True)
     ap.add_argument("--admin-uid", type=int, required=True)
+    ap.add_argument("--shadow-uid", type=int, required=True)
     a = ap.parse_args(argv)
-    sys.stdout.write(render(a.quantt_uid, a.admin_uid))
+    sys.stdout.write(render(a.quantt_uid, a.admin_uid, a.shadow_uid))
     return 0
 
 

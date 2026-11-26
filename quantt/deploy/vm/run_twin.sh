@@ -9,6 +9,7 @@
 #             send --dry [--session D]    everything but the transmission, any day
 #             approve --sha <plan_sha>    the team lead's per-day approval
 #             verify | compare [--aggregates] | cancel-open (list only)
+#             feed --slot intraday|after-close|evening   B10's read-only feed, unsandboxed, by hand
 #   --tree/--python name the install's own clone and venv (release: the twin's clone, never the
 #   Alpaca books'; staging: the copy), as install_twin_vm.sh was given them. No default.
 #
@@ -22,6 +23,7 @@ RUN_HOME="/home/${RUN_USER}"
 STATE_ROOT="${RUN_HOME}/quantt_state"
 CODE=""; PY=""
 STATE="${STATE_ROOT}/twin"
+FEED="/srv/quantt-ibkr-feed"
 STAGE_ENV=""
 die() { echo "REFUSED: $*" >&2; exit 2; }
 
@@ -35,10 +37,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "${CODE}" ] && [ -n "${PY}" ] || die "--tree <twin clone> and --python <its venv python> are required"
-if [ -n "${STAGE_ENV}" ]; then STATE="$(dirname "${CODE}")/state/twin"; fi
+if [ -n "${STAGE_ENV}" ]; then STATE="$(dirname "${CODE}")/state/twin"; FEED="/srv/quantt-ibkr-feed-staging"; fi
 [ $# -ge 1 ] || die "usage: sudo sh $0 probe|epoch|send --dry|approve|verify|compare|cancel-open"
 case "$1" in
-  probe|epoch|approve|verify|compare) ;;
+  probe|epoch|approve|verify|compare|feed) ;;
   send)
     dry=0; for a in "$@"; do [ "${a}" = "--dry" ] && dry=1; done
     [ "${dry}" -eq 1 ] || die "a hand-run send is not offered; use 'send --dry'. Orders go only from quantt-twin-send.service"
@@ -65,4 +67,5 @@ exec runuser -u "${RUN_USER}" -- sh -c '
   QUANTT_STATE_DIR="${STATE}" ${BOOK_ENV} QUANTT_ENV_FILE=/run/quantt/alpaca.env \
   QUANTT_BOOKS_CLONE="${RUN_HOME}/prod/quantt-alpaca" \
   QUANTT_TWIN_ALPACA_DATA_BOOK=cef QUANTT_IBKR_HOST=127.0.0.1 QUANTT_IBKR_PORT=4002 QUANTT_IBKR_CLIENT_ID=39 \
+  QUANTT_IBKR_FEED_DIR="${FEED}" \
   PYTHONUNBUFFERED=1 "${PY}" -B -m quantt.twin "$@"
