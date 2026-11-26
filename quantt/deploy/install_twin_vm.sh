@@ -20,7 +20,7 @@
 #            untouched), state in <staging>/../state/twin. Same units, same secrets, never sends.
 # Re-running in either mode rewrites the units with DRY_RUN=1; it never touches a book's state.
 #
-# WHAT IT MAKES (nothing of the core book's, C4's or the events book's is written or restarted)
+# WHAT IT MAKES (nothing of any Alpaca book's is written or restarted)
 #   /var/cache/quantt-ibgw/            the two downloads, kept only if their sha256 is the pinned one
 #   /home/quantt/Jts/ibgateway/<major> the IB Gateway, installed unattended as quantt (install4j -q -dir)
 #   /opt/ibc-<version>                 IBC, unpacked, root-owned and read-only to quantt
@@ -155,12 +155,21 @@ check_layout() {
   step "users, code, Python, packages, swap, drop-ins"
   id -u "${RUN_USER}" >/dev/null 2>&1 || die "user ${RUN_USER} does not exist"
   [ -d "${STATE_ROOT}" ] || die "${STATE_ROOT} does not exist; prod is not installed here"
-  for b in cef c4 events; do
-    [ -d "${STATE_ROOT}/${b}" ] || die "${STATE_ROOT}/${b} does not exist: the twin reads every book's plans"
-  done
   [ -x "${PY}" ] || die "${PY} is not an executable interpreter"
   for f in quantt/twin/run.py quantt/broker/ibkr.py quantt/deploy/ibc_config.py quantt/deploy/vm/ibgw_run.sh ops/twin/ibkr_twin.json; do
     [ -f "${CODE}/${f}" ] || die "${CODE}/${f} is missing"
+  done
+  # The books the twin reads, and the variable naming each one's state directory, from the twin's
+  # own table (quantt/twin/books.py BOOKS): one owner, never a list written again here.
+  BOOK_ENV="$(cd "${CODE}" && as_quantt "${PY}" -B -c 'from quantt.twin.books import BOOKS; print(" ".join(b.state_env + "=" + b.name for b in BOOKS))')" \
+    || die "cannot read the twin's book table from ${CODE}"
+  BOOK_LINES=""; BOOK_DIRS=""
+  for pair in ${BOOK_ENV}; do
+    b="${pair#*=}"
+    [ -d "${STATE_ROOT}/${b}" ] || die "${STATE_ROOT}/${b} does not exist: the twin reads every book's plans"
+    BOOK_LINES="${BOOK_LINES}Environment=${pair%%=*}=${STATE_ROOT}/${b}
+"
+    BOOK_DIRS="${BOOK_DIRS} ${STATE_ROOT}/${b}"
   done
   (cd "${CODE}" && as_quantt "${PY}" -B -c 'import ib_async, sys; v = ib_async.__version__; sys.exit(0 if v == "2.1.0" else "ib_async is " + v + ", not the pinned 2.1.0")') \
     || die "${PY} cannot import ib_async 2.1.0 (rebuild the venv from ${CODE}/requirements.txt)"
@@ -368,10 +377,7 @@ WorkingDirectory=${CODE}
 Environment=DRY_RUN=1
 ${stage_env}
 Environment=QUANTT_STATE_DIR=${STATE}
-Environment=QUANTT_TWIN_CEF_STATE=${STATE_ROOT}/cef
-Environment=QUANTT_TWIN_C4_STATE=${STATE_ROOT}/c4
-Environment=QUANTT_TWIN_EVENTS_STATE=${STATE_ROOT}/events
-Environment=QUANTT_ENV_FILE=${CORE_ENV_FILE}
+${BOOK_LINES}Environment=QUANTT_ENV_FILE=${CORE_ENV_FILE}
 Environment=QUANTT_TWIN_ALPACA_DATA_BOOK=${DATA_BOOK}
 Environment=QUANTT_IBKR_HOST=${GW_HOST}
 Environment=QUANTT_IBKR_PORT=${GW_PORT}
@@ -379,7 +385,7 @@ Environment=QUANTT_IBKR_CLIENT_ID=$2
 EnvironmentFile=${TWIN_RUN}/ibkr.env
 Environment=PYTHONUNBUFFERED=1
 ExecStart=${run}
-ReadOnlyPaths=${CODE} ${STATE_ROOT}/cef ${STATE_ROOT}/c4 ${STATE_ROOT}/events
+ReadOnlyPaths=${CODE}${BOOK_DIRS}
 $3
 StandardOutput=append:${LOGS}/$1.out.log
 StandardError=append:${LOGS}/$1.err.log
