@@ -87,6 +87,8 @@ class World:
         self.nlv, self.bp, self.base = 1_000_000.0, 4_000_000.0, "USD"
         self.usd_rate = None            # base per USD, for a non-USD base (accountValues)
         self.ledger = None              # {currency: (ExchangeRate, NetLiquidationByCurrency)} incl. "BASE"
+        self.fx_bars = None             # [(date, close)] for USD<base> MIDPOINT daily bars; None: no contract
+        self.fx_requests = 0
         self.connections: list = []
         self.before_place = None        # hook: called before each placeOrder
         self.next_order_id = 100
@@ -210,10 +212,21 @@ def stub_module(world: World):
             return dt.datetime.now(dt.timezone.utc)
 
         def reqContractDetails(self, con):
+            if getattr(con, "secType", "STK") == "CASH":
+                if world.fx_bars is None:
+                    return []
+                con.conId = 15016062                  # any id: the stub's own
+                return [types.SimpleNamespace(contract=con)]
             if con.symbol in world.unknown_symbols:
                 return []
             con.conId = abs(hash(con.symbol)) % 100000 + 1
             return [types.SimpleNamespace(contract=con)]
+
+        def reqHistoricalData(self, con, endDateTime, durationStr, barSizeSetting, whatToShow, useRTH,
+                              formatDate=1, keepUpToDate=False, chartOptions=(), timeout=60):
+            assert getattr(con, "secType", "") == "CASH" and whatToShow == "MIDPOINT" and barSizeSetting == "1 day"
+            world.fx_requests += 1
+            return [types.SimpleNamespace(date=d, close=c) for d, c in (world.fx_bars or [])]
 
         def placeOrder(self, con, order):
             if self.readonly:
@@ -262,6 +275,11 @@ def stub_module(world: World):
 
     m = types.ModuleType("ib_async_stub")
     m.IB, m.Stock, m.Order, m.ExecutionFilter = IB, Stock, Order, ExecutionFilter
+
+    class Forex:
+        def __init__(self, pair="", exchange="IDEALPRO"):
+            self.secType, self.symbol, self.currency, self.exchange, self.conId = "CASH", pair[:3], pair[3:], exchange, 0
+    m.Forex = Forex
     m.StartupFetch = StartupFetch
     return m
 

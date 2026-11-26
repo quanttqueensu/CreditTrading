@@ -372,8 +372,12 @@ books run byte-identically, and the twin only imports their checks and the ledge
   report-only net liquidation are converted with IBKR's own `ExchangeRate` for USD
   (`quantt/broker/ibkr.py` `fx_from_rows`: `accountSummary`'s `$LEDGER:ALL` row first, the
   subscription's beside it; USD = base / rate), its direction checked against IBKR's per-currency
-  ledger when present. No usable rate refuses the send; the rate, its source and the check are in
-  `send.json` and `status.json`, and the probe prints every ExchangeRate row it saw.
+  ledger when present. The VM's account sends NO ExchangeRate row (2026-11-26), so the send's read
+  phase (dry included) and the probe then use IBKR's own `USDCAD` MIDPOINT daily bar
+  (`fx_daily_bar`; the newest close, CAD per 1 USD; source `ibkr_fx_bar:USDCAD:MIDPOINT`), refused
+  if missing, not finite or positive, or dated before the last 3 NYSE sessions. No usable rate
+  refuses the send; the rate, its source, the bar date and the check are in `send.json` and
+  `status.json`, and the probe prints every ExchangeRate row it saw and the rate it used.
 - **The display (final review 2).** Xvfb runs with `-nolisten tcp -nolisten local` (no abstract
   socket) and `-auth` with a cookie made at each start in the unit's tmpfs directory (0600,
   quantt). The installer first shows, as `quantt`, that the display is up and takes its own cookie,

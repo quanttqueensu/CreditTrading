@@ -258,6 +258,47 @@ def _prices(reads: dict) -> tuple:
     return {s: max(v.values()) for s, v in by.items()}, by
 
 
+FX_STALE_SESSIONS = 3
+
+
+def with_fx_bar(deps, client, summary: dict) -> dict:
+    """The summary, with a USD rate from IBKR's own USD<base> MIDPOINT daily bar when IBKR sent no
+    ExchangeRate row (an ExchangeRate row always takes precedence: quantt/broker/ibkr.py fx_from_rows).
+    The VM's CAD paper account sends none (2026-11-26). The bar must be finite and positive and dated
+    within the last FX_STALE_SESSIONS NYSE sessions up to today (New York; FX also trades on days the
+    NYSE does not, so a newer bar is fine); otherwise the summary keeps no rate, with the reason, and
+    whatever needs it refuses. USD = base / rate. Called by the send's read phase (dry included) and the
+    probe only: a read inside the session already held."""
+    from quantt.broker.ibkr import UnexpectedReply
+    fx = dict(summary.get("fx") or {})
+    if summary.get("usd_per_base") is not None or summary["base_currency"] == "USD":
+        return summary
+    try:
+        bar = client.fx_daily_bar(summary["base_currency"])
+    except UnexpectedReply as e:
+        fx.update(why=f"{fx.get('why')}; and the USD{summary['base_currency']} bar: {e}")
+        return {**summary, "fx": fx}
+    fx.update(source=bar["source"], bar_date=bar["bar_date"], bar_value=bar["value"])
+    today = deps.market.clock()["timestamp"].astimezone(gt.ET).date()
+    cal = deps.market.calendar(today - dt.timedelta(days=CALENDAR_LOOKBACK_DAYS), today)
+    sessions = sorted(r["date"] for r in cal if r["date"] <= today)
+    if len(sessions) < FX_STALE_SESSIONS:
+        fx.update(why=f"the calendar gives {len(sessions)} session(s) up to {today}; the bar's age cannot be judged")
+        return {**summary, "fx": fx}
+    floor = sessions[-FX_STALE_SESSIONS]
+    if dt.date.fromisoformat(bar["bar_date"]) < floor:
+        fx.update(why=f"the {bar['source']} bar is dated {bar['bar_date']}, before {floor} (the last "
+                      f"{FX_STALE_SESSIONS} sessions): stale")
+        return {**summary, "fx": fx}
+    v = bar["value"]
+    if not (isinstance(v, float) and v > 0):
+        fx.update(why=f"the {bar['source']} bar's close {v!r} is not positive")
+        return {**summary, "fx": fx}
+    fx.update(base_per_usd=v, direction_check="not needed: USD<base> is base per 1 USD by construction",
+              why=None)
+    return {**summary, "usd_per_base": 1.0 / v, "fx": fx}
+
+
 def bp_check(orders, positions: dict, summary: dict, fraction: float) -> tuple:
     """(record, refusal or None). The events book's rule (team lead 2026-11-25, "Keep 3% spare"):
     the openings' buying-power need (`gate.buying_power_needed`: shorts at 1.03x, reductions zero)
@@ -267,7 +308,8 @@ def bp_check(orders, positions: dict, summary: dict, fraction: float) -> tuple:
     fx = summary.get("fx") or {}
     r = {"buying_power": summary["buying_power"], "base_currency": summary["base_currency"],
          "usd_per_base": summary["usd_per_base"], "fit_fraction": fraction, "need_usd": round(need, 2),
-         "fx": {k: fx.get(k) for k in ("tag", "currency", "base_per_usd", "source", "direction_check", "why")}}
+         "fx": {k: fx.get(k) for k in ("tag", "currency", "base_per_usd", "source", "bar_date", "direction_check",
+                                       "why")}}
     if summary["usd_per_base"] is None:
         return r, (f"buying power is in {summary['base_currency']} and IBKR gave no usable USD exchange rate "
                    f"({fx.get('why') or 'none'}); the "
@@ -459,7 +501,7 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
         status.update(state, "gateway", {"logged_in": True, "why": f"{mode} connected"}, deps.utcnow().isoformat())
         try:
             pos = client.positions()
-            summary = client.account_summary()
+            summary = with_fx_bar(deps, client, client.account_summary())
         except IBKRError as e:
             # Review finding 13: a failed read still leaves a send record saying why.
             record["refusals"].append({"gate": "ibkr_read", "detail": f"{type(e).__name__}: {e}"})
@@ -690,7 +732,7 @@ def probe(deps) -> int:
         print(f"PROBE gateway LOGGED OUT or unreachable: {e}", file=deps.out)
         return 2
     try:
-        s = client.account_summary()
+        s = with_fx_bar(deps, client, client.account_summary())
         pos = client.positions()
         oo = client.open_orders()
         ex = client.executions_today(since=midnight_et(deps.utcnow().astimezone(gt.ET).date()))
@@ -710,7 +752,8 @@ def probe(deps) -> int:
            "net_liquidation": s["net_liquidation"], "buying_power": s["buying_power"],
            "positions": len(pos), "gross_shares": sum(abs(q) for q in pos.values()),
            "open_orders": len(oo), "executions_today": len(ex), "server_skew_s": round(skew, 1),
-           "fx": {k: (s.get("fx") or {}).get(k) for k in ("tag", "currency", "base_per_usd", "source", "direction_check")},
+           "fx": {k: (s.get("fx") or {}).get(k) for k in ("tag", "currency", "base_per_usd", "source", "direction_check",
+                                                            "bar_date", "why")},
            **deps.memory()}
     d = state / "probe"
     d.mkdir(exist_ok=True)
@@ -725,7 +768,10 @@ def probe(deps) -> int:
     rows = (s.get("fx") or {}).get("rows") or []
     print("PROBE ExchangeRate rows: " + ("; ".join(f"{r['source']} {r['currency']} {r['value']}" for r in rows)
                                          or "none") + f"; USD rate used: {(s.get('fx') or {}).get('base_per_usd')} "
-          f"({(s.get('fx') or {}).get('source')}; direction {(s.get('fx') or {}).get('direction_check')})", file=deps.out)
+          f"({(s.get('fx') or {}).get('source')}; bar date {(s.get('fx') or {}).get('bar_date')}; direction "
+          f"{(s.get('fx') or {}).get('direction_check')}"
+          + (f"; why none: {(s.get('fx') or {}).get('why')}" if (s.get('fx') or {}).get('base_per_usd') is None else "")
+          + ")", file=deps.out)
     return 0
 
 

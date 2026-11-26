@@ -95,3 +95,68 @@ def test_the_probe_prints_the_rate_rows_and_never_the_account(tmp_path):
     assert F.ACCOUNT not in text
     g = json.loads((st["twin"] / "status.json").read_text())["gateway"]
     assert g["fx"]["base_per_usd"] == 1.40 and g["fx"]["source"] == "accountSummary"
+
+
+# -- the VM's account sends no ExchangeRate row: IBKR's own USDCAD MIDPOINT daily bar ---------------
+
+import datetime as dt  # noqa: E402
+
+BARS = [(dt.date(2026, 11, 24), 1.427), (dt.date(2026, 11, 25), 1.42165), (dt.date(2026, 11, 26), 1.42465)]
+
+
+def cad_send(tmp_path, **world):
+    st, w, mk, d, out = world_and_books(tmp_path)
+    armed(st)
+    w.base, w.nlv, w.bp = "CAD", NLV, BP
+    for k, v in world.items():
+        setattr(w, k, v)
+    return st, w, mk, d, out
+
+
+def test_with_no_rate_row_the_send_uses_the_newest_usdcad_bar(tmp_path):
+    st, w, mk, d, out = cad_send(tmp_path, fx_bars=BARS)
+    assert run.send(d) == run.EXIT_SENT, out.getvalue()
+    fx = run.started_send_record(st["twin"] / "2026-11-27")["buying_power"]["fx"]
+    assert fx["source"] == "ibkr_fx_bar:USDCAD:MIDPOINT" and fx["bar_date"] == "2026-11-26" and fx["base_per_usd"] == 1.42465
+    assert abs(run.started_send_record(st["twin"] / "2026-11-27")["buying_power"]["buying_power_usd"] - BP / 1.42465) < 0.01
+    assert w.fx_requests == 1                                       # one request, in the read phase
+
+
+def test_a_missing_bar_refuses(tmp_path):
+    st, w, mk, d, out = cad_send(tmp_path)                          # no contract, no bar
+    assert run.send(d) == run.EXIT_REFUSED and w.placed == []
+    st2, w2, mk2, d2, out2 = cad_send(tmp_path / "b", fx_bars=[])   # the contract, but no bar
+    assert run.send(d2) == run.EXIT_REFUSED and w2.placed == []
+    rec_ = run.latest_send_record(st2["twin"] / "2026-11-27")
+    assert any(r["gate"] == "buying_power" and "no MIDPOINT daily bar" in r["detail"] for r in rec_["refusals"])
+
+
+def test_a_stale_bar_refuses(tmp_path):
+    # sessions up to Fri 27 Nov: 27, 25, 24 are the last three; a bar of the 23rd is older
+    st, w, mk, d, out = cad_send(tmp_path, fx_bars=[(dt.date(2026, 11, 20), 1.40), (dt.date(2026, 11, 23), 1.41)])
+    assert run.send(d) == run.EXIT_REFUSED and w.placed == []
+    rec_ = run.latest_send_record(st["twin"] / "2026-11-27")
+    assert any(r["gate"] == "buying_power" and "stale" in r["detail"] for r in rec_["refusals"])
+
+
+def test_a_nonfinite_or_nonpositive_bar_refuses(tmp_path):
+    for i, v in enumerate((float("nan"), 0.0, -1.4)):
+        st, w, mk, d, out = cad_send(tmp_path / str(i), fx_bars=[(dt.date(2026, 11, 26), v)])
+        assert run.send(d) == run.EXIT_REFUSED and w.placed == []
+
+
+def test_an_exchange_rate_row_takes_precedence_over_the_bar(tmp_path):
+    st, w, mk, d, out = cad_send(tmp_path, ledger=LEDGER, fx_bars=BARS)
+    assert run.send(d) == run.EXIT_SENT, out.getvalue()
+    fx = run.started_send_record(st["twin"] / "2026-11-27")["buying_power"]["fx"]
+    assert fx["source"] == "accountSummary" and fx["base_per_usd"] == 1.40 and w.fx_requests == 0
+
+
+def test_the_probe_prints_the_bar_it_used(tmp_path):
+    st, w, mk, d, out = cad_send(tmp_path, fx_bars=BARS)
+    d.out = io.StringIO()
+    assert run.probe(d) == 0
+    text = d.out.getvalue()
+    assert "USD rate used: 1.42465 (ibkr_fx_bar:USDCAD:MIDPOINT; bar date 2026-11-26" in text and F.ACCOUNT not in text
+    g = json.loads((st["twin"] / "status.json").read_text())["gateway"]
+    assert g["fx"]["source"] == "ibkr_fx_bar:USDCAD:MIDPOINT" and g["fx"]["bar_date"] == "2026-11-26"
