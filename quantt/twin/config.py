@@ -60,6 +60,22 @@ def load(path: Path = CONFIG_PATH) -> TwinConfig:
     return TwinConfig(float(f), True)
 
 
+def expected_close(day: dt.date) -> str:
+    """The NYSE close this repo expects on a trading day, "HH:MM", to check Alpaca's calendar row
+    against (review of the build, finding 14: refuse when they disagree, as the books do on
+    whether a day trades). `ops/schedule/nyse_calendar.py` knows full closes only and treats early
+    closes as trading days; it is not changed here (the Alpaca books read it). The early closes
+    NYSE has scheduled for years [S: NYSE holiday schedule, not re-read in this build]: the day
+    after Thanksgiving, December 24, and July 3, each at 13:00 when it is a trading day. Any other
+    early close (a special one) makes the twin refuse, by name, which is the safe direction."""
+    from ops.schedule.nyse_calendar import _nth_weekday, is_trading_day
+    if not is_trading_day(day):
+        raise ValueError(f"{day} is not a trading day by nyse_calendar")
+    thanksgiving = _nth_weekday(day.year, 11, 3, 4)
+    early = {thanksgiving + dt.timedelta(days=1), dt.date(day.year, 12, 24), dt.date(day.year, 7, 3)}
+    return "13:00" if day in early else "16:00"
+
+
 def close_et(day: dt.date, calendar_close: str) -> dt.datetime:
     from quantt.session.gate import ET
     if not re.fullmatch(r"\d{2}:\d{2}", calendar_close or ""):

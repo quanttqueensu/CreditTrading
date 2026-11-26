@@ -146,6 +146,62 @@ def hold(book: str, why: str) -> BookRead:
     return BookRead(book=book, status="hold", why=why, slugs=())
 
 
+# The plan's own words for a target it did not trade to (quantt/session/decide.py notes): a delta
+# under min_trade_usd, a short gate 7 skipped, a flip whose open leg waits. Review finding 4.
+EXPLAINED_NOTES = ("no trade:", "not shortable today", "flip deferred")
+
+
+def target_integrity(plan: dict) -> list:
+    """Symbols whose orders and targets do not tell one story, as sentences; [] when they agree.
+
+    plan_sha covers the ORDERS only, so a target edited by hand would pass the books' own check;
+    the twin trades to the targets, so it binds them to the orders (review of the build, finding 4):
+      * every order starts at its symbol's `current` and ends at its `target`, except the closing
+        leg of a deferred flip (ends at zero) and an opening order the buying-power fit scaled
+        (`bp_scale.binding` set; same side, smaller);
+      * a symbol whose target differs from its current with no order carries the plan's own
+        note saying why (EXPLAINED_NOTES), or was dropped by a binding buying-power fit."""
+    t = plan["targets"]
+    notes = plan.get("notes") or {}
+    scaled = bool((plan.get("bp_scale") or {}).get("binding"))
+    bad, ordered = [], set()
+    for o in plan.get("orders") or []:
+        sym = o["symbol"]
+        ordered.add(sym)
+        if sym not in t:
+            bad.append(f"{sym}: an order with no target")
+            continue
+        cur, tgt = t[sym]["current"], t[sym]["target"]
+        if o["current"] != cur:
+            bad.append(f"{sym}: the order starts at {o['current']}, the target's current is {cur}")
+        elif o["target"] != tgt:
+            flip = o["target"] == 0 and "flip deferred" in str(o.get("reason", "")) and cur * tgt < 0
+            shrunk = scaled and (o["target"] - cur) * (tgt - cur) > 0 and abs(o["target"] - cur) < abs(tgt - cur)
+            if not (flip or shrunk):
+                bad.append(f"{sym}: the order ends at {o['target']}, the plan's target is {tgt}")
+    for sym, v in t.items():
+        if sym in ordered or v["target"] == v["current"]:
+            continue
+        said = [n for n in notes.get(sym, []) if str(n).startswith(EXPLAINED_NOTES)]
+        if not said and not scaled:
+            bad.append(f"{sym}: target {v['target']} differs from current {v['current']} with no order and no note")
+    return bad
+
+
+def _load(path: Path, name: str):
+    """(raw plan, None) or (None, the hold's reason): a plan.json that is not JSON holds this
+    book only (review, finding 12); another book's plan here is a misconfiguration and refuses."""
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, ValueError) as e:
+        return None, f"plan.json cannot be read ({type(e).__name__}): the book holds"
+    if not isinstance(raw, dict):
+        return None, "plan.json is not an object: the book holds"
+    if raw.get("book") != name:
+        raise TwinRefused(f"{path} is book {raw.get('book')!r}'s, not {name!r}'s")
+    return raw, None
+
+
 def read_session_book(name: str, state: Path, F: dt.date, asof: dt.date) -> BookRead:
     """Core or C4: its saved plan for F, or a hold saying why there is none to copy."""
     from quantt.session.run import SessionError, load_decided_plan
@@ -153,18 +209,25 @@ def read_session_book(name: str, state: Path, F: dt.date, asof: dt.date) -> Book
     path = day / "plan.json"
     if not path.exists():
         return hold(name, f"no plan.json for {F}: the book decided nothing to send")
-    raw = json.loads(path.read_text())
-    if raw.get("book") != name:
-        raise TwinRefused(f"{path} is book {raw.get('book')!r}'s, not {name!r}'s")
+    raw, why = _load(path, name)
+    if why:
+        return hold(name, why)
     try:
         plan, _orders = load_decided_plan(day, F)
-    except SessionError as e:
-        return hold(name, f"not a sendable plan: {e}")
+    except (SessionError, KeyError, TypeError, ValueError) as e:
+        return hold(name, f"not a sendable plan: {type(e).__name__}: {e}")
     if plan.get("asof") != asof.isoformat():
         return hold(name, f"the plan's as-of {plan.get('asof')} is not the session before {F} ({asof})")
-    t = _whole_targets(plan["targets"], str(path))
+    try:
+        bad = target_integrity(plan)
+        t = _whole_targets(plan["targets"], str(path))
+        closes = _closes(plan, str(path))
+    except (KeyError, TypeError, AttributeError, TwinRefused) as e:
+        return hold(name, f"the plan's targets cannot be read ({type(e).__name__}: {e})")
+    if bad:
+        return hold(name, "the plan's orders and targets disagree: " + "; ".join(bad[:8]))
     return BookRead(book=name, status="decided", why="", plan_sha=plan["plan_sha"], asof=plan["asof"],
-                    slugs=(SlugPlan(name, "decided", "", t),), closes=_closes(plan, str(path)),
+                    slugs=(SlugPlan(name, "decided", "", t),), closes=closes,
                     notes=dict(plan.get("notes") or {}), book_targets=t)
 
 
@@ -176,13 +239,13 @@ def read_events_book(state: Path, F: dt.date, asof: dt.date) -> BookRead:
     path = day / "plan.json"
     if not path.exists():
         return hold("events", f"no plan.json for {F}: the book decided nothing to send")
-    raw = json.loads(path.read_text())
-    if raw.get("book") != "events":
-        raise TwinRefused(f"{path} is book {raw.get('book')!r}'s, not 'events''s")
+    raw, why = _load(path, "events")
+    if why:
+        return hold("events", why)
     try:
         plan, _orders = load_plan(day, F, "events")
-    except (SessionError, Refused) as e:
-        return hold("events", f"not a sendable plan: {e}")
+    except (SessionError, Refused, KeyError, TypeError, ValueError) as e:
+        return hold("events", f"not a sendable plan: {type(e).__name__}: {e}")
     if plan.get("asof") != asof.isoformat():
         return hold("events", f"the plan's as-of {plan.get('asof')} is not the session before {F} ({asof})")
     book_t = _whole_targets(plan["targets"], str(path))

@@ -189,7 +189,7 @@ def test_a_defaulted_commission_report_is_none_not_zero():
     c.place_moc("PDI", 5, "buy", "r")
     w.fill_all_at({"PDI": 20.0}, dt.datetime(2026, 11, 27, 18, tzinfo=dt.timezone.utc))
     w.executions[0].commissionReport = types.SimpleNamespace(execId="", commission=0.0, currency="")
-    ex, = client(w).connect().executions_today()
+    ex, = client(w).connect().executions_today(since=F.et(2026, 11, 27, 0, 0))
     assert ex["commission"] is None and ex["qty"] == 5 and ex["side"] == "buy"
 
 

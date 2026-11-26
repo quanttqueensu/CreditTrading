@@ -99,7 +99,7 @@ ACK_POLL_S = 0.1
 # ib_async 2.1.0's OrderStatus.DoneStates, measured 2026-09-13 and again on this machine 2026-11-25:
 # {Filled, Cancelled, ApiCancelled, Inactive}. `Inactive` IS done: IB defines it as received but no
 # longer active because it was rejected or cancelled (archived pending_orders.py; pinned by
-# quantt/twin/tests/test_guard.py against the installed library).
+# quantt/tests/test_ibkr_client.py against the installed library).
 DONE_STATUSES = frozenset({"Filled", "Cancelled", "ApiCancelled", "Inactive"})
 ACCEPTED_STATUSES = frozenset({"PreSubmitted", "Submitted", "Filled"})
 REJECTED_STATUSES = frozenset({"Cancelled", "ApiCancelled", "Inactive"})
@@ -413,19 +413,31 @@ class IBKRClient:
                         "perm_id": perm, "order_ref": str(getattr(o, "orderRef", "") or "")})
         return out
 
-    def executions_today(self) -> list:
-        """The expected account's executions "since midnight" (`reqExecutions`, the current day
-        only [V, October §2.13]: so verify runs the same day), each with its commission report.
+    def executions_today(self, since: dt.datetime) -> list:
+        """The expected account's executions at or after `since` (aware: the caller passes
+        midnight ET of the session), each with its commission report. `reqExecutions` returns
+        the current day's only [V, October §2.13], so verify runs the same day; IBKR's "day" is
+        not documented as New York's, so every row is also filtered here by its own time, and a
+        row with no time raises rather than being counted on a guess (review of the build, 11).
 
         A commission report whose `execId` is '' is the library's default, not a report: its
         commission is None, never zero (archived ibkr.py, "a defaulted report has execId == ''").
         """
+        if not isinstance(since, dt.datetime) or since.tzinfo is None:
+            raise ValueError("since must be an aware datetime (midnight ET of the session)")
         ib = self._need()
-        flt = self._mod.ExecutionFilter(acctCode=self.config.account)
+        flt = self._mod.ExecutionFilter(acctCode=self.config.account,
+                                        time=since.astimezone(dt.timezone.utc).strftime("%Y%m%d-%H:%M:%S"))
         out = []
         for f in ib.reqExecutions(flt) or []:
             ex, c = f.execution, f.contract
             if getattr(ex, "acctNumber", self.config.account) != self.config.account:
+                continue
+            t0 = getattr(f, "time", None) or getattr(ex, "time", None)
+            if not isinstance(t0, dt.datetime) or t0.tzinfo is None:
+                raise UnexpectedReply(f"execution {getattr(ex, 'execId', '?')} has no aware time; it cannot be "
+                                      "placed on a session")
+            if t0 < since:
                 continue
             side = {"BOT": "buy", "SLD": "sell"}.get(str(ex.side))
             if side is None:
@@ -464,15 +476,20 @@ class IBKRClient:
             if s in self._contracts:
                 continue
             con = self._mod.Stock(to_ib_symbol(s), "SMART", "USD")
+            # `reqContractDetails` is a READ (no order, no subscription), so the dry check and a
+            # read-only client resolve the same contracts the send will (review of the build, 3).
             try:
-                got = ib.qualifyContracts(con) or []
+                got = list(ib.reqContractDetails(con) or [])
             except Exception as e:  # noqa: BLE001 -- collected and raised below, named
                 bad.append(f"{s} ({type(e).__name__})")
                 continue
-            if len(got) != 1 or not getattr(got[0], "conId", 0):
-                bad.append(f"{s} ({len(got)} matches)")
+            cons = [getattr(d, "contract", None) for d in got]
+            cons = [c for c in cons if c is not None and getattr(c, "conId", 0)
+                    and getattr(c, "secType", "STK") == "STK" and getattr(c, "currency", "USD") == "USD"]
+            if len(cons) != 1:
+                bad.append(f"{s} ({len(cons)} US stock match(es))")
                 continue
-            self._contracts[s] = got[0]
+            self._contracts[s] = cons[0]
         if bad:
             raise UnexpectedReply(f"IBKR could not resolve to one US stock: {bad}; nothing is sent")
         return {s: self._contracts[s] for s in sorted(set(symbols))}

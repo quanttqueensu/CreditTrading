@@ -16,23 +16,48 @@ def decided(name, slugs):
     return BookRead(book=name, status="decided", why="", slugs=tuple(slugs))
 
 
-def test_the_combined_target_is_the_sum_and_each_symbol_gets_one_order():
+def test_the_combined_target_is_the_sum_and_no_symbol_gets_both_sides():
     reads = {"cef": decided("cef", [SlugPlan("cef", "decided", "", {"NAD": -50, "PDI": 100})]),
              "c4": decided("c4", [SlugPlan("c4", "decided", "", {"NAD": 20})]),
              "events": decided("events", [SlugPlan("events/a", "decided", "", {"NAD": 10, "IWM": -5})])}
     plans = combine.slug_plans(reads, {})
     orders, tgt = combine.make_orders(plans, {"NAD": 5}, S, {"NAD": 12.0, "PDI": 20.0, "IWM": 230.0})
     assert tgt == {"IWM": -5, "NAD": -20, "PDI": 100}
-    assert sorted((o.symbol, o.side, o.qty) for o in orders) == [("IWM", "sell", 5), ("NAD", "sell", 25),
-                                                                 ("PDI", "buy", 100)]
-    assert len({o.symbol for o in orders}) == len(orders), "both sides of one symbol"
+    # NAD goes +5 -> -20: a change of side, two sells (to zero, then open)
+    assert sorted((o.symbol, o.side, o.qty, o.leg) for o in orders) == [
+        ("IWM", "sell", 5, 1), ("NAD", "sell", 5, 1), ("NAD", "sell", 20, 2), ("PDI", "buy", 100, 1)]
+    for s in {o.symbol for o in orders}:
+        assert len({o.side for o in orders if o.symbol == s}) == 1, "both sides of one symbol"
 
 
-def test_a_flip_is_one_order_at_ibkr():
+def test_a_change_of_side_is_two_orders_on_one_side_closing_first():
+    """Review finding 2: a refused short must never block the reduction in front of it."""
     reads = {n: decided(n, [SlugPlan(n, "decided", "", {"PDI": -40} if n == "cef" else {})]) for n in ("cef", "c4")}
     reads["events"] = decided("events", [])
     orders, _ = combine.make_orders(combine.slug_plans(reads, {}), {"PDI": 60}, S, {"PDI": 20.0})
-    assert [(o.symbol, o.side, o.qty, o.opens_short) for o in orders] == [("PDI", "sell", 100, True)]
+    assert [(o.symbol, o.side, o.qty, o.leg, o.current, o.target, o.opens_short, o.order_ref) for o in orders] == [
+        ("PDI", "sell", 60, 1, 60, 0, False, "twin-20261127-PDI-1"),
+        ("PDI", "sell", 40, 2, 0, -40, True, "twin-20261127-PDI-2")]
+
+
+def test_an_events_hold_keeps_the_twin_ledgers_shares_not_the_plans():
+    """Review finding 8: the plan's hold targets are the Alpaca events ledger's holdings."""
+    reads = {"cef": decided("cef", []), "c4": decided("c4", []),
+             "events": decided("events", [SlugPlan("events/a", "hold", "no decision", {"IWM": -9})])}
+    plans = combine.slug_plans(reads, {"events/a": {"IWM": -5}})
+    assert [(p.slug, p.targets) for p in plans] == [("events/a", {"IWM": -5})]
+
+
+def test_an_events_change_under_its_minimum_holds_the_events_slugs_only():
+    """The events book sends no net order under min_order_usd; core and C4 have no minimum here."""
+    reads = {"cef": decided("cef", [SlugPlan("cef", "decided", "", {"PDI": 1})]), "c4": decided("c4", []),
+             "events": decided("events", [SlugPlan("events/a", "decided", "", {"PDI": 1, "IWM": -2})])}
+    held = {"events/a": {"IWM": -1}}
+    plans = combine.slug_plans(reads, held)
+    plans, small = combine.apply_events_minimum(plans, held, {"PDI": 20.0, "IWM": 230.0}, 25.0)
+    assert small == ["PDI"]                                  # $20 < $25; IWM's $230 goes
+    by = {p.slug: p.targets for p in plans}
+    assert by["events/a"] == {"IWM": -2} and by["cef"] == {"PDI": 1}
 
 
 def test_a_book_that_did_not_decide_holds_its_twin_ledger_shares():

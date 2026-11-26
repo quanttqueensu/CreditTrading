@@ -47,6 +47,7 @@ class World:
         self.connections: list = []
         self.before_place = None        # hook: called before each placeOrder
         self.next_order_id = 100
+        self.unknown_symbols = set()    # symbols reqContractDetails cannot resolve
         self.next_perm = 9000
 
     def fill_all_at(self, prices: dict, when: dt.datetime) -> None:
@@ -88,8 +89,8 @@ def stub_module(world: World):
             self.orderId = self.permId = self.clientId = 0
 
     class ExecutionFilter:
-        def __init__(self, acctCode=""):
-            self.acctCode = acctCode
+        def __init__(self, acctCode="", time=""):
+            self.acctCode, self.time = acctCode, time
 
     class IB:
         def __init__(self):
@@ -145,9 +146,11 @@ def stub_module(world: World):
         def reqCurrentTime(self):
             return dt.datetime.now(dt.timezone.utc)
 
-        def qualifyContracts(self, con):
+        def reqContractDetails(self, con):
+            if con.symbol in world.unknown_symbols:
+                return []
             con.conId = abs(hash(con.symbol)) % 100000 + 1
-            return [con]
+            return [types.SimpleNamespace(contract=con)]
 
         def placeOrder(self, con, order):
             if self.readonly:
@@ -330,4 +333,5 @@ def deps_for(states, world, market, env, *, out=None, utcnow=None):
     return Deps(env=env, state=states["twin"], market=market,
                 ibkr=lambda mode: IBKRClient(cfg, mode=mode, ib_module=mod, sleep=lambda s: None),
                 utcnow=utcnow or (lambda: market.now.astimezone(dt.timezone.utc)),
-                out=out if out is not None else io.StringIO(), global_halts=lambda: [])
+                out=out if out is not None else io.StringIO(), global_halts=lambda: [],
+                memory=lambda: {"ibgw_memory_peak_bytes": 1, "mem_available_kb": 2})

@@ -8,7 +8,7 @@ comparison is not like for like. None of these reads trades.
 WHY A FACADE. The reads use an existing book's Alpaca keys (`QUANTT_TWIN_ALPACA_DATA_BOOK`, the
 core's on the VM), and an `AlpacaClient` holding those keys can also submit an order to that
 book's paper account. So the twin never holds the client: it holds this object, which keeps the
-client private and exposes no order method. `quantt/twin/tests/test_no_alpaca_orders.py` proves
+client private and exposes no order method. `quantt/twin/tests/test_readonly_tools.py` proves
 the package never names `submit_order` and that this class has no attribute that sends.
 """
 from __future__ import annotations

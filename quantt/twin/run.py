@@ -77,12 +77,38 @@ class Deps:
     out: object = dataclasses.field(default_factory=lambda: sys.stdout)
     cfg: config.TwinConfig = None
     global_halts: Callable[[], list] = None
+    memory: Callable[[], dict] = None
 
     def __post_init__(self):
         if self.cfg is None:
             self.cfg = config.load()
         if self.global_halts is None:
             self.global_halts = _global_halts
+        if self.memory is None:
+            self.memory = host_memory
+
+
+def host_memory() -> dict:
+    """The Gateway unit's MemoryPeak and the machine's MemAvailable, for status.json at every
+    probe (review of the build, finding 7: the staging day measures them; no setting reads them).
+    Each that cannot be read is UNMEASURED with why, never a number."""
+    import subprocess
+    out = {}
+    try:
+        r = subprocess.run(["systemctl", "show", "quantt-ibgw.service", "-p", "MemoryPeak", "--value"],
+                           capture_output=True, text=True, timeout=10)
+        v = r.stdout.strip()
+        out["ibgw_memory_peak_bytes"] = int(v) if r.returncode == 0 and v.isdigit() else f"UNMEASURED ({v or r.returncode})"
+    except (OSError, subprocess.TimeoutExpired) as e:
+        out["ibgw_memory_peak_bytes"] = f"UNMEASURED ({type(e).__name__})"
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                out["mem_available_kb"] = int(line.split()[1])
+        out.setdefault("mem_available_kb", "UNMEASURED (no MemAvailable line)")
+    except OSError as e:
+        out["mem_available_kb"] = f"UNMEASURED ({type(e).__name__})"
+    return out
 
 
 def _global_halts() -> list:
@@ -123,7 +149,23 @@ def session_for(market, day: dt.date) -> tuple:
                           f"trading={is_trading_day(day)}; not choosing one")
     if not rows:
         return None, None
+    want = config.expected_close(day)
+    if rows[0]["close"] != want:
+        raise TwinRefused(f"Alpaca's calendar closes {day} at {rows[0]['close']}; this repo expects {want} "
+                          "(quantt/twin/config.expected_close); not choosing one")
     return rows[0], asof_for(day, cal)
+
+
+def midnight_et(day: dt.date) -> dt.datetime:
+    return dt.datetime.combine(day, dt.time(0, 0), tzinfo=gt.ET)
+
+
+def events_min_usd() -> float:
+    """The events book's own minimum net order (ops/sleeves/events_sleeves.json `min_order_usd`),
+    read by the events runner's own loader, never written here."""
+    from quantt.sleeves import config as scfg
+    from quantt.sleeves.run import BOOK_PATH
+    return float(scfg.load(BOOK_PATH).min_order_usd)
 
 
 # ------------------------------------------------------------------ the ledger
@@ -342,14 +384,20 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
         return _finish(deps, state, day, record, EXIT_REFUSED, scheduled=not dry)
     try:
         status.update(state, "gateway", {"logged_in": True, "why": f"{mode} connected"}, deps.utcnow().isoformat())
-        pos = client.positions()
-        summary = client.account_summary()
+        try:
+            pos = client.positions()
+            summary = client.account_summary()
+        except IBKRError as e:
+            # Review finding 13: a failed read still leaves a send record saying why.
+            record["refusals"].append({"gate": "ibkr_read", "detail": f"{type(e).__name__}: {e}"})
+            print(f"  REFUSED [ibkr_read] {type(e).__name__}: {e}", file=out)
+            return _finish(deps, state, day, record, EXIT_REFUSED, scheduled=not dry)
         try:
             open_o, open_err = client.open_orders(), None
         except OpenOrdersUnknown as e:
             open_o, open_err = None, str(e)
         try:
-            execs, exec_err = client.executions_today(), None
+            execs, exec_err = client.executions_today(since=midnight_et(now.date())), None
         except IBKRError as e:
             execs, exec_err = None, f"{type(e).__name__}: {e}"
         if epoch_simulated:
@@ -390,8 +438,16 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
             for s, p in got.items():
                 prices[s] = p
                 priced_by.setdefault(s, {})["alpaca_daily_bar"] = p
+        plans, small = combine.apply_events_minimum(plans, shares, prices, events_min_usd())
+        record["events_below_minimum"] = small
         orders, tgt = combine.make_orders(plans, pos, F, prices)
         sha = combine.plan_sha(orders)
+        # Review finding 3: every symbol resolved to one US stock BEFORE any gate is judged, on the
+        # dry path too (`reqContractDetails` is a read). An unresolved one is a named refusal.
+        try:
+            client.qualify([o.symbol for o in orders])
+        except IBKRError as e:
+            record["refusals"].append({"gate": "contracts", "detail": f"{type(e).__name__}: {e}"})
         record.update(books={n: r.record() for n, r in reads.items()},
                       slugs=[dataclasses.asdict(p) for p in plans], targets=tgt,
                       orders=[o.to_dict() for o in orders], plan_sha=sha,
@@ -434,7 +490,7 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
             return _finish(deps, state, day, record, code, scheduled=True)
         if not orders:
             return _finish(deps, state, day, record, EXIT_NOTHING, scheduled=True)
-        return _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_rec)
+        return _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_rec, led)
     finally:
         client.disconnect()
 
@@ -460,7 +516,7 @@ def _print_plan(out, F, now, reads, plans, orders, sha, record) -> None:
         print(f"  REFUSED [{r['gate']}] {r['detail']}", file=out)
 
 
-def _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_rec) -> int:
+def _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_rec, led) -> int:
     """Steps 8-9. Holds the transmit lock from before STARTED to the process's end."""
     out = deps.out
     with guard.transmit_lock(state):
@@ -470,7 +526,9 @@ def _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_
         client.qualify([o.symbol for o in orders])      # an unknown symbol refuses while nothing is sent
         clk = deps.market.clock()
         skew = clk["timestamp"] - deps.utcnow()
+        from quantt.sleeves.run import ledger_sha
         started = {"plan_sha": sha, "session_date": F, "pid": os.getpid(), "written_utc": deps.utcnow(),
+                   "ledger_sha": ledger_sha(led),
                    "order_refs": [o.order_ref for o in orders], "close_et": close,
                    "slugs": record["slugs"], "books": record["books"], "orders": record["orders"],
                    "epoch": epoch_rec}
@@ -480,7 +538,12 @@ def _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_
         rec.write_json_atomic(day / "plan.json", {**record, "status": "decided"})
         log = day / "orders.jsonl"
         sent, rejected, stopped = [], [], None
+        refused_close = set()
         for i, o in enumerate(orders):
+            if o.leg == 2 and o.symbol in refused_close:
+                rec.append_jsonl(log, {"event": "skipped_open_leg", "order_ref": o.order_ref, "symbol": o.symbol,
+                                       "at": deps.utcnow()})
+                continue
             now = (deps.utcnow() + skew).astimezone(gt.ET)
             if now >= t["stop_batch"]:
                 stopped = f"cutoff: {now:%H:%M:%S} ET is at or after {t['stop_batch']:%H:%M} ET"
@@ -502,7 +565,9 @@ def _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_
                 sent.append(o.order_ref)
             elif res["accepted"] is False:
                 rejected.append({"symbol": o.symbol, "order_ref": o.order_ref, "status": res["status"],
-                                 "opens_short": o.opens_short, "messages": res["messages"]})
+                                 "opens_short": o.opens_short, "leg": o.leg, "messages": res["messages"]})
+                if o.leg == 1:
+                    refused_close.add(o.symbol)
                 print(f"  REJECTED {o.symbol} {o.side} {o.qty}: {res['status']} {res['messages']}", file=out)
             else:
                 stopped = (f"{o.symbol}: no acknowledgement within the wait (status {res['status']!r}); the "
@@ -535,7 +600,7 @@ def probe(deps) -> int:
         s = client.account_summary()
         pos = client.positions()
         oo = client.open_orders()
-        ex = client.executions_today()
+        ex = client.executions_today(since=midnight_et(deps.utcnow().astimezone(gt.ET).date()))
         st = client.server_time()
     except IBKRError as e:
         print(f"PROBE FAIL: {type(e).__name__}: {e}", file=deps.out)
@@ -546,7 +611,8 @@ def probe(deps) -> int:
     agg = {"logged_in": True, "why": "probe connected", "base_currency": s["base_currency"],
            "net_liquidation": s["net_liquidation"], "buying_power": s["buying_power"],
            "positions": len(pos), "gross_shares": sum(abs(q) for q in pos.values()),
-           "open_orders": len(oo), "executions_today": len(ex), "server_skew_s": round(skew, 1)}
+           "open_orders": len(oo), "executions_today": len(ex), "server_skew_s": round(skew, 1),
+           **deps.memory()}
     d = state / "probe"
     d.mkdir(exist_ok=True)
     rec.write_json_atomic(d / f"{_stamp(deps)}.json", {**agg, "positions_by_symbol": pos, "open_orders_rows": oo,
@@ -571,6 +637,11 @@ def epoch(deps) -> int:
     if ep.exists() or (state / "ledger.json").exists():
         print(f"REFUSED epoch: {ep if ep.exists() else state / 'ledger.json'} exists; the epoch is recorded "
               "once and never again", file=deps.out)
+        return EXIT_REFUSED
+    sent = sorted(d.name for d in state.iterdir() if d.is_dir() and (d / "STARTED").exists())
+    if sent:
+        print(f"REFUSED epoch: {sent} hold STARTED: a set has gone from this state directory, so an epoch "
+              "now would seed the twin's own orders as legacy", file=deps.out)
         return EXIT_REFUSED
     client = deps.ibkr("read")
     try:
