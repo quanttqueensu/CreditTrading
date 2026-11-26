@@ -24,6 +24,9 @@ Reproduce the baseline (§2): `python3 results/ops/ibkr_paper_move_2026-11-25/ba
 | How the three books share it | **"All three together."** Core, C4 and events go into the one paper account from the first day. Orders are netted per symbol into one MOC order, and a per-book ledger keeps each book's shares and cash. This is the pattern the events book already uses for its eight sleeves (`quantt/sleeves/ledger.py`) |
 | A logged-out connection | **"No phone."** A logged-out IBKR Gateway shows on the daily page and in orient only. This keeps the 2026-09-28 dashboard-and-logs-only rule. Asked first as a phone notification, then withdrawn |
 | When the build starts | **"Start now, ship later."** It is built on a branch and ships at a later weekend release, after a release check, with the team lead's go. The 28 Nov release is unchanged |
+| What the IBKR account runs | **"Copy all our existing logic and execution strategy for all 3 sleeves and stratgies on our ibrk account hosted on a vm."** The twin trades every book's own decisions, so the logic is the same code and the same plans. The ledger tracks all ten strategies: core, C4 and the events book's eight sleeves (§4.2). The send carries over the books' gates that do not depend on Alpaca, and the buying-power rule (§4.1) |
+| Hosting | **"Whatever we can do for free / student account free."** The Gateway goes on the existing VM, whose size, B2pts v2, is in Azure for Students' free hours ("750 hours each of B1s, B2pts v2 (ARM-based), and B2ats v2 (AMD-based) burstable VMs", 12 months, renewable while a student [V]). A resize is not free, so it is not taken (§4.5) |
+| How the work reaches the VM and git | **"Get it all done locally, tested and working then host it on the vm, then push to git."** Build and test locally; stage on the VM from a local copy, read-only with `DRY_RUN=1`; then one push. The armed install runs from a release tag on origin, because `quantt/deploy/install_vm.py` refuses a tag that is not there ("push it first") |
 | The account structure (asked as "what would make most institutional sense") | Answered by the research in §6. Its institutional answer was a corporation with a Proprietary Trading Group account and OAuth. It needs a funded new account and a legal entity, so it is recorded for real money and not taken now |
 
 ## 2. The bar: how well the books trade on Alpaca today
@@ -71,16 +74,17 @@ The baseline comes from the books' own verify records, up to the 2026-11-24 clos
 - **A book whose Alpaca plan did not decide** (refused, or no plan) gets a twin target equal to what its ledger already holds, so it does not trade, as its Alpaca book does not.
   - The twin also re-runs the send-time gates that do not depend on Alpaca: plan freshness and status, the corporate-action gate in the book's mode, and the rule-2 guard at IBKR.
   - A session where only one side traded is counted under §2 line 1 and left out of the fill comparison.
+- **Buying power.** At send, the combined opening notional is checked against IBKR's buying power with 3% headroom, the events book's rule. Below 1 the send refuses and records it, as a labelled difference. The scale-fit itself (`quantt/sleeves/fit.py`, in the 28 Nov release) ports once it is on main.
 - **Sizing.** During the side-by-side the twin copies the Alpaca books' share targets, so the comparison is like for like.
   - The paper account's USD 1,000,000 default [V] is ample buying power for the three books' gross.
   - At cut-over, each book's equity for sizing becomes its ledger equity: starting capital plus ledger P&L, with no account-wide equity. That needs a `/spec-change` for each book's sizing input, and is recorded then.
 
 ### 4.2 The ledger
 
-- `quantt/sleeves/ledger.py` is reused as it stands, with the three books as its slugs.
+- `quantt/sleeves/ledger.py` is reused as it stands, with **ten slugs**: `cef`, `c4` and each of the events book's eight sleeves. The events `plan.json` lists each sleeve's targets in whole shares, after the book's gross scaling, and on the 2026-11-24 plan they sum exactly to the book's targets on all 222 symbols. The twin refuses, naming the symbol, if they ever do not.
 - Netting and allocation follow its rules: the side opposite the net order is met in full inside the account, and the net side shares the fill in proportion to what each book wanted. A symbol with any fill books every share at the fills' average price. A symbol fully crossed inside the account books at the official close, the price an MOC fill aims at.
 - Its invariant binds: the books' shares sum to IBKR's position on every symbol, or the twin refuses until a person repairs it.
-- The events book's own eight-sleeve ledger stays on its Alpaca book during the side-by-side. The twin books the events book as one slug. Sleeve attribution at IBKR comes at cut-over.
+- The events book's own eight-sleeve ledger stays on its Alpaca book during the side-by-side. The twin's ledger keeps the same eight sleeves at IBKR from the first session, so a per-sleeve P&L exists on both brokers.
 
 ### 4.3 Order timing
 
@@ -109,8 +113,9 @@ Either source showing a set already headed for the auction refuses. The resubmit
 - **IBKR's support stance and the weekly cycle.** IBKR says headless running is "not supported" [V]. The Gateway restarts itself daily and needs a person to log in after the Saturday-night reset [V]. The team lead logs in on Sunday evening, or on Monday before 15:30.
 - **Memory.** The VM has 944 MB (measured 2026-11-25). IBKR's 4,000 MB is a heap ceiling, not resident use, and its own pages disagree on it [U]. One public measurement of a logged-in paper Gateway is 459–494 MB [U].
   - The Gateway's unit gets a `MemoryMax`, so a blow-up kills the Gateway and never an Alpaca runner.
-  - The first week runs read-only and measures `MemoryPeak`.
-  - Whether the VM must grow is put to the team lead with that measurement. The current size costs about $6.72 a month; B2pls_v2 (4 GiB) costs $26.86 (Azure list price, this region, 2026-11-25 [V]).
+  - **Free hosting only.** The VM's size, B2pts v2, is in Azure for Students' free hours [V]; B2pls_v2 (4 GiB, $26.86 a month at list price [V]) is not, so it is not taken.
+  - The Gateway gets an explicit JVM heap, documented, and a swap file is added at bootstrap. The first week runs read-only and measures `MemoryPeak`.
+  - **If it does not fit,** the fallback is a second free-size VM (B2ats v2, x64, 1 GiB) for the Gateway alone, with no public IP, reached from the trading VM. Its disk is not stated as free: an E4 is $2.64 a month from the student credit (`docs/RUNBOOK.md` §8.7). Whether the 750 free hours are counted per size or shared is not stated [U]. The Gateway's host and port are configuration, so the move needs no code.
 - **The library.** `ib_async` is added to `requirements.txt`, so the VM's venv is rebuilt by `bootstrap.sh` at that release (`quantt/deploy/install_vm.py` refuses a venv built from another requirements file). `ib_insync` is never used (landmine 10).
 
 ### 4.6 Scoring and the record
@@ -160,13 +165,13 @@ The team lead asked what would make "most institutional sense". Sources were rea
 |---|---|---|---|
 | 1 | agent | B1–B8 on a branch; independent review; release check | this note |
 | 2 | team lead | Read the paper username of the existing account in Client Portal (Settings → Paper Trading Account). Put it, the paper account id (for the run-time identity check) and nothing else in the vault, under the names the B8 runbook gives. The values never go in a chat or a file | — |
-| 3 | agent, with the team lead's `!` for sudo | VM: Xvfb, the Gateway at its pinned sha256, the venv rebuilt with `ib_async`, the twin units installed with `DRY_RUN=1` | 1, at a release tag |
+| 3 | agent, with the team lead's `!` for sudo | VM staging, before any push: Xvfb, a swap file, the Gateway at its pinned sha256, and the twin run from a staging copy of the local tree with `DRY_RUN=1` forced (it cannot arm from staging) | 1 |
 | 4 | team lead | First login: `ssh -L` to the Gateway's VNC, type the paper username's password, approve any 2FA. Set the API settings of §4.4; they are read back and screenshotted for the record | 3 |
 | 5 | agent | Read-only probe: account id check, base currency, net liquidation, positions and open orders left from September (34 flatten orders were left unacknowledged on 2026-09-28), one quote snapshot to see whether paper's data is live or delayed. Committed as a redacted aggregate | 4 |
 | 6 | team lead | If September positions remain, flatten them by MOC with the human-run flatten tool (rule 1: the order list shown, then a go). IBKR's reset leaves positions open [V], so it is not a substitute | 5 |
 | 7 | agent | One read-only week: the twin plans every session and sends nothing (`DRY_RUN=1`). Measure the Gateway's `MemoryPeak`, the daily restart, the Sunday login and how many sessions it was logged out | 5, 6 |
-| 8 | team lead | VM size, if step 7 says the Gateway does not fit | 7 |
-| 9 | team lead | Arm the twin: its first concrete order list shown, then an explicit go (rule 1) | 7, 8 |
+| 8 | agent | One push: main and the release tag. Then the install from the tag (the installer refuses a tag not on origin). If step 7 says the Gateway does not fit, the fallback free VM is set up first, on the team lead's go | 7 |
+| 9 | team lead | Arm the twin: its first concrete order list shown, then an explicit go (rule 1) | 8 |
 | 10 | agent | Ten side-by-side sessions; `compare` after each; the §2 table to the team lead | 9 |
 | 11 | team lead | Cut over each book that passes: its Alpaca runner disarmed, its sizing moved to its ledger by `/spec-change`, and its Alpaca account flattened on a go | 10 |
 
