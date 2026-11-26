@@ -49,9 +49,11 @@ WHAT IT WILL NOT DO
     return value. A mismatch says "the expected paper account is not among the N accounts this
     login manages".
   * Send anything but MOC, a fractional or non-positive quantity, or a symbol outside the US-stock
-    pattern; place or cancel on a client built read-only (`ReadOnlyClient`): the probe and verify
-    use one, and the Gateway is asked for a read-only API session too (`readonly=True`), which is a
-    second guard and not the first (ib_async's `placeOrder` has no read-only check of its own).
+    pattern; place or cancel on a client built read-only (`ReadOnlyClient`): the probe, verify and
+    every dry run use one. That mode check IS the guard. `readonly=True` is also passed to ib_async
+    for a read client, but it is not a lock at the Gateway: the Gateway's own Read-Only API setting
+    is off (the send must place; quantt/deploy/ibc_config.py), and ib_async's `placeOrder` has no
+    read-only check of its own [S: October §2.4].
   * Retry a placement. One `placeOrder` per call. An order the Gateway has not acknowledged within
     `ACK_WAIT_S` is returned as `accepted=None` (ambiguous) and the runner stops the batch; it is
     never placed again (CLAUDE.md order-path rule 2: the broker does not dedupe).

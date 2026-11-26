@@ -81,7 +81,7 @@ def test_an_unreachable_gateway_is_not_connected():
         client(w).connect()
 
 
-def test_a_read_client_asks_the_gateway_for_a_read_only_session():
+def test_a_read_client_passes_readonly_to_the_library():
     w = F.World()
     client(w, "read").connect()
     client(w, "trade").connect()

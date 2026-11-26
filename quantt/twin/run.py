@@ -519,7 +519,7 @@ def _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_
 def probe(deps) -> int:
     """Read the account: whether the Gateway is logged in, the account's base currency, NLV and
     buying power, and COUNTS of positions, open orders and today's executions. Read-only by
-    construction: a read client (no place, no cancel; `readonly=True` at the Gateway too). The
+    construction: a read client (`IBKRClient` mode "read": no place, no cancel). The
     printed lines are aggregates; the full reading goes to `<state>/probe/<stamp>.json`."""
     from quantt.broker.ibkr import IBKRError, NotConnected, WrongAccount
     state = setup(deps)
