@@ -1,9 +1,15 @@
 """The twin's VERIFY (17:45 ET, any close): book the day's IBKR executions, score them, set them beside Alpaca's.
 
-SAME DAY ONLY. `reqExecutions` returns the current day's executions only [V, October §2.13], so
-verify must run on the session date; a later date is refused, naming why, and that session cannot
-be booked until a person rebuilds it (from IBKR's Flex statement; not built). The archived capture
-lost 2026-07-31's 302 executions exactly that way.
+THE READ IS SAVED AT ONCE (review of the build, finding 1). `reqExecutions` returns the current
+day's executions only [V, October §2.13]; the archived capture lost 2026-07-31's 302 executions
+that way. So the first verify slot that reaches the Gateway writes the raw read (executions with
+commission reports, positions, open orders, account summary; no credential) to
+`<day>/ibkr_read.json` before it does anything else, and the slots after it (17:45, 18:30, 20:30,
+23:00) and any later run book from that file when the Gateway is down. The official closes are
+saved the same way (`prints.json`). With no read saved, a session that STARTED cannot be booked
+on a later date (Flex statement; not built). A crossed share with no official close waits for the
+next slot; after 23:00 the session is UNBOOKED (`UNBOOKED.json`) for a person, never priced on a
+guess, and the send refuses until it is repaired.
 
 WHAT IS BOOKED IS WHAT WAS SENT. The slugs, their targets and the orders come from the session's
 STARTED record, never from a plan read again. Every execution on the account must belong to an
@@ -189,42 +195,116 @@ def verify(deps, *, date: dt.date | None = None) -> int:
     return run._guarded(lambda: _verify(deps, date), deps, "verify")
 
 
+LAST_SLOT = dt.time(23, 0)      # the last verify slot of the day (install_twin_vm.sh: 17:45 18:30 20:30 23:00)
+READ_FILE = "ibkr_read.json"     # the day's IBKR read, saved at once (review finding 1)
+PRINTS_FILE = "prints.json"      # the day's official closes, merged across runs
+UNBOOKED_FILE = "UNBOOKED.json"  # a session the twin could not book: a person repairs it
+
+
+def _save_read(day: Path, read: dict) -> None:
+    """The raw IBKR read, written the moment it is taken (0600 by `write_json_atomic`'s mkstemp): it
+    holds executions, positions, open orders and the account summary, and no credential or account id."""
+    rec.write_json_atomic(day / READ_FILE, read)
+    (day / READ_FILE).chmod(0o600)
+
+
+def _read_ibkr(deps, state: Path, day: Path, F: dt.date, at: str) -> tuple:
+    """(read, source). A fresh read when the Gateway answers, saved at once; otherwise the read an
+    earlier slot saved for F; otherwise (None, why)."""
+    from quantt.broker.ibkr import IBKRError, NotConnected, WrongAccount
+    client = deps.ibkr("read")
+    try:
+        client.connect()
+    except (NotConnected, WrongAccount) as e:
+        run._gateway_down(deps, state, e)
+        why = f"the Gateway is not reachable at verify ({e})"
+    else:
+        try:
+            read = {"read_at": at, "executions": client.executions_today(since=run.midnight_et(F)),
+                    "positions": client.positions(), "open_orders": client.open_orders(),
+                    "account": client.account_summary()}
+        except IBKRError as e:
+            why = f"the IBKR read failed ({type(e).__name__}: {e})"
+        else:
+            _save_read(day, read)
+            status.update(state, "gateway", {"logged_in": True, "why": "verify connected"}, at)
+            return read, "fresh"
+        finally:
+            client.disconnect()
+    if (day / READ_FILE).exists():
+        return json.loads((day / READ_FILE).read_text()), f"saved ({why}; booked from the read saved earlier)"
+    return None, why
+
+
+def _prints(deps, day: Path, syms: list, F: dt.date) -> tuple:
+    """(prices, gaps): fetched now, merged with what an earlier run saved (Alpaca failing now does
+    not lose a print already read), saved again. A gap is a symbol neither run could price."""
+    saved = json.loads((day / PRINTS_FILE).read_text()) if (day / PRINTS_FILE).exists() else {"prices": {}, "gaps": {}}
+    prices, gaps = dict(saved.get("prices") or {}), {}
+    if syms:
+        got = deps.market.official_closes(syms, F)
+        prices.update(got.prices)
+        gaps = {s: g for s, g in got.gaps.items() if s not in prices}
+    rec.write_json_atomic(day / PRINTS_FILE, {"prices": prices, "gaps": gaps})
+    return prices, gaps
+
+
+def _finish_unrecorded(out, F, msg, code=1) -> int:
+    print(f"{F} {msg}", file=out)
+    return code
+
+
 def _verify(deps, date) -> int:
+    """The day's verify (module docstring). Idempotent: a session already booked, or a no-send
+    session already recorded, is reported and left alone. Persistent: the IBKR read and the prints
+    are saved as soon as they are taken, so a later slot books from them when the Gateway or
+    Alpaca fails. A crossed share with no official close yet waits for the next slot (PENDING);
+    after the last slot it is UNBOOKED for a person, never priced on a guess."""
     from quantt.session.verify import _session_window
+    from quantt.sleeves.run import ledger_sha
     out = deps.out
     state = run.setup(deps)
     states = books.book_states(deps.env)
     clk = deps.market.clock()
     now = clk["timestamp"].astimezone(gt.ET)
     F = date or now.date()
-    if F != now.date():
-        raise TwinRefused(f"verify for {F} must run ON {F}: IBKR returns the current day's executions only, so "
-                          "that session cannot be booked from the API (rebuild it from the Flex statement)")
-    row, _asof = run.session_for(deps.market, F)
     day = state / F.isoformat()
+    if F > now.date():
+        raise TwinRefused(f"{F} is after today's date {now.date()}")
+    if F < now.date() and not (day / READ_FILE).exists() and (day / "STARTED").exists():
+        raise TwinRefused(f"verify for {F} must read IBKR ON {F}: IBKR returns the current day's executions only, "
+                          f"and no read was saved for {F}; that session cannot be booked from the API (rebuild it "
+                          "from the Flex statement)")
+    row, _asof = run.session_for(deps.market, F)
     if row is None:
         if (day / "STARTED").exists():
             raise TwinRefused(f"{F} is not a trading day, yet {day / 'STARTED'} exists")
         print(f"{F} PASS twin not a trading day; nothing to verify", file=out)
         return 0
-    why = _session_window(clk, F)
-    if why:
-        raise TwinRefused(f"not verifiable now: {why}")
+    if F == now.date():
+        why = _session_window(clk, F)
+        if why:
+            raise TwinRefused(f"not verifiable now: {why}")
+    last = F < now.date() or now.time() >= LAST_SLOT
     led_path = state / "ledger.json"
     vpath = day / "verify.json"
-    if vpath.exists() and json.loads(vpath.read_text()).get("ledger_applied"):
+    if (day / UNBOOKED_FILE).exists():
+        u = json.loads((day / UNBOOKED_FILE).read_text())
+        return _finish_unrecorded(out, F, f"FAIL twin UNBOOKED (a person repairs it): {u.get('reason')}")
+    if vpath.exists():
         v = json.loads(vpath.read_text())
-        print(f"{F} {'PASS' if v['ok'] else 'FAIL'} twin already verified; nothing changed ({v['reason']})", file=out)
-        return 0 if v["ok"] else 1
+        if v.get("ledger_applied") or v.get("recorded"):
+            print(f"{F} {'PASS' if v['ok'] else 'FAIL'} twin already verified; nothing changed ({v['reason']})", file=out)
+            return 0 if v["ok"] else 1
     before, _ep = run.read_ledger(state)
     if before["session"] is not None and before["session"] >= F.isoformat():
         raise TwinRefused(f"the ledger is booked to {before['session']}; not booking {F} again")
+    day.mkdir(exist_ok=True)
     started = (day / "STARTED").exists()
     send_d = json.loads((day / "send.json").read_text()) if (day / "send.json").exists() else None
-
-    # the Alpaca side, whatever the twin did (contract §2 line 1 counts a session only one side traded)
     alp = {n: alpaca_side(n, states[n], F) for n in books.BOOK_NAMES}
     at = deps.utcnow().isoformat()
+    held_syms = sorted(ledger.totals(before))
 
     if not started:
         gates = {r["gate"] for r in (send_d or {}).get("refusals") or []}
@@ -237,16 +317,19 @@ def _verify(deps, date) -> int:
         else:
             ok, reason = False, (f"MISSED: the send ended {send_d.get('exit', {}).get('name')}: "
                                  + "; ".join(r["detail"] for r in send_d.get("refusals") or [])[:600])
-        syms = sorted({f.symbol for a in alp.values() for f in a.get("fills", [])})
-        prints = deps.market.official_closes(syms, F) if syms else None
-        prices = dict(prints.prices) if prints else {}
+        syms = sorted(set(held_syms) | {f.symbol for a in alp.values() for f in a.get("fills", [])})
+        prices, _gaps = _prints(deps, day, syms, F)
+        pnl = slug_pnl(before, prices)
+        prev = _prev_pnl(state, F)
         rows = []
         for n in books.BOOK_NAMES:
             a = alp[n]
             sa = score_alpaca(a["fills"], prices) if "fills" in a else None
             rows.append(_row(F, n, None, a, sa, reconciled="", double="", verdict="PASS" if ok else "FAIL"))
         rec.write_json_atomic(vpath, {"session_date": F, "ok": ok, "reason": reason, "started": False,
-                                      "ledger_applied": False, "read_at": now, "alpaca": _alp_rec(alp, prices)})
+                                      "ledger_applied": False, "recorded": True, "read_at": now,
+                                      "slug_pnl": pnl, "slug_day_change": _day_change(pnl, prev),
+                                      "alpaca": _alp_rec(alp, prices)})
         _append_compare(state / COMPARE_FILE, rows)
         _log(state, F, ok, reason)
         status.update(state, "last_verify", {"session_date": F.isoformat(), "ok": ok, "reason": reason[:300]}, at)
@@ -263,6 +346,9 @@ def _verify(deps, date) -> int:
     orders = st["orders"]
     order_by_ref = {o["order_ref"]: o for o in orders}
     problems, fails, notes = [], [], []
+    if st.get("ledger_sha") != ledger_sha(before):
+        problems.append("the ledger is not the one this session's STARTED was built on (its sha differs): it "
+                        "changed after the send, so nothing is booked")
     double = len(intents) != len({r["order_ref"] for r in intents})
     if double:
         problems.append("an order ref has more than one intent line: a second set may have gone (rule 2)")
@@ -272,26 +358,17 @@ def _verify(deps, date) -> int:
     elif send_d.get("stopped"):
         fails.append(f"the send stopped: {send_d['stopped']}")
 
-    client = deps.ibkr("read")
-    from quantt.broker.ibkr import NotConnected, WrongAccount
-    try:
-        client.connect()
-    except (NotConnected, WrongAccount) as e:
-        run._gateway_down(deps, state, e)
-        raise TwinRefused(f"the Gateway is not reachable at verify ({e}); today's executions cannot be read "
-                          "and IBKR keeps them for the day only: re-run verify before midnight ET") from None
-    try:
-        execs = client.executions_today()
-        pos = client.positions()
-        oo = client.open_orders()
-        summ = client.account_summary()
-    finally:
-        client.disconnect()
-    status.update(state, "gateway", {"logged_in": True, "why": "verify connected"}, at)
+    read, source = _read_ibkr(deps, state, day, F, at)
+    if read is None:
+        if last:
+            return _unbooked(state, day, F, at, f"no IBKR read for {F}: {source}", [], out)
+        return _finish_unrecorded(out, F, f"PENDING twin: {source}; retried at the next verify slot")
+    if source != "fresh":
+        notes.append(source)
+    execs, pos, oo, summ = read["executions"], read["positions"], read["open_orders"], read["account"]
     if oo:
         problems.append(f"{len(oo)} order(s) still open at IBKR after the close")
 
-    # every execution is one of ours
     filled_by_ref, agg, comm, comm_missing = {}, {}, 0.0, 0
     for e in execs:
         r = by_perm.get(e["perm_id"]) if e["perm_id"] else None
@@ -325,9 +402,7 @@ def _verify(deps, date) -> int:
     slugs = st["slugs"]
     syms = sorted(set(tot) | {s for p in slugs for s in p["targets"]} | set(fills)
                   | {f.symbol for a in alp.values() for f in a.get("fills", [])})
-    prints = deps.market.official_closes(syms, F) if syms else None
-    prices = dict(prints.prices) if prints else {}
-    gaps = dict(prints.gaps) if prints else {}
+    prices, gaps = _prints(deps, day, syms, F)
 
     def fail_unbooked(msg):
         rec.write_json_atomic(vpath, {"session_date": F, "ok": False, "reason": msg, "started": True,
@@ -341,6 +416,16 @@ def _verify(deps, date) -> int:
         return fail_unbooked("; ".join(problems) + " | the ledger was NOT booked; repair it before the next send")
     plans = [net.SleevePlan(p["slug"], p["action"], p["why"], dict(p["targets"]), 0, tuple(p.get("dropped") or ()))
              for p in slugs]
+    # A symbol whose shares change hands with no fill books at the official close: without that
+    # close it waits for the next slot, and after the last one it is UNBOOKED, never a guess.
+    need_cross = sorted(s for s in syms if s not in fills and s not in prices and any(
+        p.targets.get(s, 0) != (before["sleeves"].get(p.slug) or {}).get("shares", {}).get(s, 0) for p in plans))
+    if need_cross:
+        if last:
+            return _unbooked(state, day, F, at, f"no official close for {need_cross}, whose shares cross inside "
+                             f"the account ({ {s: gaps.get(s) for s in need_cross} })", need_cross, out)
+        return _finish_unrecorded(out, F, f"PENDING twin: no official close yet for crossed {need_cross}; retried "
+                                  "at the next verify slot")
     try:
         new, bookings = ledger.apply(before, plans, fills, prices, F.isoformat())
         ledger.check_against_broker(new, pos)
@@ -368,10 +453,9 @@ def _verify(deps, date) -> int:
     rec.write_json_atomic(led_path, new)
     rec.write_json_atomic(vpath, {
         "session_date": F, "ok": not fails, "reason": reason, "started": True, "ledger_applied": True,
-        "read_at": now, "fills_by_symbol": {s: {"shares": q, "avg_price": p} for s, (q, p) in fills.items()},
+        "read_at": now, "ibkr_read": source, "fills_by_symbol": {s: {"shares": q, "avg_price": p} for s, (q, p) in fills.items()},
         "bookings": bookings, "positions_after": pos, "official_closes": prices, "official_close_gaps": gaps,
-        "scores": scores, "slug_pnl": pnl,
-        "slug_day_change": {s: (None if v is None or prev.get(s) is None else v - prev[s]) for s, v in pnl.items()},
+        "scores": scores, "slug_pnl": pnl, "slug_day_change": _day_change(pnl, prev),
         "commissions": None if comm_missing else comm, "commission_reports_missing": comm_missing,
         "net_liquidation": nlv, "alpaca": _alp_rec(alp, prices), "fails": fails, "notes": notes})
     _append_compare(state / COMPARE_FILE, rows)
@@ -380,6 +464,24 @@ def _verify(deps, date) -> int:
     _tally(state, at)
     print(f"{F} {'PASS' if not fails else 'FAIL'} twin {reason}", file=out)
     return 0 if not fails else 1
+
+
+def _day_change(pnl: dict, prev: dict) -> dict:
+    return {s: (None if v is None or prev.get(s) is None else v - prev[s]) for s, v in pnl.items()}
+
+
+def _unbooked(state: Path, day: Path, F, at: str, reason: str, symbols: list, out) -> int:
+    """After the last slot: the session is left UNBOOKED, named, for a person. The send refuses
+    every later session until it is repaired (`run.unbooked`), because the ledger would be wrong."""
+    rec.write_json_atomic(day / UNBOOKED_FILE, {
+        "session_date": F, "at": at, "reason": reason, "symbols": symbols,
+        "repair": "book this session by hand from <day>/ibkr_read.json and the official closes, write the ledger "
+                  "and verify.json (ledger_applied), then delete this file (docs/RUNBOOK.md section 9.7)"})
+    _log(state, F, False, f"UNBOOKED: {reason}")
+    status.update(state, "last_verify", {"session_date": F.isoformat(), "ok": False,
+                                         "reason": f"UNBOOKED: {reason}"[:300]}, at)
+    print(f"{F} FAIL twin UNBOOKED: {reason}", file=out)
+    return 1
 
 
 def _alp_rec(alp: dict, prices: dict) -> dict:

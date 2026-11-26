@@ -76,9 +76,9 @@ def test_a_foreign_execution_fails_the_day_and_books_nothing(tmp_path):
     import types
     w.executions.append(types.SimpleNamespace(
         execution=types.SimpleNamespace(execId="X1", side="BOT", shares=1.0, price=5.0, permId=424242, orderId=1,
-                                        clientId=0, orderRef="", acctNumber=F.ACCOUNT, time=None),
+                                        clientId=0, orderRef="", acctNumber=F.ACCOUNT, time=F.et(2026, 11, 27, 11, 0)),
         contract=types.SimpleNamespace(symbol="ZZZ", localSymbol="ZZZ", secType="STK", currency="USD"),
-        commissionReport=None, time=None))
+        commissionReport=None, time=F.et(2026, 11, 27, 11, 0)))
     w.positions["ZZZ"] = 1
     before = (st["twin"] / "ledger.json").read_text()
     assert verify.verify(d) == 1
