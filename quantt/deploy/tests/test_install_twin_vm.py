@@ -190,8 +190,9 @@ def test_the_port_filter_lets_only_quantt_reach_the_api_and_the_admin_reach_vnc(
     text = fw.render(1001, 1000)
     assert "table inet quantt_ibgw" in text and "delete table inet quantt_ibgw" in text
     assert "type filter hook output priority 0; policy accept;" in text
-    assert "ip daddr 127.0.0.1 tcp dport { 4002, 7497, 5947 } jump gate" in text
-    assert "ip6 daddr ::1 tcp dport { 4002, 7497, 5947 } jump gate" in text
+    out = text[text.index("chain output"):text.index("chain gate")]
+    assert "        tcp dport { 4002, 7497, 5947 } jump gate\n" in out
+    assert "daddr" not in text          # re-review 4: no address condition, so no way round it
     gate = text[text.index("chain gate"):]
     assert gate.index("meta skuid 1001 accept") < gate.index("reject")
     assert "tcp dport 5947 meta skuid 1000 accept" in gate
@@ -205,8 +206,15 @@ def test_the_port_filter_lets_only_quantt_reach_the_api_and_the_admin_reach_vnc(
 def test_the_installer_refuses_without_the_port_filter_and_the_gateway_requires_it():
     t = INSTALL.read_text()
     assert "quantt-ibgw-firewall.service is not enabled" in t
-    assert 'nft list chain inet quantt_ibgw gate' in t and "meta skuid $(id -u" in t
+    assert 'sh "${CODE}/quantt/deploy/vm/ibgw_check_firewall.sh" "$(id -u "${RUN_USER}")"' in t
     assert "Requires=quantt-ibgw-firewall.service" in t
+    assert 'ExecStartPre=+/bin/sh ${BIN}/ibgw_check_firewall.sh $(id -u "${RUN_USER}")' in t   # N2
+    chk = (REPO / "quantt/deploy/vm/ibgw_check_firewall.sh").read_text()
+    assert "meta skuid ${UID_Q} accept" in chk and "reject with tcp reset" in chk
+    for port in ("4002", "7497", "5947"):
+        assert port in chk
+    boot = code_lines(BOOT)
+    assert boot.index("inside a twin window") < boot.index("systemctl restart quantt-ibgw-firewall.service")   # N2
     b = BOOT.read_text()
     assert "ibgw_firewall.py" in b and "nft -c -f" in b and "WantedBy=multi-user.target" in b
 
@@ -224,3 +232,15 @@ def test_release_mode_runs_from_its_own_clone_and_venv():
     rel = t[t.index("check_code_release() {"):t.index("# ---------------------------------------------------------------- downloads")]
     assert '"${PROD}"' not in rel and "iv.clone_origin" in rel and "iv.remote_tag_commit" in rel
     assert "--order-precautions bypass" in t
+
+
+def test_the_firewall_check_script_parses():
+    r = subprocess.run(["sh", "-n", str(REPO / "quantt/deploy/vm/ibgw_check_firewall.sh")], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+
+
+def test_the_units_name_the_books_clone():
+    t = INSTALL.read_text()
+    assert "Environment=QUANTT_BOOKS_CLONE=${PROD}" in t and "ReadOnlyPaths=${CODE} ${PROD}" in t
+    assert 'QUANTT_BOOKS_CLONE="${RUN_HOME}/prod/quantt-alpaca"' in WRAP.read_text()
+    assert '"Mon..Fri *-*-* 07:00:00"' in t                   # the catch-up slot

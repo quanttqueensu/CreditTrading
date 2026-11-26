@@ -63,5 +63,6 @@ exec runuser -u "${RUN_USER}" -- sh -c '
   set -a; . /run/quantt-twin/ibkr.env; set +a
   exec "$@"' sh env HOME="${RUN_HOME}" DRY_RUN=1 ${STAGE_ENV} \
   QUANTT_STATE_DIR="${STATE}" ${BOOK_ENV} QUANTT_ENV_FILE=/run/quantt/alpaca.env \
+  QUANTT_BOOKS_CLONE="${RUN_HOME}/prod/quantt-alpaca" \
   QUANTT_TWIN_ALPACA_DATA_BOOK=cef QUANTT_IBKR_HOST=127.0.0.1 QUANTT_IBKR_PORT=4002 QUANTT_IBKR_CLIENT_ID=39 \
   PYTHONUNBUFFERED=1 "${PY}" -B -m quantt.twin "$@"

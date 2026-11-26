@@ -56,6 +56,17 @@ done
 id -u quantt >/dev/null 2>&1 || die "user quantt does not exist"
 id -u "${ADMIN}" >/dev/null 2>&1 || die "user ${ADMIN} does not exist"
 [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "x86_64" ] || die "unknown machine $(uname -m)"
+# Re-review N2: the installer's own window check, before anything restarts the filter (and with it
+# the Gateway, which Requires= it): never inside 12:20-13:00, 15:20-16:00 or 17:30-18:00 on a weekday.
+dow="$(date +%u)"; hm="$(date +%H%M)"
+if [ "${dow}" -le 5 ]; then
+  for w in "1220 1300" "1520 1600" "1730 1800"; do
+    set -- ${w}
+    if [ "${hm}" -ge "$1" ] && [ "${hm}" -lt "$2" ]; then
+      die "it is ${hm} New York on a weekday, inside a twin window ($1-$2); re-run after it"
+    fi
+  done
+fi
 
 step "swap"
 if [ -z "$(swapon --show=NAME --noheadings)" ]; then
@@ -107,5 +118,5 @@ chmod 644 "${FW_UNIT}"
 systemctl daemon-reload
 systemctl enable quantt-ibgw-firewall.service >/dev/null
 systemctl restart quantt-ibgw-firewall.service
-nft list table inet quantt_ibgw | grep -q "meta skuid $(id -u quantt) accept" || die "the quantt_ibgw table did not load"
+sh "${TREE}/quantt/deploy/vm/ibgw_check_firewall.sh" "$(id -u quantt)" || die "the quantt_ibgw table did not load with its rules"
 echo "done: Xvfb $(dpkg-query -W -f='${Version}' xvfb), x11vnc $(dpkg-query -W -f='${Version}' x11vnc); port filter loaded"

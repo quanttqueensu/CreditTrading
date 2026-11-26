@@ -13,7 +13,9 @@ always on). So connections to those ports are filtered by the CONNECTING socket'
     by sshd as the user who logged in (azureuser), and the VNC exists for exactly that person.
     The reviewer asked for quantt only; that would make the manual-login fallback unreachable, so
     the admin uid is the one named exception, passed explicitly, never guessed.
-Everyone else gets a TCP reset. Replies from the Gateway go out with the Gateway's own uid
+The rule matches the destination PORT with NO address condition (re-review 4): loopback is all of
+127.0.0.0/8 and ::1, and the VM's own addresses reach a local listener too, so an address
+condition would leave a way round it. Everyone else gets a TCP reset. Replies from the Gateway go out with the Gateway's own uid
 (quantt) and a source port, not a destination port, so they are not filtered.
 
 THE TABLE is its own (`inet quantt_ibgw`), deleted and re-made by each load, so loading is
@@ -47,8 +49,7 @@ delete table inet {TABLE}
 table inet {TABLE} {{
     chain output {{
         type filter hook output priority 0; policy accept;
-        ip daddr 127.0.0.1 tcp dport {{ {ports} }} jump gate
-        ip6 daddr ::1 tcp dport {{ {ports} }} jump gate
+        tcp dport {{ {ports} }} jump gate
     }}
     chain gate {{
         meta skuid {quantt_uid} accept

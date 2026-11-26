@@ -38,8 +38,9 @@
 # THE TIMES (New York; the runner, not the timer, knows holidays and early closes: quantt/twin/config.py)
 #   send     12:30 12:40 15:30 15:40 Mon-Fri. On a 16:00 close the 12:3x/12:4x runs idle; on a
 #            13:00 close (2026-11-27, the first armed session) the 15:3x/15:4x runs idle.
-#   verify   17:45 18:30 20:30 23:00 Mon-Fri: the first after the books' 17:30/17:35 verifies, the rest
-#            retries (review finding 1). Each saves the IBKR read at once (IBKR keeps only today's
+#   verify   07:00 17:45 18:30 20:30 23:00 Mon-Fri: 17:45 after the books' 17:30/17:35 verifies, the
+#            evening ones retries, 07:00 the catch-up of a session whose evening slots a reboot missed
+#            (booked from its saved read; re-review 1). Each saves the IBKR read at once (IBKR keeps only today's
 #            executions); a session already booked is left alone.
 #   probe    09:00 12:00 15:15 Mon-Fri and 19:30 Sunday (after IBC's 18:00 Sunday cold restart): read-only,
 #            so a logged-out Gateway shows on the daily page before a send would miss.
@@ -166,6 +167,10 @@ check_layout() {
   step "users, code, Python, packages, swap, drop-ins"
   id -u "${RUN_USER}" >/dev/null 2>&1 || die "user ${RUN_USER} does not exist"
   [ -d "${STATE_ROOT}" ] || die "${STATE_ROOT} does not exist; prod is not installed here"
+  # Re-review N1: the books' clone, where their halts are written and whose settings they run.
+  for f in ops/sleeves/events_sleeves.json ops/books/cef_discount_book.json; do
+    [ -f "${PROD}/${f}" ] || die "the books' clone ${PROD} lacks ${f} (QUANTT_BOOKS_CLONE)"
+  done
   [ -x "${PY}" ] || die "${PY} is not an executable interpreter"
   for f in quantt/twin/run.py quantt/broker/ibkr.py quantt/deploy/ibc_config.py quantt/deploy/vm/ibgw_run.sh ops/twin/ibkr_twin.json; do
     [ -f "${CODE}/${f}" ] || die "${CODE}/${f} is missing"
@@ -192,11 +197,9 @@ check_layout() {
   # Review finding 6: only uid quantt may reach the Gateway's API port on loopback.
   systemctl is-enabled quantt-ibgw-firewall.service >/dev/null 2>&1 \
     || die "quantt-ibgw-firewall.service is not enabled; the team lead runs quantt/deploy/vm/bootstrap_ibgw.sh first"
-  nft list chain inet quantt_ibgw gate 2>/dev/null | grep -q "meta skuid $(id -u "${RUN_USER}") accept" \
-    || die "the nftables table inet quantt_ibgw is not loaded with uid ${RUN_USER}'s rule; re-run bootstrap_ibgw.sh"
-  for port in 4002 7497 5947; do
-    nft list chain inet quantt_ibgw output 2>/dev/null | grep -q "${port}" || die "the port filter does not cover ${port}"
-  done
+  # The accept AND the reject rules, and every port sent to them (re-review 4).
+  sh "${CODE}/quantt/deploy/vm/ibgw_check_firewall.sh" "$(id -u "${RUN_USER}")" \
+    || die "the nftables table inet quantt_ibgw is not in force with its rules; re-run bootstrap_ibgw.sh"
   for u in ${ALL_UNITS}; do
     for d in "${UNIT_DIR}/${u}.d" "/run/systemd/system/${u}.d" "/usr/lib/systemd/system/${u}.d"; do
       [ ! -e "${d}" ] || die "${d} exists: a drop-in would override what this script writes (DRY_RUN among it)"
@@ -319,6 +322,7 @@ install_bin() {
   install -d -o root -g root -m 755 "${BIN}"
   install -o root -g root -m 755 "${CODE}/quantt/deploy/vm/ibgw_run.sh" "${BIN}/ibgw_run.sh"
   install -o root -g root -m 644 "${CODE}/quantt/deploy/ibc_config.py" "${BIN}/ibc_config.py"
+  install -o root -g root -m 755 "${CODE}/quantt/deploy/vm/ibgw_check_firewall.sh" "${BIN}/ibgw_check_firewall.sh"
 }
 
 make_state() {
@@ -398,13 +402,14 @@ ${stage_env}
 Environment=QUANTT_STATE_DIR=${STATE}
 ${BOOK_LINES}Environment=QUANTT_ENV_FILE=${CORE_ENV_FILE}
 Environment=QUANTT_TWIN_ALPACA_DATA_BOOK=${DATA_BOOK}
+Environment=QUANTT_BOOKS_CLONE=${PROD}
 Environment=QUANTT_IBKR_HOST=${GW_HOST}
 Environment=QUANTT_IBKR_PORT=${GW_PORT}
 Environment=QUANTT_IBKR_CLIENT_ID=$2
 EnvironmentFile=${TWIN_RUN}/ibkr.env
 Environment=PYTHONUNBUFFERED=1
 ExecStart=${run}
-ReadOnlyPaths=${CODE}${BOOK_DIRS}
+ReadOnlyPaths=${CODE} ${PROD}${BOOK_DIRS}
 $3
 StandardOutput=append:${LOGS}/$1.out.log
 StandardError=append:${LOGS}/$1.err.log
@@ -447,6 +452,8 @@ RuntimeDirectory=quantt-ibgw-ibc
 RuntimeDirectoryMode=0700
 WorkingDirectory=${JTS}
 Environment=HOME=${RUN_HOME}
+# Re-review N2: the Gateway does not start unless the port filter is loaded (as root: the "+").
+ExecStartPre=+/bin/sh ${BIN}/ibgw_check_firewall.sh $(id -u "${RUN_USER}")
 ExecStartPre=/usr/bin/python3 -I -B ${BIN}/ibc_config.py --login-env ${LOGIN_RUN}/login.env --out ${IBC_RUN}/config.ini --api-port ${GW_PORT} --order-precautions ${PRECAUTIONS}
 ExecStart=/bin/sh ${BIN}/ibgw_run.sh ${GW_MAJOR} ${JTS} ${IBC_DIR} ${IBC_RUN}/config.ini
 Restart=on-failure
@@ -483,7 +490,7 @@ UNIT
   job_service verify "$2" "# verify exits 0 PASS or 1 FAIL; a FAIL shows as a failed unit" "verify"
   job_service probe "$3" "# probe exits 0 logged in, 2 logged out (shown failed, on purpose)" "probe"
   timer send "Mon..Fri *-*-* 12:30:00" "Mon..Fri *-*-* 12:40:00" "Mon..Fri *-*-* 15:30:00" "Mon..Fri *-*-* 15:40:00"
-  timer verify "Mon..Fri *-*-* 17:45:00" "Mon..Fri *-*-* 18:30:00" "Mon..Fri *-*-* 20:30:00" "Mon..Fri *-*-* 23:00:00"
+  timer verify "Mon..Fri *-*-* 07:00:00" "Mon..Fri *-*-* 17:45:00" "Mon..Fri *-*-* 18:30:00" "Mon..Fri *-*-* 20:30:00" "Mon..Fri *-*-* 23:00:00"
   timer probe "Mon..Fri *-*-* 09:00:00" "Mon..Fri *-*-* 12:00:00" "Mon..Fri *-*-* 15:15:00" "Sun *-*-* 19:30:00"
   for u in ${JOB_SERVICES}; do
     n="$(grep -c '^Environment=DRY_RUN=1$' "${UNIT_DIR}/${u}")" || true
