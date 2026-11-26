@@ -267,3 +267,61 @@ def test_own_dir_refuses_a_planted_symlink_and_owns_a_real_directory(tmp_path):
     real = tmp_path / "real"
     O.own_dir(str(real), os.getuid(), os.getgid(), 0o750)
     assert real.is_dir() and oct(real.stat().st_mode & 0o777) == "0o750"
+
+
+# -- staging on the VM (2026-11-26): the Gateway listens on *:4002; our input rule keeps it local ----
+
+def test_the_table_drops_the_gateway_ports_from_beyond_loopback():
+    from quantt.deploy import ibgw_firewall as fw
+    text = fw.render(1001, 1000, 1002)
+    inp = text[text.index("chain input"):]
+    assert "type filter hook input priority 0; policy accept;" in inp
+    assert 'iifname != "lo" tcp dport { 4001, 4002, 7496, 7497, 5947 } counter drop' in inp
+    assert "flush" not in text                                         # Azure's own tables stay
+    assert "flush ruleset" not in BOOT.read_text() and "flush ruleset" not in INSTALL.read_text()
+
+
+def fake_nft(tmp_path, text, drop_chain=None):
+    """An `nft` on PATH that lists the rendered chains the way nft prints them (counters inline)."""
+    d = tmp_path / "nftbin"
+    d.mkdir()
+    for name in ("output", "gate", "input"):
+        if name == drop_chain:
+            continue
+        body = text[text.index(f"chain {name} {{"):]
+        body = body[:body.index("    }") + 5].replace("counter", "counter packets 0 bytes 0")
+        (d / name).write_text(f"table inet quantt_ibgw {{\n{body}\n}}\n")
+    nft = d / "nft"
+    nft.write_text('#!/bin/sh\n[ "$1 $2 $3 $4" = "list chain inet quantt_ibgw" ] || exit 1\n'
+                   f'[ -f "{d}/$5" ] || exit 1\ncat "{d}/$5"\n')
+    nft.chmod(0o755)
+    return d
+
+
+@pytest.mark.parametrize("missing", [None, "input"])
+def test_the_check_script_requires_the_input_rule(tmp_path, missing):
+    import subprocess
+    from quantt.deploy import ibgw_firewall as fw
+    d = fake_nft(tmp_path, fw.render(1001, 1000, 1002), drop_chain=missing)
+    r = subprocess.run(["sh", str(CHECK), "1001", "1002"], capture_output=True, text=True,
+                       env={**os.environ, "PATH": f"{d}:{os.environ['PATH']}"})
+    if missing is None:
+        assert r.returncode == 0, r.stderr
+    else:
+        assert r.returncode == 3 and "input" in r.stderr
+
+
+def test_the_installer_accepts_a_wide_listener_only_with_the_input_rule_proved():
+    t = INSTALL.read_text()
+    body = t[t.index("check_listeners() {"):t.index("as_reader() {")]
+    i_bad, i_chk = body.index('if [ -n "${bad}" ]; then'), body.index('sh "${BIN}/ibgw_check_firewall.sh"')
+    assert i_bad < i_chk and "the input drop rule is NOT in force" in body
+    assert '[ -z "${bad}" ] || die' not in body                       # no longer refused outright ...
+    assert "|| die" in body[i_chk:]                                   # ... only when the rule is not proved
+
+
+def test_the_gateway_runs_its_own_jre_never_the_installers_temporary_one():
+    c = code_lines(RUN)
+    assert 'JAVA_BIN="${JTS}/ibgateway/${MAJOR}/jre/bin"' in c and '"--java-path=${JAVA_BIN}"' in c
+    t = INSTALL.read_text()
+    assert 'as_quantt test -x "${GW_DIR}/jre/bin/java"' in t and '"${GW_DIR}/.install4j/inst_jre.cfg"' in t

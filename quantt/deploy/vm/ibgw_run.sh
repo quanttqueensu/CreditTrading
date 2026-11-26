@@ -38,6 +38,14 @@ esac
 [ -r "${INI}" ] || { echo "REFUSED: ${INI} is not readable (did ExecStartPre run?)" >&2; exit 2; }
 [ -d "${JTS}/ibgateway/${MAJOR}/jars" ] || { echo "REFUSED: no Gateway ${MAJOR} under ${JTS}/ibgateway" >&2; exit 2; }
 [ -x "${IBC}/scripts/ibcstart.sh" ] || { echo "REFUSED: no executable ${IBC}/scripts/ibcstart.sh" >&2; exit 2; }
+# THE GATEWAY'S OWN JRE, BY PATH (staging, 2026-11-26). Without --java-path, IBC 3.24.2's ibcstart.sh
+# reads .install4j/pref_jre.cfg, then inst_jre.cfg, and only then the installation's jre/. install4j
+# wrote inst_jre.cfg during the unattended install with the TEMPORARY JRE it unpacked under /tmp
+# (/tmp/ibgateway-<version>-linux-arm.sh.<pid>.dir/jre): the VM's "Could not find .../jre/bin/java"
+# line. ibcstart.sh then fell through to jre/, but /tmp is writable by every user, so anyone who made
+# that path would have chosen the java the Gateway runs. --java-path skips both files.
+JAVA_BIN="${JTS}/ibgateway/${MAJOR}/jre/bin"
+[ -x "${JAVA_BIN}/java" ] || { echo "REFUSED: no executable ${JAVA_BIN}/java (the Gateway's bundled JRE)" >&2; exit 2; }
 
 DISPLAY_NUM=":47"
 RUNDIR="$(dirname "${INI}")"                   # the unit's RuntimeDirectory: tmpfs, 0700, quantt
@@ -67,4 +75,5 @@ export DISPLAY="${DISPLAY_NUM}"
 # (Restart=on-failure, RestartSec), and meanwhile the twin's probe reads "logged out".
 exec "${IBC}/scripts/ibcstart.sh" "${MAJOR}" --gateway --mode=paper \
   "--tws-path=${JTS}" "--tws-settings-path=${JTS}" "--ibc-path=${IBC}" "--ibc-ini=${INI}" \
+  "--java-path=${JAVA_BIN}" \
   --on2fatimeout=exit

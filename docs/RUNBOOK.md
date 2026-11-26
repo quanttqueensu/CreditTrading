@@ -1618,8 +1618,20 @@ paper account (coordinator, 2026-11-25: the twin's own size and buying-power che
 flag stays required. Memory: `--heap-mb`, `--memory-high`, `--memory-max` (320, 520M, 600M as
 first settings; the probe writes `MemoryPeak` and `MemAvailable` into `status.json`). The installer downloads the Gateway and IBC, refuses on any sha256 other
 than its pins (naming both), installs the Gateway as `quantt` with `-Xmx320m`, writes the units
-with `DRY_RUN=1`, starts the Gateway, and checks that no Gateway or VNC port listens beyond
-loopback. It refuses inside 12:20-13:00, 15:20-16:00 and 17:30-18:00 on weekdays.
+with `DRY_RUN=1`, starts the Gateway, and checks the Gateway and VNC listeners. It refuses inside
+12:20-13:00, 15:20-16:00 and 17:30-18:00 on weekdays.
+
+**The Gateway listens on every interface (`*:4002`; staging, 2026-11-26).** IBC 3.24.2 has no key
+for the API's "allow connections from localhost only", and `jts.ini`'s `TrustedIPs=127.0.0.1`
+decides only whom the Gateway accepts once a connection is open. Azure's network security group
+blocks 4002 and 5947 from outside today, but that is a setting elsewhere. Loopback-only is enforced
+by OUR table instead: `inet quantt_ibgw` has an `input` chain that drops, counted, every packet to
+4001, 4002, 7496, 7497 and 5947 not arriving on `lo`. The installer accepts a listener beyond
+loopback only while `ibgw_check_firewall.sh` proves that rule in force, and refuses otherwise; the
+Gateway's unit and every probe run the same check. A table from before 2026-11-26 has no input
+chain, so **re-run `bootstrap_ibgw.sh` (outside the windows above) before `install_twin_vm.sh`**:
+it replaces only its own table (`delete table inet quantt_ibgw`), never `flush ruleset`, so
+Azure's `table ip security` stays.
 
 Gateway API settings to confirm once through VNC (§9.5) and screenshot for the record: socket
 port 4002 on 127.0.0.1; trusted IPs 127.0.0.1 only; **Master Client ID** = the send's client id

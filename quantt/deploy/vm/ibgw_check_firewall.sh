@@ -59,6 +59,15 @@ for port in 4001 4002 7496 7497; do
   echo "${gate}" | grep 'reject with tcp reset' | grep -q "${port}" || fail "API port ${port} is not rejected for other users"
 done
 echo "${gate}" | grep 'reject with tcp reset' | grep -q '5947' || fail "the VNC port is not rejected for other users"
+# The input rule (staging, 2026-11-26): the Gateway listens on every interface, so nothing but loopback
+# may reach its ports. This rule, not a Gateway setting, keeps them loopback-only.
+inp="$(nft list chain inet quantt_ibgw input 2>/dev/null)" || fail "no chain inet quantt_ibgw input (re-run bootstrap_ibgw.sh)"
+echo "${inp}" | grep -q 'hook input' || fail "the input chain is not on the input hook"
+drop="$(echo "${inp}" | grep 'iifname != "lo"' | grep ' drop' || true)"
+[ -n "${drop}" ] || fail "no rule dropping what does not arrive on loopback"
+for port in 4001 4002 7496 7497 5947; do
+  echo "${drop}" | grep -q "${port}" || fail "port ${port} is not dropped from beyond loopback"
+done
 
 if [ -n "${PROVE_HOST}" ]; then
   host="${PROVE_HOST}"; port="${PROVE_PORT}"
@@ -74,5 +83,5 @@ sys.exit(0 if s.connect_ex((sys.argv[1], int(sys.argv[2]))) else 1)' "${host}" "
   [ "${after}" -gt "${before}" ] || fail "${shadow}'s connection failed, but not at the filter (its counters stayed at ${before})"
   echo "proved: ${shadow}'s connection to ${host}:${port} was refused by the filter (counters ${before} -> ${after})"
 fi
-record true "in force: accept uid ${UID_Q}, reject the rest, shadow uid ${UID_S} refused but DNS"
+record true "in force: accept uid ${UID_Q}, reject the rest, shadow uid ${UID_S} refused but DNS, nothing from beyond loopback"
 echo "port filter in force (uid ${UID_Q}; shadow uid ${UID_S} refused)"
