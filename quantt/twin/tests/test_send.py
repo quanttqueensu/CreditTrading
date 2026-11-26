@@ -255,7 +255,7 @@ def test_a_halt_corporate_action_mode_holds_the_book(tmp_path, monkeypatch):
     st, w, mk, d, out = world_and_books(tmp_path)
     armed(st)
     from quantt.twin import books
-    monkeypatch.setattr(books, "ca_mode", lambda name: "halt" if name == "cef" else None)
+    monkeypatch.setattr(books, "ca_mode", lambda name, clone: "halt" if name == "cef" else None)
     monkeypatch.setattr(run, "_ca_gate", lambda *a, **k: ({"status": "BLOCKING", "mode": "halt"},
                                                           "corporate-action gate (halt): a split"))
     assert run.send(d) == 0

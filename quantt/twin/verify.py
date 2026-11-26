@@ -192,7 +192,25 @@ def _log(state: Path, F, ok: bool, reason: str) -> None:
 
 
 def verify(deps, *, date: dt.date | None = None) -> int:
-    return run._guarded(lambda: _verify(deps, date), deps, "verify")
+    """`verify --date D` verifies D. With no date (the timer) it first books every EARLIER session
+    that STARTED and is neither booked nor UNBOOKED, oldest first, each from its own saved read
+    (re-review 1: a reboot that missed a day's later slots); then today's, where a session that has
+    not closed yet is a no-op, not a refusal (the 07:00 slot exists for the catch-up)."""
+    if date is not None:
+        return run._guarded(lambda: _verify(deps, date), deps, "verify")
+    return run._guarded(lambda: _scheduled(deps), deps, "verify")
+
+
+def _scheduled(deps) -> int:
+    state = run.setup(deps)
+    now = deps.market.clock()["timestamp"].astimezone(gt.ET)
+    rc = 0
+    for d in sorted(x for x in state.iterdir() if x.is_dir() and x.name[:2] == "20" and x.name < now.date().isoformat()):
+        v = d / "verify.json"
+        done = v.exists() and json.loads(v.read_text()).get("ledger_applied")
+        if (d / "STARTED").exists() and not done and not (d / UNBOOKED_FILE).exists():
+            rc = max(rc, _verify(deps, dt.date.fromisoformat(d.name)))
+    return max(rc, _verify(deps, None, scheduled=True))
 
 
 LAST_SLOT = dt.time(23, 0)      # the last verify slot of the day (install_twin_vm.sh: 17:45 18:30 20:30 23:00)
@@ -201,17 +219,24 @@ PRINTS_FILE = "prints.json"      # the day's official closes, merged across runs
 UNBOOKED_FILE = "UNBOOKED.json"  # a session the twin could not book: a person repairs it
 
 
-def _save_read(day: Path, read: dict) -> None:
-    """The raw IBKR read, written the moment it is taken (0600 by `write_json_atomic`'s mkstemp): it
-    holds executions, positions, open orders and the account summary, and no credential or account id."""
-    rec.write_json_atomic(day / READ_FILE, read)
-    (day / READ_FILE).chmod(0o600)
+def _save_read(day: Path, read: dict) -> bool:
+    """The raw IBKR read, written ONCE, by an exclusive create (re-review 1: a saved read is never
+    overwritten), mode 0600 (mkstemp's, kept by the link). It holds executions, positions, open
+    orders and the account summary, and no credential or account id. False if one already exists."""
+    return rec.create_exclusive(day / READ_FILE, read)
 
 
-def _read_ibkr(deps, state: Path, day: Path, F: dt.date, at: str) -> tuple:
-    """(read, source). A fresh read when the Gateway answers, saved at once; otherwise the read an
-    earlier slot saved for F; otherwise (None, why)."""
+def _read_ibkr(deps, state: Path, day: Path, F: dt.date, at: str, today: dt.date) -> tuple:
+    """(read, source), by these rules (re-review 1):
+      * a read saved for F is THE read: it is used, and IBKR is not asked again;
+      * for F before today (ET) IBKR is never read: today's executions are not F's. With no saved
+        read the answer is (None, why) and the caller leaves the session UNBOOKED;
+      * on F itself, with no saved read, IBKR is read once and the read saved at once."""
     from quantt.broker.ibkr import IBKRError, NotConnected, WrongAccount
+    if (day / READ_FILE).exists():
+        return json.loads((day / READ_FILE).read_text()), "saved (the read taken on the session day)"
+    if F < today:
+        return None, (f"no IBKR read was saved on {F}, and IBKR now returns {today}'s executions, not {F}'s")
     client = deps.ibkr("read")
     try:
         client.connect()
@@ -226,13 +251,12 @@ def _read_ibkr(deps, state: Path, day: Path, F: dt.date, at: str) -> tuple:
         except IBKRError as e:
             why = f"the IBKR read failed ({type(e).__name__}: {e})"
         else:
-            _save_read(day, read)
             status.update(state, "gateway", {"logged_in": True, "why": "verify connected"}, at)
+            if not _save_read(day, read):          # another run saved one meanwhile: that one stands
+                return json.loads((day / READ_FILE).read_text()), "saved (by a run that finished first)"
             return read, "fresh"
         finally:
             client.disconnect()
-    if (day / READ_FILE).exists():
-        return json.loads((day / READ_FILE).read_text()), f"saved ({why}; booked from the read saved earlier)"
     return None, why
 
 
@@ -254,7 +278,7 @@ def _finish_unrecorded(out, F, msg, code=1) -> int:
     return code
 
 
-def _verify(deps, date) -> int:
+def _verify(deps, date, scheduled: bool = False) -> int:
     """The day's verify (module docstring). Idempotent: a session already booked, or a no-send
     session already recorded, is reported and left alone. Persistent: the IBKR read and the prints
     are saved as soon as they are taken, so a later slot books from them when the Gateway or
@@ -271,10 +295,6 @@ def _verify(deps, date) -> int:
     day = state / F.isoformat()
     if F > now.date():
         raise TwinRefused(f"{F} is after today's date {now.date()}")
-    if F < now.date() and not (day / READ_FILE).exists() and (day / "STARTED").exists():
-        raise TwinRefused(f"verify for {F} must read IBKR ON {F}: IBKR returns the current day's executions only, "
-                          f"and no read was saved for {F}; that session cannot be booked from the API (rebuild it "
-                          "from the Flex statement)")
     row, _asof = run.session_for(deps.market, F)
     if row is None:
         if (day / "STARTED").exists():
@@ -284,6 +304,9 @@ def _verify(deps, date) -> int:
     if F == now.date():
         why = _session_window(clk, F)
         if why:
+            if scheduled:
+                print(f"{F} twin verify: not yet ({why}); nothing to do", file=out)
+                return 0
             raise TwinRefused(f"not verifiable now: {why}")
     last = F < now.date() or now.time() >= LAST_SLOT
     led_path = state / "ledger.json"
@@ -358,7 +381,7 @@ def _verify(deps, date) -> int:
     elif send_d.get("stopped"):
         fails.append(f"the send stopped: {send_d['stopped']}")
 
-    read, source = _read_ibkr(deps, state, day, F, at)
+    read, source = _read_ibkr(deps, state, day, F, at, now.date())
     if read is None:
         if last:
             return _unbooked(state, day, F, at, f"no IBKR read for {F}: {source}", [], out)
@@ -416,6 +439,8 @@ def _verify(deps, date) -> int:
         return fail_unbooked("; ".join(problems) + " | the ledger was NOT booked; repair it before the next send")
     plans = [net.SleevePlan(p["slug"], p["action"], p["why"], dict(p["targets"]), 0, tuple(p.get("dropped") or ()))
              for p in slugs]
+    plans, flip_notes = change_of_side_targets(plans, before, orders, fills)
+    notes.extend(flip_notes)
     # A symbol whose shares change hands with no fill books at the official close: without that
     # close it waits for the next slot, and after the last one it is UNBOOKED, never a guess.
     need_cross = sorted(s for s in syms if s not in fills and s not in prices and any(
@@ -464,6 +489,60 @@ def _verify(deps, date) -> int:
     _tally(state, at)
     print(f"{F} {'PASS' if not fails else 'FAIL'} twin {reason}", file=out)
     return 0 if not fails else 1
+
+
+def change_of_side_targets(plans: list, before: dict, orders: list, fills: dict) -> tuple:
+    """(plans, notes): for each symbol sent as a change of side (a leg `-2` order), the slugs that
+    OPEN the new side get only what actually filled beyond the closing (re-review 3), so a refused,
+    skipped or unfilled opening leg never leaves a closing slug open or an opening slug short.
+
+    For such a symbol, s = the side's sign (-1 for sells). An OPENER is a slug whose target is on
+    the new side and moves that way. Its base target c is its holding if that is on the new side
+    or zero, else 0 (it closes, nothing more). The openers then share, by `ledger.allocate` (the
+    events book's own rule: in proportion, whole shares), the fill beyond what the base targets
+    account for; with none, they stay at c. Every other slug keeps its target, and
+    `ledger.apply` books the symbol's summed fill as before. Done here, in the twin: ledger.py is
+    not changed. Example: legacy +200 -> 0, cef 0 -> -50; leg 1 SELL 200 fills, leg 2 is refused:
+    cef's base is 0, the base targets account for -200 = the fill, so the ledger ends legacy 0,
+    cef 0, and the account 0."""
+    from quantt.sleeves import ledger as L
+    flips = sorted({o["symbol"] for o in orders if o.get("leg") == 2})
+    if not flips:
+        return plans, []
+    held = {p.slug: (before["sleeves"].get(p.slug) or {}).get("shares", {}) for p in plans}
+    targets = {p.slug: dict(p.targets) for p in plans}
+    notes = []
+    for sym in flips:
+        side = next(o["side"] for o in orders if o["symbol"] == sym)
+        sgn = -1 if side == "sell" else 1
+        openers = {}
+        for slug in targets:
+            t, h = targets[slug].get(sym, 0), held[slug].get(sym, 0)
+            if t * sgn > 0 and (t - h) * sgn > 0:
+                c = h if h * sgn >= 0 else 0
+                openers[slug] = (c, t - c)
+        if not openers:
+            continue
+        base_net = sum((openers[sl][0] if sl in openers else targets[sl].get(sym, 0)) - held[sl].get(sym, 0)
+                       for sl in targets)
+        filled = fills.get(sym, (0, None))[0]
+        excess = (filled - base_net) * sgn
+        want = {sl: o for sl, (c, o) in openers.items()}
+        cap = sum(abs(o) for o in want.values())
+        share = L.allocate(want, sgn * min(max(excess, 0), cap)) if excess > 0 else {sl: 0 for sl in want}
+        for sl, (c, o) in openers.items():
+            new = c + share.get(sl, 0)
+            if new:
+                targets[sl][sym] = new
+            else:
+                targets[sl].pop(sym, None)
+        if excess < cap:
+            notes.append(f"{sym}: the opening leg filled {max(excess, 0)} of {cap}; the opening slugs "
+                         f"{sorted(openers)} were held to what filled")
+    from quantt.sleeves import net as N
+    out = [N.SleevePlan(p.slug, p.action, p.why, dict(sorted(targets[p.slug].items())), p.stale_sessions,
+                        p.dropped, p.scale) for p in plans]
+    return out, notes
 
 
 def _day_change(pnl: dict, prev: dict) -> dict:

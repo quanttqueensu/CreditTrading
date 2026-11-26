@@ -76,16 +76,28 @@ class Deps:
         default=lambda: dt.datetime.now(dt.timezone.utc))
     out: object = dataclasses.field(default_factory=lambda: sys.stdout)
     cfg: config.TwinConfig = None
-    global_halts: Callable[[], list] = None
     memory: Callable[[], dict] = None
+    own_clone: Path = config.REPO                    # the clone the twin runs from (its own halts)
+    unit_env: Callable[[str], str] = None            # unit -> its loaded Environment (books' arming)
 
     def __post_init__(self):
         if self.cfg is None:
             self.cfg = config.load()
-        if self.global_halts is None:
-            self.global_halts = _global_halts
         if self.memory is None:
             self.memory = host_memory
+        if self.unit_env is None:
+            self.unit_env = systemd_environment
+
+
+def systemd_environment(unit: str) -> str:
+    """`systemctl show <unit> -p Environment --value`: the LOADED environment, read-only (the
+    loaded copy is what runs: quantt/deploy/install_vm.py). Raises when it cannot be read."""
+    import subprocess
+    r = subprocess.run(["systemctl", "show", unit, "-p", "Environment", "--value"],
+                       capture_output=True, text=True, timeout=10)
+    if r.returncode != 0:
+        raise RuntimeError(f"systemctl show {unit} exited {r.returncode}")
+    return r.stdout.strip()
 
 
 def host_memory() -> dict:
@@ -111,11 +123,10 @@ def host_memory() -> dict:
     return out
 
 
-def _global_halts() -> list:
-    """ops/HALT.md (every book) and ops/HALT_twin.md (the twin only)."""
-    from ops.halt import read_halt
-    h = read_halt("twin")
-    return [h] if h else []
+def twin_halts(deps, books_clone: Path) -> list:
+    """ops/HALT.md (every book) and ops/HALT_twin.md, in the twin's own clone AND the books' clone
+    (re-review N1): a halt a person wrote where the books run stops the twin too."""
+    return books.halts_in(deps.own_clone, "twin") + books.halts_in(books_clone, "twin")
 
 
 def staging(env) -> bool:
@@ -163,12 +174,11 @@ def midnight_et(day: dt.date) -> dt.datetime:
     return dt.datetime.combine(day, dt.time(0, 0), tzinfo=gt.ET)
 
 
-def events_min_usd() -> float:
-    """The events book's own minimum net order (ops/sleeves/events_sleeves.json `min_order_usd`),
-    read by the events runner's own loader, never written here."""
+def events_min_usd(books_clone: Path) -> float:
+    """The events book's own minimum net order (`min_order_usd`), from the events book file in the
+    BOOKS' clone (the file the events book runs with), read by the events runner's own loader."""
     from quantt.sleeves import config as scfg
-    from quantt.sleeves.run import BOOK_PATH
-    return float(scfg.load(BOOK_PATH).min_order_usd)
+    return float(scfg.load(Path(books_clone) / "ops" / "sleeves" / "events_sleeves.json").min_order_usd)
 
 
 # ------------------------------------------------------------------ the ledger
@@ -356,12 +366,16 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
             print(f"  REFUSED [clock] {record['refusals'][-1]['detail']}", file=out)
             return _finish(deps, state, day, record, EXIT_REFUSED, scheduled=True)
 
-    # 3. the books' plans, their halts, and the twin's ledger
+    # 3. the books' plans, their own arming and halts, and the twin's ledger
+    bclone = books.books_clone(env)
     reads = books.read_books(states, F, asof)
+    arming = {}
     for name in books.BOOK_NAMES:
-        h = books.book_halt(name, states[name])
-        if h and reads[name].status == "decided":
-            reads[name] = books.hold(name, f"the book is halted: {h}")
+        why = books.book_not_armed(name, states[name], deps.unit_env, (deps.own_clone, bclone))
+        arming[name] = why or "armed"
+        if why and reads[name].status == "decided":
+            reads[name] = books.hold(name, why)
+    record["books_own_arming"] = arming
     epoch_simulated = False
     try:
         led, epoch_rec = read_ledger(state)
@@ -418,7 +432,7 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
         shares = ledger.shares_of(led)
         ca = {}
         for name in ("cef", "c4"):
-            m = books.ca_mode(name)
+            m = books.ca_mode(name, bclone)
             if m is None:
                 continue
             r = reads[name]
@@ -441,7 +455,7 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
             for s, p in got.items():
                 prices[s] = p
                 priced_by.setdefault(s, {})["alpaca_daily_bar"] = p
-        plans, small = combine.apply_events_minimum(plans, shares, prices, events_min_usd())
+        plans, small = combine.apply_events_minimum(plans, shares, prices, events_min_usd(bclone))
         record["events_below_minimum"] = small
         orders, tgt = combine.make_orders(plans, pos, F, prices)
         sha = combine.plan_sha(orders)
@@ -476,8 +490,8 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
             appr = json.loads((day / "APPROVED").read_text())["plan_sha"]
         for r in gt.gate_arming(appr, sha, (state / "AUTO_ARMED").exists()):
             record["refusals"].append({"gate": r.gate, "detail": r.detail})
-        for h in deps.global_halts():
-            record["refusals"].append({"gate": "halt", "detail": f"{h.get('path')}: {h.get('reason')}"})
+        for h in twin_halts(deps, bclone):
+            record["refusals"].append({"gate": "halt", "detail": h})
         if os.path.lexists(state / "HALT"):
             record["refusals"].append({"gate": "halt", "detail": f"{state / 'HALT'} exists"})
 

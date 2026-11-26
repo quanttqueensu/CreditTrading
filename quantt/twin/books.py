@@ -183,7 +183,12 @@ def target_integrity(plan: dict) -> list:
         if sym in ordered or v["target"] == v["current"]:
             continue
         said = [n for n in notes.get(sym, []) if str(n).startswith(EXPLAINED_NOTES)]
-        if not said and not scaled:
+        cur, tgt = v["current"], v["target"]
+        # A binding fit scales OPENING orders only, and may round one to nothing; it never drops a
+        # reduction (quantt/session/run.py fit_to_buying_power). So only an opening symbol may lack
+        # its order for that reason (re-review 5).
+        opening = tgt != 0 and (cur == 0 or cur * tgt > 0) and abs(tgt) > abs(cur)
+        if not said and not (scaled and opening):
             bad.append(f"{sym}: target {v['target']} differs from current {v['current']} with no order and no note")
     return bad
 
@@ -277,22 +282,84 @@ def read_books(states: dict, F: dt.date, asof: dt.date) -> dict:
     return out
 
 
-def book_halt(name: str, state: Path) -> str | None:
-    """Why book `name` is halted, or None: its repo halt (ops/HALT_<book>.md) or a `<state>/HALT`
-    file (the events book's VM switch). A halted Alpaca book does not trade, so its twin holds.
-    The GLOBAL halt is not read here: it stops the twin itself (run.py)."""
-    from ops.halt import _parse_halt, scoped_path
-    h = _parse_halt(scoped_path(name), book=name)
-    if h:
-        return f"{h.get('path')}: {h.get('reason')}"
+# THE BOOKS' CLONE (re-review N1, 2026-11-25). The twin runs from its own clone, but the books run
+# from theirs (/home/quantt/prod/quantt-alpaca), where a person writes ops/HALT.md and
+# ops/HALT_<book>.md, and whose book files hold the settings the books actually run with. So every
+# halt is read in BOTH clones, and the events minimum and the corporate-action modes are read from
+# the books' clone. QUANTT_BOOKS_CLONE is required and has no default.
+ENV_BOOKS_CLONE = "QUANTT_BOOKS_CLONE"
+BOOKS_CLONE_FILES = ("ops/sleeves/events_sleeves.json", "ops/books/cef_discount_book.json",
+                     "ops/books/c4_families_book.json")
+
+
+def books_clone(env) -> Path:
+    v = env.get(ENV_BOOKS_CLONE, "")
+    if not v:
+        raise TwinRefused(f"{ENV_BOOKS_CLONE} is not set: it must name the clone the Alpaca books run from "
+                          "(their halts and settings are read there)")
+    p = Path(v)
+    missing = [f for f in BOOKS_CLONE_FILES if not (p / f).is_file()]
+    if missing:
+        raise TwinRefused(f"{ENV_BOOKS_CLONE}={v} lacks {missing}: not the books' clone")
+    return p
+
+
+def halts_in(root: Path, name: str) -> list:
+    """Active halts in one clone: the global ops/HALT.md and the scoped ops/HALT_<name>.md."""
+    from ops.halt import _parse_halt
+    out = []
+    for path, book in ((Path(root) / "ops" / "HALT.md", None), (Path(root) / "ops" / f"HALT_{name}.md", name)):
+        h = _parse_halt(path, book=book)
+        if h:
+            out.append(f"{path}: {h.get('reason')}")
+    return out
+
+
+# Each book's OWN send unit (rule 4 at the twin; the switch branch's review, 2026-11-25). Names read
+# from the installers, never written twice: install_vm.py's VM_BOOKS session job for the core and
+# C4 (their late-market send runs in the session unit), install_events_vm.sh's send unit for events
+# (pinned by quantt/twin/tests/test_book_arming.py against that script).
+EVENTS_SEND_UNIT = "quantt-events-send.service"
+
+
+def send_unit(name: str) -> str:
+    if name == "events":
+        return EVENTS_SEND_UNIT
+    from quantt.deploy import install_vm as iv
+    return next(j.service for j in iv.VM_BOOKS[name].jobs if j.job.log_stem == "session")
+
+
+def book_not_armed(name: str, state: Path, unit_env, clones) -> str | None:
+    """Why book `name`'s slugs must hold at the twin, or None when the book itself is armed:
+    its own send unit's loaded DRY_RUN is exactly "0", its <state>/AUTO_ARMED exists, and no halt
+    blocks it in either clone or in <state>/HALT. The team lead's DRY_RUN=1 on a book stops it at
+    both brokers (CLAUDE.md order-path rule 4). A unit whose environment cannot be read holds the
+    book, named: an unread setting is never taken as armed."""
+    unit = send_unit(name)
+    try:
+        env = unit_env(unit)
+    except Exception as e:  # noqa: BLE001 -- the book holds, named; never guessed armed
+        return f"{name}: its own send unit {unit} could not be read ({type(e).__name__}: {e}); it holds"
+    dry = [w for w in str(env or "").split() if w.startswith("DRY_RUN=")]
+    if dry != ["DRY_RUN=0"]:
+        shown = dry[0] if len(dry) == 1 else ("DRY_RUN unset" if not dry else "DRY_RUN set twice")
+        return f"{name}: its own send is {shown} ({unit}; rule 4)"
+    if not os.path.lexists(state / "AUTO_ARMED"):
+        return f"{name}: its own {state / 'AUTO_ARMED'} is absent, so its own send is not armed"
+    for root in clones:
+        h = halts_in(root, name)
+        if h:
+            return f"{name}: halted: {h[0]}"
     if os.path.lexists(state / "HALT"):
-        return f"{state / 'HALT'} exists"
+        return f"{name}: halted: {state / 'HALT'} exists"
     return None
 
 
-def ca_mode(name: str) -> str | None:
-    """The book json's corporate_actions.mode for a session book, read by the book's own reader."""
+def ca_mode(name: str, clone: Path) -> str | None:
+    """The book json's corporate_actions.mode in the BOOKS' clone, read by the book's own reader."""
     if name not in ("cef", "c4"):
         return None
-    from quantt.session.run import BOOKS as SB, corporate_actions_for
-    return corporate_actions_for(SB[name])
+    import dataclasses as _dc
+    from quantt.session.run import BOOKS as SB, REPO as SREPO, corporate_actions_for
+    b = SB[name]
+    return corporate_actions_for(_dc.replace(b, book_path=Path(clone) / b.book_path.relative_to(SREPO)))

@@ -86,17 +86,22 @@ def test_a_foreign_execution_fails_the_day_and_books_nothing(tmp_path):
     assert (st["twin"] / "ledger.json").read_text() == before
 
 
-def test_verify_must_run_on_the_session_day(tmp_path):
+def test_a_past_session_with_no_saved_read_is_unbooked_and_ibkr_is_not_asked(tmp_path):
     st, w, mk, d, out = sent_and_filled(tmp_path)
     mk.now = F.et(2026, 11, 30, 9, 0)
-    assert verify.verify(d, date=S) == run.EXIT_REFUSED
-    assert "current day's executions only" in out.getvalue()
+    n = len(w.connections)
+    assert verify.verify(d, date=S) == 1
+    assert len(w.connections) == n, "IBKR was read for a past session"
+    u = json.loads((st["twin"] / "2026-11-27" / "UNBOOKED.json").read_text())
+    assert "no IBKR read was saved on 2026-11-27" in u["reason"]
 
 
-def test_verify_before_the_close_is_refused(tmp_path):
+def test_verify_before_the_close_is_refused_by_hand_and_idle_on_the_timer(tmp_path):
     st, w, mk, d, out = sent_and_filled(tmp_path)
     mk.now = F.et(2026, 11, 27, 12, 55)
-    assert verify.verify(d) == run.EXIT_REFUSED
+    assert verify.verify(d, date=S) == run.EXIT_REFUSED
+    assert verify.verify(d) == 0 and "not yet" in out.getvalue()
+    assert not (st["twin"] / "2026-11-27" / "ibkr_read.json").exists()
 
 
 def test_verify_is_idempotent(tmp_path):

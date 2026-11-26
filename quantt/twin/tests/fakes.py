@@ -201,7 +201,9 @@ class FakeMarket:
         close = next((dt.datetime.combine(r["date"], dt.time(*map(int, r["close"].split(":"))), tzinfo=ET)
                       for r in self.rows if r["date"] == n.date()), None)
         is_open = close is not None and dt.datetime.combine(n.date(), dt.time(9, 30), tzinfo=ET) <= n < close
-        nxt = min((r["date"] for r in self.rows if r["date"] > n.date()), default=n.date() + dt.timedelta(days=3))
+        before_open = close is not None and n < dt.datetime.combine(n.date(), dt.time(9, 30), tzinfo=ET)
+        nxt = n.date() if before_open else min((r["date"] for r in self.rows if r["date"] > n.date()),
+                                               default=n.date() + dt.timedelta(days=3))
         return {"timestamp": self.now, "is_open": is_open,
                 "next_open": dt.datetime.combine(nxt, dt.time(9, 30), tzinfo=ET),
                 "next_close": dt.datetime.combine(nxt, dt.time(16, 0), tzinfo=ET)}
@@ -308,18 +310,38 @@ def write_events_plan(state: Path, F: dt.date, asof: dt.date, sleeves: dict, cur
     return plan
 
 
+REPO = Path(__file__).resolve().parents[3]
+UNIT_ENV = {"quantt-cef-session.service": "DRY_RUN=0 QUANTT_STATE_DIR=/x",
+            "quantt-c4-session.service": "DRY_RUN=0 QUANTT_STATE_DIR=/y",
+            "quantt-events-send.service": "DRY_RUN=0 QUANTT_STATE_DIR=/z"}
+
+
 def make_states(tmp_path: Path) -> dict:
+    """State directories for the three books (each ARMED by its own AUTO_ARMED) and the twin, the
+    twin's own clone (an empty ops/) and a copy of the books' clone's book files (read-only to the
+    twin; tests write HALT files into either)."""
+    import shutil
     out = {}
     for b in ("cef", "c4", "events", "twin"):
         p = tmp_path / "quantt_state" / b
         p.mkdir(parents=True)
         out[b] = p
+        if b != "twin":
+            (p / "AUTO_ARMED").write_text("")
+    own = tmp_path / "own_clone"
+    (own / "ops").mkdir(parents=True)
+    bc = tmp_path / "books_clone"
+    for f in ("ops/sleeves/events_sleeves.json", "ops/books/cef_discount_book.json", "ops/books/c4_families_book.json"):
+        (bc / f).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(REPO / f, bc / f)
+    out["own_clone"], out["books_clone"] = own, bc
     return out
 
 
 def env_for(states: dict, **extra) -> dict:
     env = {"QUANTT_TWIN_CEF_STATE": str(states["cef"]), "QUANTT_TWIN_C4_STATE": str(states["c4"]),
-           "QUANTT_TWIN_EVENTS_STATE": str(states["events"]), "DRY_RUN": "1"}
+           "QUANTT_TWIN_EVENTS_STATE": str(states["events"]), "DRY_RUN": "1",
+           "QUANTT_BOOKS_CLONE": str(states["books_clone"])}
     env.update(extra)
     return env
 
@@ -333,5 +355,6 @@ def deps_for(states, world, market, env, *, out=None, utcnow=None):
     return Deps(env=env, state=states["twin"], market=market,
                 ibkr=lambda mode: IBKRClient(cfg, mode=mode, ib_module=mod, sleep=lambda s: None),
                 utcnow=utcnow or (lambda: market.now.astimezone(dt.timezone.utc)),
-                out=out if out is not None else io.StringIO(), global_halts=lambda: [],
-                memory=lambda: {"ibgw_memory_peak_bytes": 1, "mem_available_kb": 2})
+                out=out if out is not None else io.StringIO(),
+                memory=lambda: {"ibgw_memory_peak_bytes": 1, "mem_available_kb": 2},
+                own_clone=states["own_clone"], unit_env=lambda unit: UNIT_ENV[unit])
