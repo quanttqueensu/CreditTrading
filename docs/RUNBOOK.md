@@ -1573,6 +1573,185 @@ safe; every step checks before it acts). `shadow/deploy/install_shadow_vm.sh`, o
 public, `git remote set-url origin https://github.com/quanttqueensu/CreditTrading.git` in
 each clone restores the old path.
 
+## 9. The IBKR twin and its Gateway on the VM (DRAFT, 2026-11-25)
+
+The design is `docs/RUNNER.md` "The IBKR twin (as built 2026-11-25)". PAPER ONLY. Every step
+that needs sudo is the team lead's (`!`); agents never run sudo. Nothing here arms: the first
+armed session needs its concrete order list shown and the team lead's go (CLAUDE.md rule 1).
+
+### 9.1 Secrets (TL, once)
+
+In Client Portal set a **paper-only** password for the paper username (no backslash, no
+leading or trailing space). Store three Key Vault secrets; the values never go in a chat or a file:
+`ibkr-paper-username`, `ibkr-paper-password`, `ibkr-paper-account-id` (the paper account id,
+for the run-time identity check). `quantt-ibgw-secret.service` writes the first two to
+`/run/quantt-ibgw/login.env`, `quantt-twin-secret.service` the third to
+`/run/quantt-twin/ibkr.env` (tmpfs, 0700 directories, 0600 files, `quantt.deploy.boot_secrets`).
+
+### 9.2 Packages (TL, sudo)
+
+`sudo sh <tree>/quantt/deploy/vm/bootstrap_ibgw.sh --tree <tree> --admin-user azureuser`: pinned
+`xvfb` and `x11vnc`, `unzip`, `nftables` and the X libraries, and the ONE port filter
+(`quantt-ibgw-firewall.service`, table `inet quantt_ibgw`, which B10's guard was merged into: only
+uid `quantt` connects to the API ports 4001, 4002, 7496 and 7497 on any address; `quantt` or the admin
+user to 5947; and `quantt-shadow` to no loopback TCP port but DNS). The Gateway's unit checks it
+before every start; the installer checks it, and proves it with a refused connection as
+`quantt-shadow` whose counter must move. No Java: the Gateway installer
+bundles its JRE. It checks that swap is on (the 2 GB `/swapfile` from §8.2) and never makes a
+second one.
+
+### 9.3 Install: staging first, then the release (TL, sudo)
+
+Staging (Thursday 2026-11-26, Thanksgiving): copy the local tree to
+`/home/quantt/twin-staging/tree` (root-owned, not writable by `quantt`), build a venv from its
+`requirements.txt` at `/home/quantt/twin-staging/venv`, then
+`sudo sh /home/quantt/twin-staging/tree/quantt/deploy/install_twin_vm.sh --vault <vault>
+--order-precautions bypass --staging --tree /home/quantt/twin-staging/tree --python
+/home/quantt/twin-staging/venv/bin/python`. Staging forces `DRY_RUN=1` and
+`QUANTT_TWIN_STAGING=1` on every command line: it can never send. The release install runs from
+the twin's OWN clone and venv, never the Alpaca books' clone: clone the repository to
+`/home/quantt/prod/quantt-twin`, check out the release tag, build `/home/quantt/venv-twin` from
+its `requirements.txt`, then `sudo sh /home/quantt/prod/quantt-twin/quantt/deploy/install_twin_vm.sh
+--vault <vault> --order-precautions bypass --tree /home/quantt/prod/quantt-twin --python
+/home/quantt/venv-twin/bin/python`. `--order-precautions bypass` is the decided value for this
+paper account (coordinator, 2026-11-25: the twin's own size and buying-power checks apply); the
+flag stays required. Memory: `--heap-mb`, `--memory-high`, `--memory-max` (320, 520M, 600M as
+first settings; the probe writes `MemoryPeak` and `MemAvailable` into `status.json`). The installer downloads the Gateway and IBC, refuses on any sha256 other
+than its pins (naming both), installs the Gateway as `quantt` with `-Xmx320m`, writes the units
+with `DRY_RUN=1`, starts the Gateway, and checks the Gateway and VNC listeners. It refuses inside
+12:20-13:00, 15:20-16:00 and 17:30-18:00 on weekdays.
+
+**The Gateway listens on every interface (`*:4002`; staging, 2026-11-26).** IBC 3.24.2 has no key
+for the API's "allow connections from localhost only", and `jts.ini`'s `TrustedIPs=127.0.0.1`
+decides only whom the Gateway accepts once a connection is open. Azure's network security group
+blocks 4002 and 5947 from outside today, but that is a setting elsewhere. Loopback-only is enforced
+by OUR table instead: `inet quantt_ibgw` has an `input` chain that drops, counted, every packet to
+4001, 4002, 7496, 7497 and 5947 not arriving on `lo`. The installer accepts a listener beyond
+loopback only while `ibgw_check_firewall.sh` proves that rule in force, and refuses otherwise; the
+Gateway's unit and every probe run the same check. A table from before 2026-11-26 has no input
+chain, so **re-run `bootstrap_ibgw.sh` (outside the windows above) before `install_twin_vm.sh`**:
+it replaces only its own table (`delete table inet quantt_ibgw`), never `flush ruleset`, so
+Azure's `table ip security` stays.
+
+Gateway API settings to confirm once through VNC (§9.5) and screenshot for the record: socket
+port 4002 on 127.0.0.1; trusted IPs 127.0.0.1 only; **Master Client ID** = the send's client id
+(31; staging 41), so `reqAllOpenOrders` sees every client; **"Maintain and resubmit orders when
+connection is restored" OFF**; Auto restart 03:00 (IBC sets it); "Never lock". IBC sets the port,
+trading mode, read-only flags, precautions and auto-restart at every start.
+
+### 9.4 The first session (agent, read-only, then TL)
+
+1. `sudo sh <code>/quantt/deploy/vm/run_twin.sh probe`: logged in, base currency, NLV, counts.
+2. Leftover open orders refuse everything (rule 2): the TL lists and cancels them (§9.6).
+3. `run_twin.sh epoch` once: seeds the account's positions under `legacy`.
+4. `run_twin.sh send --dry --session <a session with saved plans>`: the whole order list and
+   every gate, nothing sent. Before the first armed send, the TL reads that day's list, then
+   `run_twin.sh approve --session <YYYY-MM-DD> --sha <plan_sha>` (`--session` is required, with
+   no default; since 2026-11-26 the approval is written under THAT session, so a list read on
+   Thursday evening for Friday arms Friday's send and no other day's; a past session or a day
+   that does not trade is refused), and sets `DRY_RUN=0` in
+   `/etc/systemd/system/quantt-twin-send.service` (release install only) and `daemon-reload`.
+   On 2026-11-27 (13:00 close) the send fires at 12:30, with 12:40 as backup.
+5. 17:45 (retries 18:30, 20:30, 23:00): `quantt-twin-verify`; then `run_twin.sh ... compare`.
+   The run that wrote STARTED keeps `<D>/send.json`, written once; every other send run that day
+   (the 12:40 backup, a refusal, a dry run) writes its own `<D>/send_<HHMM>.json`, and verify reads
+   the STARTED run's record, so a backup can never hide a first send that stopped.
+   Every `run_twin.sh` call takes `--tree <clone> --python <venv python>` (and `--staging`).
+
+### 9.5 A logged-out Gateway, and two-factor
+
+The probe (09:00, 12:00, 15:15 and Sunday 19:30), the send and verify write "LOGGED OUT" into
+`status.json`, shown by `python3 -m ops.orient` (IBKR TWIN) and `python3 -m ops.daily_page`.
+Nothing alerts. To see why: `sudo tail -n 60 /var/log/quantt-twin/ibgw.out.log` (the twin's logs are in root's `/var/log/quantt-twin`, staging `/var/log/quantt-twin-staging`, since 2026-11-25: systemd opens them as root). **These logs can hold the paper account id.** IBC writes it into `ibgw.out.log` in the Gateway's dialog titles (e.g. "<id> Trader Workstation Configuration (Simulated Trading)"), and IBC's output is not filtered. The twin's own processes redact it from every log record (`quantt/broker/ibkr.py` `install_log_redaction`, installed by every entry point and by every connect: ib_async logs whole Trades, which carry it). The directory is root:quantt 0750, so `quantt-shadow` and other users cannot read it; never copy these logs into a tracked file, a report or a message (2026-11-26)
+(IBC logs each dialog it meets; a second-factor dialog is named there). To log in by hand:
+`sudo systemctl start quantt-ibgw-vnc.service`, then from the laptop
+`ssh -L 5947:127.0.0.1:5947 quantt-vm` and a VNC viewer on `localhost:5947`; it closes when
+the viewer leaves or after 15 minutes. **Record at the first login whether the paper username
+asked for 2FA**: if it did, IBC cannot log in unattended and the stored login does not help.
+
+### 9.6 Human-run tools (TL)
+
+- Cancel every resting order on the account (rule 1: the list first, then the go):
+  list with `run_twin.sh cancel-open`, then, as the TL, the same environment with `DRY_RUN=0`
+  and `python3 -m quantt.twin cancel-open --confirm <the count listed>` (`reqGlobalCancel`;
+  refused from the MOC freeze to the close and in staging).
+- Flatten: there is no separate tool. `legacy` is flattened by the twin's own first session; a
+  book is flattened by its own plan. A dedicated flatten tool (the archived
+  `flatten_ibkr_account.py`) is not built.
+- Halt the twin: `sudo -u quantt sh -c 'echo why > /home/quantt/quantt_state/twin/HALT'`.
+- **One mode at a time.** Release and staging keep their Gateway session lock in their own state
+  directories, so hand runs (`run_twin.sh`) must be in the mode the installed units are in;
+  `run_twin.sh` reads the installed send unit and refuses the other mode. Every hand run is bounded
+  (`timeout`: 10 minutes, the feed 100), as every unit is (`TimeoutStartSec`: send 1080 s, so the
+  first slot's run is killed at 12:48 on a 13:00 close, a minute after the batch stops placing at
+  12:47; verify and probe 600 s). A killed send never leads to a second set: STARTED, written
+  before the first order, refuses the backup, and a backup timer that fires while the first run is
+  still going starts nothing.
+
+The twin's units set `QUANTT_BOOKS_CLONE=/home/quantt/prod/quantt-alpaca` (the books' clone):
+a halt written there stops the twin too, and a book whose own send is `DRY_RUN=1`, lacks its
+`AUTO_ARMED` or is halted holds at the twin (RUNNER.md, "Each book's OWN arming").
+
+### 9.7 An UNBOOKED session (a person repairs it)
+
+`<state>/twin/<day>/UNBOOKED.json` names why verify could not book the session after its last
+slot (no IBKR read was saved, or a crossed share has no official close). Every later send refuses
+until it is repaired. Repair: book the session from `<day>/ibkr_read.json` and the official
+closes with `quantt/sleeves/ledger.py` `apply`, exactly as verify would; check the result sums to
+IBKR's positions; write `ledger.json`, `<day>/ledger_before.json` and `<day>/verify.json` with
+`ledger_applied: true`; then delete `UNBOOKED.json`. Never price a crossed share from a bar.
+
+### 9.8 The IBKR market-data feed for the shadow books (B10)
+
+Design: `docs/RUNNER.md` "The IBKR market-data feed for the shadow books". It sends nothing; the
+install is part of §9.3's (the same script, both modes).
+
+**What it holds.** `/srv/quantt-ibkr-feed/<YYYY-MM-DD>/` (staging: `/srv/quantt-ibkr-feed-staging/`):
+`bars-<run>.csv` (daily TRADES bars, every row `source=ibkr`, `data_type=historical`),
+`quotes-<run>.csv` (intraday runs only, each value labelled live, frozen, delayed, delayed_frozen or
+unlabelled) and `manifest-<run>.json`, written last: the files' sha256, the counts, every UNMEASURED
+symbol with IBKR's codes and words, the rejected request lines, why a run stopped, and how many closes
+changed since the session's previous run. No file holds an account id. Kept 30 days.
+
+**Permissions.**
+
+| path | owner:group | mode | who writes, who reads |
+|---|---|---|---|
+| `/srv/quantt-ibkr-feed` and each session directory | `quantt:quantt-shadow` | 2750 | quantt writes; quantt-shadow reads |
+| its files | `quantt:quantt-shadow` | 0640 | the same; the producer refuses a file without that group and mode |
+| `/srv/quantt-ibkr-feed/requests` | `quantt-shadow:quantt` | 2750 | quantt-shadow writes `<slug>.txt`; quantt reads (its unit sees it read-only) |
+| `<twin state>/.gateway.lock` | `quantt:quantt` | 0600 | the twin and the feed; quantt-shadow cannot reach it |
+
+The installer checks each line both ways and that `quantt-shadow` is not in group `quantt`, and that
+a connection from `quantt-shadow` to the API port is refused by the port filter (§9.2; its counter must move). If
+that check fails it stops and says to stop `quantt-ibgw.service` at once.
+
+**A request file** is plain ASCII, one ticker a line (`[A-Z]{1,5}`, an optional `.X` class), `#`
+comments, at most 16 KiB, owned by `quantt-shadow`, one link, not a symlink; at most 32 files and 200
+requested symbols in all. A bad line is named by file and line number in the manifest and its text is
+never copied. The books' own symbols always come first.
+
+**How a shadow book opts in** (nothing changes for a book that does not). On the shadow branch, the
+book's json adds a refresh command and a panel:
+
+```json
+"refresh": [["python3", "-B", "-m", "shadow.ibkr_feed", "request", "<slug>", "--feed", "/srv/quantt-ibkr-feed", "--universe", "<universe>"],
+            ["python3", "-B", "-m", "shadow.ibkr_feed", "panel", "ibkr_<universe>_px", "--feed", "/srv/quantt-ibkr-feed", "--universe", "<universe>"]],
+"panels": {"px_ibkr": {"path": "ibkr_<universe>_px.parquet", "date_col": "date", "required_asof": true}}
+```
+
+The first asks for the universe in the next feed run (19:05 picks up what the 18:50 shadow run asked);
+the second writes the panel from the newest manifest, refusing any file whose sha256 does not match.
+
+**By hand** (TL, sudo; read-only): `sudo sh <code>/quantt/deploy/vm/run_twin.sh feed --slot intraday`
+during a session and outside the twin's windows (send, every verify slot, the probes). It refuses inside them and stands down if the twin
+holds the Gateway. **The first run is the measurement this build could not make**: which data types
+the paper account gets (read `quote_labels` and `unmeasured` in the manifest), whether bars come at all,
+and whether the 16:20 bar is final (`revision` in the 19:05 manifest).
+
+**Stop it:** `sudo systemctl disable --now quantt-twin-feed-close.timer quantt-twin-feed-evening.timer`.
+Nothing of the twin depends on it.
+
 ## Open questions (for the TL)
 
 1. **Timezone:** set this Mac to `America/New_York`, or accept `America/Toronto`

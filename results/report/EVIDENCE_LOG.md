@@ -6179,3 +6179,15 @@ that adds it does not exist when it is written.
 - source: `docs/SYSTEM.md` @ `c0e4692` (§5, before the block this commit adds); `docs/SYSTEM.md` §5 "the closing auction" (in the commit that carries this entry); `.claude/skills/go-live/SKILL.md` (the capacity row, in the same commit)
 - supports: §5
 - status: current
+
+### E-2026-11-25-64 · Rulings: the three paper books move to IBKR paper for MOC, all three in the team lead's existing paper account with a per-book ledger, each cut over only after ten side-by-side sessions that match or beat Alpaca
+- kind: ruling
+- era: ALPACA
+- date: 2026-11-25
+- figures:
+  - core on Alpaca to the 2026-11-24 close: 34 of 38 sessions traded; 251 of 251 orders filled in full since 2026-10-07; fill against the official close, per session, median +9.22bp and mean +7.08bp; fill P&L −$816.27, hold P&L +$763.70 [S]
+  - C4 on Alpaca to the 2026-11-24 close: 13 of 16 sessions traded; 55 of 55 orders filled in full; fill against the official close, per session, median +9.74bp and mean +11.63bp; fill P&L −$169.80, hold P&L +$1,127.17 [S]
+  - the rulings, by question prompt on 2026-11-25, as `docs/SYSTEM.md` §5 quotes them: "Move paper books to IBKR paper"; the bar "equaly as good if not better"; "Side by side, 10 sessions"; the existing IBKR account, still open, because "we cant pay for a account"; "All three together"; "No phone"; "Start now, ship later"; then "copy all our existing logic and execution strategy for all 3 sleeves and stratgies on our ibrk account hosted on a vm (whatever we can do for free / stuednt account free)" and "get it all done locally, tested and working then host it on the vm, then push to git"; the Gateway's login "Yes, store the paper login"; and how soon a book switches, "1 clean session" (narrowing "Side by side, 10 sessions") [S]
+- source: `results/ops/ibkr_paper_move_2026-11-25/baseline.csv` (in the commit that carries this entry, from local copies of the VM's verify records read 2026-11-24 evening); `docs/SYSTEM.md` @ `3dd9911` (§5, before the block this commit adds); `results/ops/IBKR_PAPER_MOVE_2026-11-25.md` and `docs/SYSTEM.md` §5 "the paper books move to IBKR paper" (in the commit that carries this entry)
+- supports: §5
+- status: supersedes 2026-10-28's "Where paper runs meanwhile: Alpaca paper, unchanged" (a ruling recorded in `docs/SYSTEM.md` §5, not an evidence entry)

@@ -1,0 +1,3 @@
+book,scores_first,scores_last,sessions_scored,sessions_traded,tca_first,tca_sessions,tca_orders,tca_orders_filled_in_full,fill_vs_close_bp_session_median,fill_vs_close_bp_session_mean,fill_pnl_usd,hold_pnl_usd
+cef,2026-09-28,2026-11-24,38,34,2026-10-07,33,251,251,9.22,7.08,-816.27,763.7
+c4,2026-11-03,2026-11-24,16,13,2026-11-04,13,55,55,9.74,11.63,-169.8,1127.17

@@ -498,3 +498,47 @@ def test_the_cores_install_still_scans_only_its_own_units():
     units, prefixes = iv.scan_units(iv.C4_VM)
     assert set(units) == set(iv.CORE_VM.unit_files) | set(iv.C4_VM.unit_files)
     assert prefixes == ("quantt-",)
+
+
+
+def test_twin_unit_names_are_the_ones_the_twin_installer_writes():
+    """TWIN_UNIT_FILES is a copy of names owned by a shell script (quantt/deploy/install_twin_vm.sh, the IBKR
+    twin and B10's feed). Pin it: exactly the units that script's ALL_UNITS lists, and each one it writes."""
+    import re
+    from pathlib import Path
+    sh = (Path(iv.__file__).resolve().parents[2] / "quantt" / "deploy" / "install_twin_vm.sh").read_text()
+    vars_ = dict(re.findall(r'^(JOB_TIMERS|JOB_SERVICES)="([^"]+)"', sh, flags=re.M))
+    all_line = re.search(r'^ALL_UNITS="\$\{JOB_TIMERS\} \$\{JOB_SERVICES\} ([^"]+)"', sh, flags=re.M).group(1)
+    listed = set(vars_["JOB_TIMERS"].split()) | set(vars_["JOB_SERVICES"].split()) | set(all_line.split())
+    assert listed == set(iv.TWIN_UNIT_FILES), listed ^ set(iv.TWIN_UNIT_FILES)
+    written = set(re.findall(r"unit_file (quantt-[a-z-]+\.service) <<", sh))
+    written |= {f"quantt-twin-{p}.timer" for p in re.findall(r'^\s*timer ([a-z-]+) "', sh, flags=re.M)}
+    written |= {f"quantt-twin-{p}.service" for p in re.findall(r'^\s*job_service ([a-z-]+) ', sh, flags=re.M)}
+    written |= {f"quantt-twin-feed-{p}.service" for p in re.findall(r'^\s*feed_service ([a-z]+) ', sh, flags=re.M)}
+    written |= {s for s in re.findall(r'secret_service (quantt-[a-z-]+\.service) ', sh)}
+    assert written == set(iv.TWIN_UNIT_FILES), written ^ set(iv.TWIN_UNIT_FILES)
+
+
+def test_twin_bootstrap_unit_is_the_one_the_bootstrap_writes():
+    """The Gateway's ONE port filter unit is written by bootstrap_ibgw.sh (the merge of B10's guard, 2026-11-25)."""
+    import re
+    from pathlib import Path
+    sh = (Path(iv.__file__).resolve().parents[2] / "quantt" / "deploy" / "vm" / "bootstrap_ibgw.sh").read_text()
+    unit = re.search(r'^FW_UNIT="/etc/systemd/system/([^"]+)"', sh, flags=re.M).group(1)
+    assert (unit,) == iv.TWIN_BOOTSTRAP_UNIT_FILES
+
+
+def test_book_c4_installs_beside_the_twins_units(c4world, capsys):
+    """The twin's units (and B10's feed) are the repository's own: a C4 install goes through beside them and
+    leaves them byte-identical (the SHADOW_UNIT_FILES lesson of 2026-11-18). A stray quantt-twin-* unit is
+    still refused, by name. Fails on a31c10c, whose install_vm.py knew none of the twin's names."""
+    assert c4world.run("--apply", capsys=capsys)[0] == 0
+    tw = [_dormant(c4world, f"etc/systemd/system/{u}", "[Service]\nExecStart=/bin/true\n")
+          for u in iv.TWIN_UNIT_FILES + iv.TWIN_BOOTSTRAP_UNIT_FILES]
+    before = [f.read_bytes() for f in tw]
+    rc, out = c4world.c4("--apply", capsys=capsys)
+    assert rc == 0 and "no unit any book installs" not in out, out
+    assert [f.read_bytes() for f in tw] == before
+    stray = _dormant(c4world, "etc/systemd/system/quantt-twin-extra.service", "[Service]\nExecStart=/bin/true\n")
+    rc, out = c4world.c4("--apply", capsys=capsys)
+    assert rc == 2 and str(stray) in out and "no unit any book installs" in out, out

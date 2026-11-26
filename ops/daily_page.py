@@ -51,6 +51,9 @@ from ops import prod_state as ps
 BOOKS = ("cef", "c4")
 STATE_ROOT = "/home/quantt/quantt_state"
 SHADOW_SCOREBOARD = "/home/quantt-shadow/shadow_state/SCOREBOARD.md"
+# The IBKR twin's own aggregate summary (quantt/twin/status.py; team lead 2026-11-25, "No phone"):
+# whether its Gateway is logged in, the last send and verify, and the side-by-side tally.
+TWIN_STATUS = "/home/quantt/quantt_state/twin/status.json"
 EOD_COLUMNS = ("date", "equity", "change_usd", "read_at_utc")
 TIMEOUT_S = 20
 BEGIN, END, MISSING, DONE = "@@BEGIN ", "@@END ", "@@MISSING ", "@@DONE"
@@ -63,7 +66,7 @@ REMOTE_SCRIPT = "\n".join(
 r=$(sudo ls -1 {STATE_ROOT}/{b}/reports/risk 2>/dev/null | grep '\\.json$' | sort | tail -1)
 if [ -n "$r" ]; then emit risk_{b} {STATE_ROOT}/{b}/reports/risk/$r; else echo "{MISSING}risk_{b} {STATE_ROOT}/{b}/reports/risk/*.json"; fi"""
        for b in BOOKS]
-    + [f"emit shadow {SHADOW_SCOREBOARD}", f"echo {DONE}", ""])
+    + [f"emit shadow {SHADOW_SCOREBOARD}", f"emit twin {TWIN_STATUS}", f"echo {DONE}", ""])
 
 
 class PageError(RuntimeError):
@@ -223,9 +226,26 @@ def build(raw: str) -> dict:
             page["shadow"] = {"unmeasured": str(e)}
     else:
         page["shadow"] = {"unmeasured": f"{missing.get('shadow', SHADOW_SCOREBOARD)} could not be read"}
+    if "twin" in got:
+        try:
+            page["twin"] = twin_block(json.loads(got["twin"]))
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
+            page["twin"] = {"unmeasured": f"{TWIN_STATUS} is not in the expected form ({type(e).__name__}: {e})"}
+    else:
+        page["twin"] = {"unmeasured": f"{missing.get('twin', TWIN_STATUS)} could not be read (the twin has not run here)"}
     for b in books:
         b.pop("_rows", None)
     return page
+
+
+def twin_block(s: dict) -> dict:
+    """The twin's status.json as the page shows it: the Gateway first, because a logged-out Gateway
+    misses the next session and nothing else says so (no alert leaves the VM)."""
+    g = s.get("gateway") or {}
+    fw = s.get("firewall") or {}
+    return {"logged_in": g.get("logged_in"), "gateway_at": g.get("at"), "gateway_why": g.get("why"),
+            "firewall": fw.get("in_force"), "firewall_detail": fw.get("detail", "no record"),
+            "last_send": s.get("last_session_send"), "last_verify": s.get("last_verify"), "tally": s.get("tally") or {}}
 
 
 def _usd(x) -> str:
@@ -280,6 +300,29 @@ def render(page: dict) -> str:
         for r in s["rows"]:
             out.append(f"| {r['book']} | {r['started']} | {r['scored']} | {r['flat']} | {r['unmeasured']} | "
                        f"{r['late decisions']} | {r['P&L total return']} |")
+    t = page.get("twin") or {"unmeasured": "not read"}
+    out += ["", "## IBKR twin (paper; MOC; side by side with the Alpaca books)"]
+    if "unmeasured" in t:
+        out.append(f"- UNMEASURED: {t['unmeasured']}")
+    else:
+        out.append(f"- Gateway: **{'LOGGED IN' if t['logged_in'] else 'LOGGED OUT'}** at {t['gateway_at']}"
+                   + ("" if t["logged_in"] else f" ({t['gateway_why']}): the next twin send is missed until someone "
+                      "logs in (docs/RUNBOOK.md section 9)"))
+        out.append(f"- Port filter: **{ {True: 'IN FORCE', False: 'NOT IN FORCE'}.get(t.get('firewall'), 'UNMEASURED') }** "
+                   f"({t.get('firewall_detail')})")
+        ls, lv = t.get("last_send") or {}, t.get("last_verify") or {}
+        if ls:
+            out.append(f"- Last session send: {ls.get('session_date')} {ls.get('exit')}, {ls.get('orders')} order(s)"
+                       + (f", refused by {', '.join(ls['refusals'])}" if ls.get("refusals") else ""))
+        else:
+            out.append("- Last session send: none recorded")
+        if lv:
+            out.append(f"- Last verify: {lv.get('session_date')} {'PASS' if lv.get('ok') else 'FAIL'}: {lv.get('reason')}")
+        for b, x in t["tally"].items():
+            out.append(f"- {b}: {x.get('sessions')} session(s), both traded {x.get('both_traded')}; filled in full twin "
+                       f"{x.get('twin_full')}/{x.get('twin_orders')}, Alpaca {x.get('alpaca_full')}/{x.get('alpaca_orders')}; "
+                       f"fill vs close twin {x.get('twin_bp')}bp, Alpaca {x.get('alpaca_bp')}bp; reconciled "
+                       f"{x.get('reconciled')}; double sends {x.get('double_sends')}; refused shorts {x.get('refused_shorts')}")
     return "\n".join(out) + "\n"
 
 
