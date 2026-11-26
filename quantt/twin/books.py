@@ -355,6 +355,75 @@ def book_not_armed(name: str, state: Path, unit_env, clones) -> str | None:
     return None
 
 
+# THE REVERT BARRIER (the switch branch's re-review, 2026-11-25). A book that has switched to IBKR
+# decides for IBKR and its plan.json carries the switch's marker; if a release WITHOUT the switch's
+# `broker` key then reaches prod, the book decides at Alpaca again and sends there, and the twin must
+# not trade the same plan, or the book trades at both brokers. The twin's half: when the book's state
+# shows an OPEN IBKR segment but the session's plan was not decided for IBKR, the book holds, named.
+# The two files, as branch ibkr-switch-build's quantt/session/switch.py writes them (read 2026-11-25;
+# not imported, so a change of format there stops the twin loudly here):
+#   <book state>/eod_equity_sources.json
+#       {"file": "eod_equity.csv", "segments": [{"source": "alpaca_eod_history" | "ibkr_twin_ledger",
+#        "label": ..., "first": "YYYY-MM-DD", "last": "YYYY-MM-DD" | null}, ...], "_note": ...}
+#       oldest first; only the newest may be open (last null). Absent: the book never switched.
+#   <book state>/<F>/plan.json  "broker": {"name": "ibkr", "from": "YYYY-MM-DD", "session_date":
+#       "YYYY-MM-DD", "note": ..., ["capital_usd": ...]}, present only on a plan decided for IBKR.
+SOURCES_FILE = "eod_equity_sources.json"
+SOURCE_TWIN = "ibkr_twin_ledger"
+SOURCE_ALPACA = "alpaca_eod_history"
+
+
+def open_ibkr_segment(state: Path) -> str | None:
+    """The `first` date of the book's OPEN IBKR segment, or None (never switched, or back on
+    Alpaca). Raises TwinRefused naming the file on anything this reader was not built for."""
+    p = Path(state) / SOURCES_FILE
+    if not p.exists():
+        return None
+    try:
+        d = json.loads(p.read_text())
+    except (OSError, ValueError) as e:
+        raise TwinRefused(f"{p} cannot be read ({type(e).__name__})") from None
+    segs = d.get("segments") if isinstance(d, dict) else None
+    if not isinstance(segs, list) or not segs:
+        raise TwinRefused(f"{p} has no segments list")
+    for i, sg in enumerate(segs):
+        if not isinstance(sg, dict) or sg.get("source") not in (SOURCE_TWIN, SOURCE_ALPACA):
+            raise TwinRefused(f"{p}: segment {i} is not one this reader knows")
+        for k in ("first", "last"):
+            v = sg.get(k)
+            if not (v is None and k == "last") and not (isinstance(v, str) and len(v) == 10):
+                raise TwinRefused(f"{p}: segment {i} {k} is {v!r}")
+        if sg.get("last") is None and i != len(segs) - 1:
+            raise TwinRefused(f"{p}: segment {i} is open and is not the newest")
+    last = segs[-1]
+    return last["first"] if last["source"] == SOURCE_TWIN and last.get("last") is None else None
+
+
+def revert_barrier(name: str, state: Path, F: dt.date) -> str | None:
+    """Why the book must hold because its state says it trades at IBKR but its plan for F was
+    decided at Alpaca, or None. An unreadable sources file or plan holds the book too, named."""
+    try:
+        since = open_ibkr_segment(state)
+    except TwinRefused as e:
+        return f"{name}: its P&L-source record cannot be read ({e}); it holds (revert barrier)"
+    if since is None:
+        return None
+    path = Path(state) / F.isoformat() / "plan.json"
+    if not path.exists():
+        return None                      # no plan: the book holds anyway (read_session_book)
+    try:
+        marker = json.loads(path.read_text()).get("broker")
+    except (OSError, ValueError, AttributeError) as e:
+        return f"{name}: its plan cannot be read to check the IBKR marker ({type(e).__name__}); it holds"
+    ok = (isinstance(marker, dict) and marker.get("name") == "ibkr"
+          and marker.get("session_date") == F.isoformat())
+    if not ok:
+        return (f"{name}: its state shows an open IBKR segment from {since}, but its plan for {F} was not "
+                f"decided for IBKR (no broker marker for {F}): a release without the switch would trade "
+                "it at both brokers; it holds (revert barrier)")
+    return None
+
+
 def ca_mode(name: str, clone: Path) -> str | None:
     """The book json's corporate_actions.mode in the BOOKS' clone, read by the book's own reader."""
     if name not in ("cef", "c4"):

@@ -264,6 +264,12 @@ books run byte-identically, and the twin only imports their checks and the ledge
   Otherwise that book's slugs hold, and the record names why ("cef: its own send is DRY_RUN=1
   (rule 4)"). A unit that cannot be read holds its book; it is never taken as armed. So the team
   lead's `DRY_RUN=1` on a book stops it at both brokers, during the side-by-side and after a switch.
+- **The revert barrier (the switch branch's re-review, 2026-11-25).** When a book's
+  `eod_equity_sources.json` shows an OPEN `ibkr_twin_ledger` segment but its plan for the session
+  carries no `broker` marker for that session (`{"name": "ibkr", "session_date": F, ...}`, as
+  `quantt/session/switch.py` on branch `ibkr-switch-build` writes it), the plan was decided at Alpaca by
+  a release without the switch, and the twin holds the book, named, so it never trades at both
+  brokers. An unreadable sources file holds it too (`books.revert_barrier`).
 - **The books' clone (re-review N1).** The twin runs from its own clone; the books run from
   theirs, where a person writes `ops/HALT.md` and `ops/HALT_<book>.md`. `QUANTT_BOOKS_CLONE`
   (required, no default) names it: every halt is read in BOTH clones (a global one stops the whole

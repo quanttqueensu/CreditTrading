@@ -378,6 +378,7 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
     arming = {}
     for name in books.BOOK_NAMES:
         why = books.book_not_armed(name, states[name], deps.unit_env, (deps.own_clone, bclone))
+        why = why or books.revert_barrier(name, states[name], F)
         arming[name] = why or "armed"
         if why and reads[name].status == "decided":
             reads[name] = books.hold(name, why)
