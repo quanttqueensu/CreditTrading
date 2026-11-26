@@ -12,6 +12,7 @@ import json
 import pytest
 
 from quantt.broker import ibkr as I
+from quantt.session import gate as gt
 from quantt.twin import config, run
 from quantt.twin.tests import fakes as F
 from quantt.twin.tests.test_send import S, armed, world_and_books
@@ -76,23 +77,51 @@ def test_a_hung_read_at_the_send_writes_a_record_and_sends_nothing(tmp_path):
     assert send["refusals"][0]["gate"] == "ibkr_read" and "RequestTimedOut" in send["refusals"][0]["detail"]
 
 
-def test_a_slow_send_stops_placing_before_the_unit_is_killed_and_the_backup_refuses(tmp_path, monkeypatch):
+def test_on_a_13_00_close_the_batch_places_until_12_47_and_the_backup_refuses(tmp_path):
+    """The placement deadline is the session's own (final check, 2026-11-25): a slow batch that began at
+    12:30:05 keeps placing past 12:37 (start + 420 s, the limit it replaces) and stops at 12:47."""
     st, w, mk, d, out = world_and_books(tmp_path)
     armed(st)
-    t0 = F.et(2026, 11, 27, 12, 30, 5)
-    ticks = iter(range(0, 100000, 40))                    # every reading of the clock is 40 s later
-    d.utcnow = lambda: (t0 + dt.timedelta(seconds=next(ticks))).astimezone(dt.timezone.utc)
-    monkeypatch.setattr(config, "SEND_RUN_LIMIT_S", 300)
-    code = run.send(d)
     day = st["twin"] / "2026-11-27"
+    placed_at = []
+
+    def utcnow():                                  # after STARTED, each reading of the clock is 150 s later
+        if (day / "STARTED").exists():
+            mk.now = mk.now + dt.timedelta(seconds=150)
+        return mk.now.astimezone(dt.timezone.utc)
+    d.utcnow = utcnow
+    real = d.ibkr
+
+    def ibkr(mode):
+        c = real(mode)
+        place = c.place_moc
+
+        def timed(*a, **kw):
+            placed_at.append(mk.now.astimezone(gt.ET))
+            return place(*a, **kw)
+        c.place_moc = timed
+        return c
+    d.ibkr = ibkr
+    code = run.send(d)
     events = [json.loads(x)["event"] for x in (day / "orders.jsonl").read_text().splitlines()]
     assert "cutoff" in events and code != 0, out.getvalue()
-    assert len(w.placed) < events.count("intent") + events.count("cutoff")
-    assert "run limit" in (day / "send.json").read_text()
+    assert placed_at and max(placed_at) < F.et(2026, 11, 27, 12, 47)
+    assert max(placed_at) >= F.et(2026, 11, 27, 12, 38)          # past start + 420 s: not the old limit
+    assert "12:47 ET (the batch stop 12:48 less 60 s)" in (day / "send.json").read_text()
     n = len(w.placed)
-    mk.now = F.et(2026, 11, 27, 12, 40, 5)                # the backup: STARTED stands, nothing more goes
+    mk.now = F.et(2026, 11, 27, 12, 40, 5)                        # a backup that does start: STARTED refuses
     d.utcnow = lambda: mk.now.astimezone(dt.timezone.utc)
+    d.ibkr = real
     assert run.send(d) == run.EXIT_REFUSED and len(w.placed) == n
+
+
+def test_the_deadline_and_the_kill_on_each_close():
+    for close, place_by, kill in ((F.et(2026, 11, 27, 13), F.et(2026, 11, 27, 12, 47), F.et(2026, 11, 27, 12, 48)),
+                                  (F.et(2026, 11, 25, 16), F.et(2026, 11, 25, 15, 47), F.et(2026, 11, 25, 15, 48))):
+        t = config.times(close)
+        assert t["place_by"] == place_by
+        assert t["slots"][0] + dt.timedelta(seconds=config.SEND_RUN_LIMIT_S) == kill     # just after place_by
+        assert t["place_by"] < kill < t["freeze"]
 
 
 def test_the_installed_send_limit_is_the_runners():
@@ -100,6 +129,5 @@ def test_the_installed_send_limit_is_the_runners():
     from pathlib import Path
     t = (Path(config.REPO) / "quantt/deploy/install_twin_vm.sh").read_text()
     assert int(re.search(r"^SEND_TIMEOUT_S=(\d+)$", t, re.M).group(1)) == config.SEND_RUN_LIMIT_S
-    assert config.SEND_RUN_LIMIT_S < (config.SEND_SLOT_MIN[0] - config.SEND_SLOT_MIN[1]) * 60
     from quantt.broker.ibkr import ACK_WAIT_S
-    assert ACK_WAIT_S < config.SEND_RUN_MARGIN_S
+    assert ACK_WAIT_S < config.SEND_PLACE_MARGIN_S

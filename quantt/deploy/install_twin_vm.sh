@@ -176,7 +176,12 @@ parse() {
     IDS="31 32 33 34"
     FEED="/srv/quantt-ibkr-feed"
   fi
-  LOGS="${STATE}/logs"
+  # THE LOGS ARE IN A ROOT-OWNED DIRECTORY (final check, 2026-11-25). systemd opens a unit's
+  # StandardOutput=append: file before it drops to User= [U: from systemd's exec code as recalled, not
+  # re-read], so a log path in a directory quantt owns would let quantt plant a symlink that root then
+  # writes through. ${LOGS} is root:quantt 0750 under root's /var/log: quantt reads, cannot write,
+  # quantt-shadow cannot enter.
+  if [ -n "${STAGING}" ]; then LOGS="/var/log/quantt-twin-staging"; else LOGS="/var/log/quantt-twin"; fi
   VENV_DIR="$(dirname "$(dirname "${PY}")")"
 }
 
@@ -322,24 +327,23 @@ install_gateway() {
   if [ -f "${marker}" ] && [ "$(cat "${marker}")" = "${GW_VERSION} ${GW_SHA256}" ]; then
     echo "   already installed from the pinned file"
   else
-    install -d -o "${RUN_USER}" -g "${RUN_USER}" -m 700 "${JTS}"
+    # ${JTS} is in quantt's home: made AS quantt, so no root step follows a link planted there.
+    as_quantt install -d -m 700 "${JTS}"
     # install4j's unattended mode: -q (quiet) and -dir <installation directory> [S: install4j's
     # command-line options; the installer's header does not print them]. Runs as quantt, from the
     # verified cached copy; the bundled JRE (jre.tar.gz in its archive) is used.
     as_quantt sh "${CACHE}/ibgateway-${GW_VERSION}-linux-arm.sh" -q -dir "${GW_DIR}" \
       || die "the Gateway installer failed; read its output above"
     [ -d "${GW_DIR}/jars" ] || die "no ${GW_DIR}/jars after the install: IBC needs the offline Gateway"
-    echo "${GW_VERSION} ${GW_SHA256}" > "${marker}"
-    chown "${RUN_USER}:${RUN_USER}" "${marker}"
+    as_quantt sh -c 'printf "%s\n" "$1" > "$2"' sh "${GW_VERSION} ${GW_SHA256}" "${marker}"
   fi
   vm="${GW_DIR}/ibgateway.vmoptions"
   [ -f "${vm}" ] || die "${vm} is missing: IBC reads the JVM options from it"
-  grep -v '^-Xmx' "${vm}" > "${vm}.new"
-  echo "-Xmx${HEAP_MB}m" >> "${vm}.new"
-  chown "${RUN_USER}:${RUN_USER}" "${vm}.new"
-  mv "${vm}.new" "${vm}"
-  [ "$(grep -c '^-Xmx' "${vm}")" = "1" ] || die "${vm} does not carry exactly one -Xmx"
-  echo "   JVM heap: $(grep '^-Xmx' "${vm}")"
+  # As quantt (final check 1): root never writes, chowns or renames in the Gateway's directory.
+  as_quantt sh -c 'grep -v "^-Xmx" "$1" > "$1.new" && echo "-Xmx$2m" >> "$1.new" && mv "$1.new" "$1"' \
+    sh "${vm}" "${HEAP_MB}" || die "could not set the JVM heap in ${vm}"
+  [ "$(as_quantt grep -c '^-Xmx' "${vm}")" = "1" ] || die "${vm} does not carry exactly one -Xmx"
+  echo "   JVM heap: $(as_quantt grep '^-Xmx' "${vm}")"
 }
 
 install_ibc() {
@@ -372,17 +376,30 @@ install_bin() {
   install -o root -g root -m 644 "${CODE}/quantt/deploy/ibc_config.py" "${BIN}/ibc_config.py"
   install -o root -g root -m 755 "${CODE}/quantt/deploy/vm/ibgw_check_firewall.sh" "${BIN}/ibgw_check_firewall.sh"
   install -o root -g root -m 644 "${CODE}/quantt/deploy/vm/ibgw_check_display.py" "${BIN}/ibgw_check_display.py"
+  install -o root -g root -m 644 "${CODE}/quantt/deploy/vm/own_dir.py" "${BIN}/own_dir.py"
 }
 
 make_state() {
   step "state directory ${STATE} (0700, ${RUN_USER})"
-  install -d -o "${RUN_USER}" -g "${RUN_USER}" -m 700 "$(dirname "${STATE}")" "${STATE}" "${LOGS}"
+  # As quantt (final check 1): the state is quantt's, and root never writes or chowns there.
+  parent="$(dirname "${STATE}")"
+  if ! as_quantt install -d -m 700 "${parent}" 2>/dev/null; then
+    # Staging: /home/quantt/twin-staging may be root's (the tree's parent, made by sudo). Then root makes
+    # the one directory quantt cannot, through an O_NOFOLLOW descriptor, inside a directory root owns.
+    [ "$(stat -c '%u %F' "$(dirname "${parent}")")" = "0 directory" ] \
+      || die "${RUN_USER} cannot make ${parent}, and its parent is not root's directory"
+    /usr/bin/python3 -I -B "${BIN}/own_dir.py" "${parent}" "${RUN_USER}" "${RUN_USER}" 700 || die "could not make ${parent}"
+  fi
+  as_quantt install -d -m 700 "${STATE}" || die "${RUN_USER} cannot make ${STATE}"
+  [ ! -L "${LOGS}" ] || die "${LOGS} is a symlink"
+  install -d -o root -g "${RUN_USER}" -m 750 "${LOGS}"
+  [ "$(stat -c '%U:%G %a %F' "${LOGS}")" = "root:${RUN_USER} 750 directory" ] || die "${LOGS} is not root:${RUN_USER} 750"
   # The Gateway session lock (quantt/broker/ibkr.py). Created once and never replaced: a new inode
   # under a held lock would let a second process connect beside the first.
   lockf="${STATE}/${LOCK_NAME}"
   [ ! -L "${lockf}" ] || die "${lockf} is a symlink"
   if [ ! -e "${lockf}" ]; then
-    install -o "${RUN_USER}" -g "${RUN_USER}" -m 600 /dev/null "${lockf}"
+    as_quantt sh -c 'umask 077; set -C; : > "$1"' sh "${lockf}" || die "${RUN_USER} could not create ${lockf}"
   fi
   [ "$(stat -c '%U:%G %a' "${lockf}")" = "${RUN_USER}:${RUN_USER} 600" ] || die "${lockf} is $(stat -c '%U:%G %a' "${lockf}"), not ${RUN_USER}:${RUN_USER} 600"
   [ ! -e "${STATE}/AUTO_ARMED" ] || echo "   WARNING: ${STATE}/AUTO_ARMED exists (kept); the units are DRY_RUN=1"
@@ -399,12 +416,12 @@ make_feed_dirs() {
   # it drops are readable by the producer and by nobody else; the producer's unit sees it read-only.
   install -d -m 0755 -o root -g root /srv
   [ ! -L "${FEED}" ] && [ ! -L "${FEED}/requests" ] || die "${FEED} or its requests directory is a symlink"
-  install -d -m 2750 -o "${RUN_USER}" -g "${SHADOW_USER}" "${FEED}"
-  chown "${RUN_USER}:${SHADOW_USER}" "${FEED}"
-  chmod 2750 "${FEED}"
-  install -d -m 2750 -o "${SHADOW_USER}" -g "${RUN_USER}" "${FEED}/requests"
-  chown "${SHADOW_USER}:${RUN_USER}" "${FEED}/requests"
-  chmod 2750 "${FEED}/requests"
+  # Final check 1: ${FEED}/requests is inside ${FEED}, which quantt can write, so root makes and owns it
+  # through an O_NOFOLLOW descriptor (own_dir.py), never by a path a planted link could redirect.
+  # ${FEED} itself is in root's /srv, where quantt can plant nothing; it goes the same way all the same.
+  /usr/bin/python3 -I -B "${BIN}/own_dir.py" "${FEED}" "${RUN_USER}" "${SHADOW_USER}" 2750 || die "could not own ${FEED}"
+  /usr/bin/python3 -I -B "${BIN}/own_dir.py" "${FEED}/requests" "${SHADOW_USER}" "${RUN_USER}" 2750 \
+    || die "could not own ${FEED}/requests"
 }
 
 # ---------------------------------------------------------------- units
@@ -452,15 +469,18 @@ UNIT
 # on the Gateway session lock for ever. The jobs are Type=oneshot, whose whole run is the start, so the
 # limit is TimeoutStartSec (systemd.service(5): RuntimeMaxSec has no effect on a oneshot); at it systemd
 # kills the job, which drops the socket and the flock with it.
-#   send     480 s: a send that hangs from 12:30 (15:30) is killed by 12:38 (15:38), before the 12:40
-#            backup. A KILLED SEND CAN NEVER LEAD TO A SECOND SET: STARTED is written, exclusively,
-#            before the first order and is never removed, so the backup refuses on it (rule 2) unless
-#            the killed run ended before STARTED, in which case it sent nothing; the order log's
-#            fsynced intent lines and any order resting at IBKR refuse it too (quantt/twin/guard.py).
+#   send     1080 s (quantt/twin/config.py SEND_RUN_LIMIT_S, pinned by a test): from the first slot,
+#            12:30 (15:30), the kill lands at 12:48 (15:48), a minute after the batch's own placement
+#            deadline (12:47 / 15:47) and before the freeze. A KILLED SEND CAN NEVER LEAD TO A SECOND SET:
+#            while the first run is still going the backup's timer starts nothing (merged into the running
+#            start job; systemd.timer(5)); a backup that does start refuses on STARTED, written exclusively
+#            before the first order and never removed (rule 2), or on the order log's fsynced intent lines
+#            and any order resting at IBKR (quantt/twin/guard.py). A run that ended before STARTED sent
+#            nothing. The why, in full: config.py THE SEND'S PLACEMENT DEADLINE.
 #   verify   600 s, probe 600 s: a read of a few hundred rows; a hung one is killed long before the
 #            next slot. The feed keeps its own limit (feed_service): its runs are up to
 #            max_run_minutes by design and stop themselves before every twin window.
-SEND_TIMEOUT_S=480
+SEND_TIMEOUT_S=1080
 READ_TIMEOUT_S=600
 
 job_service() {
@@ -470,7 +490,7 @@ job_service() {
     # Final review 3: the probe also records whether the port filter is in force (status.json), so a
     # later flush of the table is seen. The check runs as root ("+"; nft needs it) and never fails
     # the probe ("-"): its verdict is the record.
-    fw_check="ExecStartPre=-+/bin/sh ${BIN}/ibgw_check_firewall.sh $(id -u "${RUN_USER}") $(id -u "${SHADOW_USER}") --status ${STATE}/firewall.json"
+    fw_check="ExecStartPre=-+/bin/sh ${BIN}/ibgw_check_firewall.sh $(id -u "${RUN_USER}") $(id -u "${SHADOW_USER}") --status"
   else
     fw_check="# (the port filter is checked by the probe and before every Gateway start)"
   fi
@@ -723,9 +743,13 @@ check_feed_and_guard() {
   if as_reader test -x "${STATE}"; then die "${SHADOW_USER} can enter the twin's state ${STATE}"; fi
   # The Gateway's X display: quantt-shadow can open neither its abstract socket nor, without the
   # cookie, its file socket (final review, 2026-11-25; quantt/deploy/vm/ibgw_check_display.py).
+  # FIRST the positive check (final check, 2026-11-25): the display is up and takes its own cookie, as
+  # quantt; a refusal from a display that is not there would prove nothing.
   sleep 5
-  runuser -u "${SHADOW_USER}" -- /usr/bin/python3 -I -B "${BIN}/ibgw_check_display.py" 47 \
-    || die "${SHADOW_USER} could open the Gateway's X display :47 (above). Stop quantt-ibgw.service NOW"
+  as_quantt /usr/bin/python3 -I -B "${BIN}/ibgw_check_display.py" owner 47 "${IBC_RUN}/Xauthority" \
+    || die "the Gateway's display :47 is not up or does not take its own cookie (above); the refusal check would prove nothing"
+  runuser -u "${SHADOW_USER}" -- /usr/bin/python3 -I -B "${BIN}/ibgw_check_display.py" refused 47 "${IBC_RUN}/Xauthority" \
+    || die "${SHADOW_USER} could open the Gateway's X display :47, or the check proved nothing (above). Stop quantt-ibgw.service NOW"
   # B10's proof, through the ONE check: a connection as the shadow user is refused BY THE FILTER.
   sh "${BIN}/ibgw_check_firewall.sh" "$(id -u "${RUN_USER}")" "$(id -u "${SHADOW_USER}")" --prove "${GW_HOST}" "${GW_PORT}" \
     || die "the port filter's proof failed (above). Stop quantt-ibgw.service NOW"

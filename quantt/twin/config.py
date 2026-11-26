@@ -53,17 +53,26 @@ PROBE_ET = (dt.time(9, 0), dt.time(12, 0), dt.time(15, 15))
 GATEWAY_LOCK_NAME = ".gateway.lock"
 TWIN_LOCK_WAIT_S = 90.0
 
-# THE SEND'S RUN LIMIT (final review 1, 2026-11-25). quantt-twin-send.service is killed SEND_RUN_LIMIT_S
-# after it starts (install_twin_vm.sh TimeoutStartSec, pinned to this by a test), so a send hung from
-# 12:30 (15:30) is gone by 12:38 (15:38), before the 12:40 backup: a timer that fires while its oneshot
-# is still running starts nothing [S: systemd merges the start job; not tried on the VM]. The batch
-# itself stops placing SEND_RUN_MARGIN_S before the kill, recorded as a cut-off, so with a live but slow
-# Gateway the kill does not land between an order's intent line and its acknowledgement (ACK_WAIT_S,
-# 10 s, is far inside the margin). Either way STARTED stands, so the backup refuses: a slow send ends
-# PARTIAL, never doubled. How long a healthy batch takes is UNMEASURED [U]; the order log's ack_s
-# measures it from the first send.
-SEND_RUN_LIMIT_S = 480
-SEND_RUN_MARGIN_S = 60
+# THE SEND'S PLACEMENT DEADLINE AND RUN LIMIT (final check, 2026-11-25; replaces a limit counted from the
+# run's start, which would have cut a slow but healthy batch of 200-300 orders short at 12:37).
+#   place_by  = stop_batch - SEND_PLACE_MARGIN_S: 12:47 on a 13:00 close, 15:47 on a 16:00 close. The
+#               batch places nothing from then on, and records the rest as a cut-off (times()).
+#   the kill  = SEND_RUN_LIMIT_S after the unit starts (install_twin_vm.sh TimeoutStartSec, pinned to
+#               this by a test): from the first slot that is stop_batch itself, 12:48 / 15:48, a minute
+#               after place_by and two before the freeze. It is the backstop only: every IBKR request is
+#               bounded by REQUEST_TIMEOUT_S, and an order's acknowledgement by ACK_WAIT_S (10 s).
+# WHY THIS NEVER SENDS TWICE. While the first slot's run is still going, the backup slot's timer starts
+# nothing: a timer that fires on a oneshot that is still activating is merged into its running start job,
+# and "if the unit is already active when the timer elapses, it is not restarted" [S: systemd.timer(5);
+# not tried on the VM]. A backup that does start (the first run ended) refuses on STARTED, which the first
+# wrote exclusively before its first order and never removes, or on the order log's intent lines and any
+# order resting at IBKR (quantt/twin/guard.py). A first run that ended before STARTED sent nothing.
+# A backup that starts at 12:40 is killed at 12:58; it places nothing after 12:47 all the same.
+SEND_PLACE_MARGIN_S = 60
+# The port filter's verdict, written by root's check (quantt/deploy/vm/ibgw_check_firewall.sh --status)
+# into root's own directory, never into the twin's state, which quantt owns (final check, 2026-11-25).
+FIREWALL_STATUS = Path("/run/quantt-ibgw-status/firewall.json")
+SEND_RUN_LIMIT_S = (SEND_SLOT_MIN[0] - STOP_BATCH_MIN) * 60
 
 
 class ConfigError(RuntimeError):
@@ -140,6 +149,7 @@ def times(close: dt.datetime) -> dict:
     m = dt.timedelta(minutes=1)
     return {"slots": [close - SEND_SLOT_MIN[0] * m, close - SEND_SLOT_MIN[1] * m],
             "refuse_from": close - REFUSE_FROM_MIN * m, "stop_batch": close - STOP_BATCH_MIN * m,
+            "place_by": close - STOP_BATCH_MIN * m - dt.timedelta(seconds=SEND_PLACE_MARGIN_S),
             "freeze": close - CANCEL_REFUSE_MIN * m, "close": close}
 
 

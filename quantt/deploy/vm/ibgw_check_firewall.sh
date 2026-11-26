@@ -1,37 +1,46 @@
 #!/bin/sh
 # Refuse unless the ONE port filter (nftables table inet quantt_ibgw) is loaded with its rules.
 #
-#   ibgw_check_firewall.sh <quantt uid> <shadow uid> [--prove <host> <port>] [--status <file>]
+#   ibgw_check_firewall.sh <quantt uid> <shadow uid> [--prove <host> <port>] [--status]
 #
 #   --prove   also show a live connection to the Gateway as quantt-shadow is refused BY THE FILTER
 #             (its counter moves): B10's install-time proof
-#   --status  also write the verdict, {"in_force", "detail", "checked_utc"}, to <file> (owned by the
-#             quantt uid, 0644): the probe's record of the filter (final review 3)
+#   --status  also write the verdict, {"in_force", "detail", "checked_utc"}, to
+#             /run/quantt-ibgw-status/firewall.json: the probe's record of the filter (final review 3).
+#             ROOT WRITES ONLY WHERE ROOT ALONE CAN (final check, 2026-11-25): that directory is root's
+#             (0755, under root's /run), the file is made by mktemp in it and renamed, and nothing is
+#             chowned. A path in a directory quantt owns would let quantt plant a symlink (to
+#             /etc/shadow, say) that root's write and chown would follow.
 #
 # Run as root: by bootstrap_ibgw.sh after loading it, by quantt-ibgw.service as `ExecStartPre=+` (the
 # Gateway does not start without the filter; re-review N2), by the probe (`--status`), and by
 # install_twin_vm.sh, which adds --prove once the Gateway is up. `nft` prints a set's elements in its
 # own order, so each port is checked alone.
 set -eu
-usage() { echo "usage: $0 <quantt uid> <shadow uid> [--prove <host> <port>] [--status <file>]" >&2; exit 2; }
+usage() { echo "usage: $0 <quantt uid> <shadow uid> [--prove <host> <port>] [--status]" >&2; exit 2; }
+STATUS_DIR="/run/quantt-ibgw-status"
 [ $# -ge 2 ] || usage
 UID_Q="$1"; UID_S="$2"; shift 2
 PROVE_HOST=""; PROVE_PORT=""; STATUS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --prove) [ $# -ge 3 ] || usage; PROVE_HOST="$2"; PROVE_PORT="$3"; shift 3 ;;
-    --status) [ $# -ge 2 ] || usage; STATUS="$2"; shift 2 ;;
+    --status) STATUS=1; shift ;;
     *) usage ;;
   esac
 done
 record() {
   # $1 true|false, $2 detail (quotes and backslashes removed, so the JSON stays JSON)
   [ -n "${STATUS}" ] || return 0
+  [ ! -L "${STATUS_DIR}" ] || { echo "REFUSED: ${STATUS_DIR} is a symlink" >&2; exit 3; }
+  install -d -o root -g root -m 755 "${STATUS_DIR}"
+  [ "$(stat -c '%u %a %F' "${STATUS_DIR}")" = "0 755 directory" ] \
+    || { echo "REFUSED: ${STATUS_DIR} is not root's 0755 directory" >&2; exit 3; }
   d="$(printf '%s' "$2" | tr -d '"\\')"
-  printf '{"in_force": %s, "detail": "%s", "checked_utc": "%s"}\n' "$1" "${d}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${STATUS}.new"
-  chown "${UID_Q}" "${STATUS}.new" 2>/dev/null || true
-  chmod 644 "${STATUS}.new"
-  mv "${STATUS}.new" "${STATUS}"
+  tmp="$(mktemp "${STATUS_DIR}/firewall.XXXXXX")"
+  printf '{"in_force": %s, "detail": "%s", "checked_utc": "%s"}\n' "$1" "${d}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${tmp}"
+  chmod 644 "${tmp}"
+  mv -f "${tmp}" "${STATUS_DIR}/firewall.json"
 }
 fail() { record false "$*"; echo "REFUSED: the port filter is not in force: $*" >&2; exit 3; }
 out="$(nft list chain inet quantt_ibgw output 2>/dev/null)" || fail "no chain inet quantt_ibgw output (run bootstrap_ibgw.sh)"
