@@ -118,6 +118,7 @@ CONNECT_TIMEOUT_S = 20
 # wait for the lock (quantt/twin/config.py TWIN_LOCK_WAIT_S). The units' own run-time limits
 # (install_twin_vm.sh, TimeoutStartSec) are the second bound, for anything that is not a request.
 REQUEST_TIMEOUT_S = 30.0
+FX_BAR_DURATION = "3 D"      # the USD rate bar's request (fx_daily_bar): the newest of three days
 LOCK_POLL_S = 0.5            # how often a waiting client re-tries the session lock (no socket meanwhile)
 # How long `place_moc` waits for the Gateway to say what it did with an order. Measured on nothing
 # yet: the IBKR-era record kept no acknowledgement times. The read-only week and the first armed
@@ -549,6 +550,42 @@ class IBKRClient:
         fx = fx_from_rows(base, rows, self._blocking("accountValues", ib.accountValues, acct) or [])
         return {"net_liquidation": got["NetLiquidation"][0], "buying_power": got["BuyingPower"][0],
                 "base_currency": base, "usd_per_base": fx["usd_per_base"], "fx": fx}
+
+    def fx_daily_bar(self, base: str) -> dict:
+        """IBKR's own USD<base> MIDPOINT daily bar, newest first: {"source", "pair", "bar_date", "value"}.
+
+        The second source of the USD rate (VM, 2026-11-26): the CAD paper account's accountValues carry
+        NO ExchangeRate row, and a separate reqAccountUpdates timed out, but IBKR serves Forex("USDCAD")
+        daily MIDPOINT bars free; their close is <base> per 1 USD [V: the coordinator's read-only check
+        on the live paper account, 2026-11-26: 1.427, 1.42165, 1.42465 for 24-26 Nov]. The newest bar is
+        today's while it is still forming. A READ: the contract is qualified through reqContractDetails,
+        and both requests are bounded by REQUEST_TIMEOUT_S inside the session (and lock) already held.
+        One request per call; the twin calls it only in the send's read phase (dry included) and the
+        probe. Raises UnexpectedReply naming what is wrong; staleness is judged by the caller, which has
+        the calendar."""
+        if not re.fullmatch(r"[A-Z]{3}", base or "") or base == "USD":
+            raise ValueError(f"base {base!r}: a USD rate bar is for a three-letter non-USD base")
+        ib = self._need()
+        pair = f"USD{base}"
+        con = self._mod.Forex(pair)
+        got = list(self._blocking("reqContractDetails", ib.reqContractDetails, con) or [])
+        cons = [getattr(d, "contract", None) for d in got]
+        cons = [c for c in cons if c is not None and getattr(c, "conId", 0) and getattr(c, "secType", "") == "CASH"]
+        if len(cons) != 1:
+            raise UnexpectedReply(f"{pair}: {len(cons)} CASH contracts from reqContractDetails, not one")
+        bars = list(self._blocking("reqHistoricalData", ib.reqHistoricalData, cons[0], endDateTime="",
+                                   durationStr=FX_BAR_DURATION, barSizeSetting="1 day", whatToShow="MIDPOINT",
+                                   useRTH=False, timeout=REQUEST_TIMEOUT_S) or [])
+        if not bars:
+            raise UnexpectedReply(f"{pair}: IBKR returned no MIDPOINT daily bar (a timed-out request returns none)")
+        newest = max(bars, key=lambda b: getattr(b, "date", dt.date.min))
+        d = getattr(newest, "date", None)
+        if isinstance(d, dt.datetime):
+            d = d.date()
+        if not isinstance(d, dt.date):
+            raise UnexpectedReply(f"{pair}: the newest bar's date {d!r} is not a date")
+        return {"source": f"ibkr_fx_bar:{pair}:MIDPOINT", "pair": pair, "bar_date": d.isoformat(),
+                "value": _num(getattr(newest, "close", None), f"{pair} close")}
 
     def positions(self) -> dict:
         """{symbol: signed whole shares} in the expected account, zero rows left out.
