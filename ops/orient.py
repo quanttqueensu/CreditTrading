@@ -821,6 +821,18 @@ def _unguarded_ib_insync(root: Path | None = None) -> list[str]:
 
 
 # -------------------------------------------------------------------- docs --
+def ibkr_twin() -> dict:
+    """The IBKR twin on the VM (quantt/twin; team lead 2026-11-25), read-only: whether its Gateway
+    is logged in, the last send and verify, and the side-by-side tally, from the twin's own
+    aggregate `status.json` over one ssh call (`ops.prod_state.twin_vm`). "No phone": this
+    section and the daily page are where a logged-out Gateway shows, and nothing alerts."""
+    from ops import prod_state
+    tw = prod_state.twin_vm()
+    if prod_state.UNMEASURED in tw:
+        raise Unmeasured(tw[prod_state.UNMEASURED])
+    return {"reproducer": "ssh quantt-vm 'sh -s' < ops.prod_state.TWIN_SCRIPT (read-only)", **tw}
+
+
 def doc_drift() -> dict:
     """The document audit, run as a subprocess: it imports this module, and a
     report that imports its own auditor in-process is one refactor from a cycle.
@@ -844,7 +856,7 @@ def doc_drift() -> dict:
 # ------------------------------------------------------------------ render --
 SECTIONS = [
     ("TREES", trees), ("PROD", prod), ("ALPACA", alpaca), ("PNL", pnl),
-    ("SPEC", spec), ("TRIALS", trials), ("PANELS", panels),
+    ("IBKR TWIN", ibkr_twin), ("SPEC", spec), ("TRIALS", trials), ("PANELS", panels),
     ("HYGIENE", hygiene), ("DOC DRIFT", doc_drift),
 ]
 
@@ -1050,6 +1062,12 @@ def render(d: dict) -> None:
 
     if (sec := head("PNL")) is not None:
         _render_pnl(sec)
+        print()
+
+    if (sec := head("IBKR TWIN")) is not None:
+        from ops import prod_state
+        for label, text in prod_state.twin_lines(sec):
+            _p(label, text)
         print()
 
     if (sec := head("SPEC")) is not None:
