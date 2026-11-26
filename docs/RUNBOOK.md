@@ -1573,6 +1573,83 @@ safe; every step checks before it acts). `shadow/deploy/install_shadow_vm.sh`, o
 public, `git remote set-url origin https://github.com/quanttqueensu/CreditTrading.git` in
 each clone restores the old path.
 
+## 9. The IBKR twin and its Gateway on the VM (DRAFT, 2026-11-25)
+
+The design is `docs/RUNNER.md` "The IBKR twin (as built 2026-11-25)". PAPER ONLY. Every step
+that needs sudo is the team lead's (`!`); agents never run sudo. Nothing here arms: the first
+armed session needs its concrete order list shown and the team lead's go (CLAUDE.md rule 1).
+
+### 9.1 Secrets (TL, once)
+
+In Client Portal set a **paper-only** password for the paper username (no backslash, no
+leading or trailing space). Store three Key Vault secrets; the values never go in a chat or a file:
+`ibkr-paper-username`, `ibkr-paper-password`, `ibkr-paper-account-id` (the paper account id,
+for the run-time identity check). `quantt-ibgw-secret.service` writes the first two to
+`/run/quantt-ibgw/login.env`, `quantt-twin-secret.service` the third to
+`/run/quantt-twin/ibkr.env` (tmpfs, 0700 directories, 0600 files, `quantt.deploy.boot_secrets`).
+
+### 9.2 Packages (TL, sudo)
+
+`sudo sh <code>/quantt/deploy/vm/bootstrap_ibgw.sh`: pinned `xvfb` and `x11vnc`, `unzip` and
+the X libraries. No Java: the Gateway installer bundles its JRE. It checks that swap is on (the
+2 GB `/swapfile` from §8.2) and never makes a second one.
+
+### 9.3 Install: staging first, then the release (TL, sudo)
+
+Staging (Thursday 2026-11-26, Thanksgiving): copy the local tree to
+`/home/quantt/twin-staging/tree` (root-owned, not writable by `quantt`), build a venv from its
+`requirements.txt` at `/home/quantt/twin-staging/venv`, then
+`sudo sh /home/quantt/twin-staging/tree/quantt/deploy/install_twin_vm.sh --vault <vault>
+--order-precautions bypass --staging /home/quantt/twin-staging/tree --python
+/home/quantt/twin-staging/venv/bin/python`. Staging forces `DRY_RUN=1` and
+`QUANTT_TWIN_STAGING=1` on every command line: it can never send. The release install is the
+same command without `--staging/--python`, from the prod clone at a release tag on origin.
+`--order-precautions` has no default (keep or bypass: `quantt/deploy/ibc_config.py` sets out the
+trade-off; for review). The installer downloads the Gateway and IBC, refuses on any sha256 other
+than its pins (naming both), installs the Gateway as `quantt` with `-Xmx320m`, writes the units
+with `DRY_RUN=1`, starts the Gateway, and checks that no Gateway or VNC port listens beyond
+loopback. It refuses inside 12:20-13:00, 15:20-16:00 and 17:30-18:00 on weekdays.
+
+Gateway API settings to confirm once through VNC (§9.5) and screenshot for the record: socket
+port 4002 on 127.0.0.1; trusted IPs 127.0.0.1 only; **Master Client ID** = the send's client id
+(31; staging 41), so `reqAllOpenOrders` sees every client; **"Maintain and resubmit orders when
+connection is restored" OFF**; Auto restart 03:00 (IBC sets it); "Never lock". IBC sets the port,
+trading mode, read-only flags, precautions and auto-restart at every start.
+
+### 9.4 The first session (agent, read-only, then TL)
+
+1. `sudo sh <code>/quantt/deploy/vm/run_twin.sh probe`: logged in, base currency, NLV, counts.
+2. Leftover open orders refuse everything (rule 2): the TL lists and cancels them (§9.6).
+3. `run_twin.sh epoch` once: seeds the account's positions under `legacy`.
+4. `run_twin.sh send --dry --session <a session with saved plans>`: the whole order list and
+   every gate, nothing sent. Before the first armed send, the TL reads that day's list, then
+   `run_twin.sh approve --sha <plan_sha>`, and sets `DRY_RUN=0` in
+   `/etc/systemd/system/quantt-twin-send.service` (release install only) and `daemon-reload`.
+   On 2026-11-27 (13:00 close) the send fires at 12:30, with 12:40 as backup.
+5. 17:45: `quantt-twin-verify`; then `run_twin.sh compare`.
+
+### 9.5 A logged-out Gateway, and two-factor
+
+The probe (09:00, 12:00, 15:15 and Sunday 19:30), the send and verify write "LOGGED OUT" into
+`status.json`, shown by `python3 -m ops.orient` (IBKR TWIN) and `python3 -m ops.daily_page`.
+Nothing alerts. To see why: `sudo tail -n 60 /home/quantt/quantt_state/twin/logs/ibgw.out.log`
+(IBC logs each dialog it meets; a second-factor dialog is named there). To log in by hand:
+`sudo systemctl start quantt-ibgw-vnc.service`, then from the laptop
+`ssh -L 5947:127.0.0.1:5947 quantt-vm` and a VNC viewer on `localhost:5947`; it closes when
+the viewer leaves or after 15 minutes. **Record at the first login whether the paper username
+asked for 2FA**: if it did, IBC cannot log in unattended and the stored login does not help.
+
+### 9.6 Human-run tools (TL)
+
+- Cancel every resting order on the account (rule 1: the list first, then the go):
+  list with `run_twin.sh cancel-open`, then, as the TL, the same environment with `DRY_RUN=0`
+  and `python3 -m quantt.twin cancel-open --confirm <the count listed>` (`reqGlobalCancel`;
+  refused from the MOC freeze to the close and in staging).
+- Flatten: there is no separate tool. `legacy` is flattened by the twin's own first session; a
+  book is flattened by its own plan. A dedicated flatten tool (the archived
+  `flatten_ibkr_account.py`) is not built.
+- Halt the twin: `sudo -u quantt sh -c 'echo why > /home/quantt/quantt_state/twin/HALT'`.
+
 ## Open questions (for the TL)
 
 1. **Timezone:** set this Mac to `America/New_York`, or accept `America/Toronto`
