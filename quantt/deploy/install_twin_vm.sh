@@ -1,9 +1,10 @@
 #!/bin/sh
 # Root install of the IBKR twin (quantt/twin) and its IB Gateway on the prod VM. PAPER ONLY.
 #
-#   sudo sh install_twin_vm.sh --vault <vault> --order-precautions keep|bypass            (release)
-#   sudo sh install_twin_vm.sh --vault <vault> --order-precautions keep|bypass \
-#        --staging /home/quantt/twin-staging/tree --python /home/quantt/twin-staging/venv/bin/python
+#   sudo sh install_twin_vm.sh --vault <vault> --order-precautions bypass \
+#        --tree /home/quantt/prod/quantt-twin --python /home/quantt/venv-twin/bin/python          (release)
+#   sudo sh install_twin_vm.sh --vault <vault> --order-precautions bypass --staging \
+#        --tree /home/quantt/twin-staging/tree --python /home/quantt/twin-staging/venv/bin/python
 #   sudo sh install_twin_vm.sh uninstall
 #
 # The team lead runs it (sudo). IT NEVER ARMS: every twin job unit carries DRY_RUN=1 and it writes
@@ -12,10 +13,12 @@
 # runner refuses whenever QUANTT_TWIN_STAGING is set: quantt/twin/run.py, STAGING).
 #
 # TWO MODES (team lead 2026-11-25: build and test locally, stage on the VM from a local copy, push once)
-#   release  the code is the PROD CLONE (/home/quantt/prod/quantt-alpaca), which must be a clean
-#            checkout of a release-* tag that is on origin at HEAD (install_vm.py's clone_origin and
-#            remote_tag_commit, called, not copied), and the prod venv.
-#   staging  the code is a COPY of the local tree at --staging (rsync'ed there by hand), run with
+#   release  the code is the TWIN'S OWN CLONE at --tree (e.g. /home/quantt/prod/quantt-twin), never the
+#            clone the Alpaca books run from, so installing or updating the twin cannot move theirs
+#            (coordinator, 2026-11-25). It must be a clean checkout of a release-* tag that is on
+#            origin at HEAD (install_vm.py's clone_origin and remote_tag_commit, called, not copied),
+#            run with its own venv (--python).
+#   staging  the code is a COPY of the local tree at --tree (rsync'ed there by hand), run with
 #            the --python given (a venv built from that copy's requirements.txt, so the prod venv is
 #            untouched), state in <staging>/../state/twin. Same units, same secrets, never sends.
 # Re-running in either mode rewrites the units with DRY_RUN=1; it never touches a book's state.
@@ -35,8 +38,9 @@
 # THE TIMES (New York; the runner, not the timer, knows holidays and early closes: quantt/twin/config.py)
 #   send     12:30 12:40 15:30 15:40 Mon-Fri. On a 16:00 close the 12:3x/12:4x runs idle; on a
 #            13:00 close (2026-11-27, the first armed session) the 15:3x/15:4x runs idle.
-#   verify   17:45 Mon-Fri, after the books' 17:30/17:35 verifies, and same-day (IBKR keeps only today's
-#            executions).
+#   verify   17:45 18:30 20:30 23:00 Mon-Fri: the first after the books' 17:30/17:35 verifies, the rest
+#            retries (review finding 1). Each saves the IBKR read at once (IBKR keeps only today's
+#            executions); a session already booked is left alone.
 #   probe    09:00 12:00 15:15 Mon-Fri and 19:30 Sunday (after IBC's 18:00 Sunday cold restart): read-only,
 #            so a logged-out Gateway shows on the daily page before a send would miss.
 #   The Gateway restarts itself daily at 03:00 (IBC AutoRestartTime), outside 12:20-13:00, 15:20-16:00,
@@ -56,7 +60,6 @@ set -eu
 RUN_USER="quantt"
 RUN_HOME="/home/${RUN_USER}"
 PROD="${RUN_HOME}/prod/quantt-alpaca"
-PROD_PY="${RUN_HOME}/venv/bin/python"
 STATE_ROOT="${RUN_HOME}/quantt_state"
 UNIT_DIR="/etc/systemd/system"
 TZ_NAME="America/New_York"
@@ -81,6 +84,8 @@ IBC_RUN="/run/quantt-ibgw-ibc"
 LOGIN_RUN="/run/quantt-ibgw"
 TWIN_RUN="/run/quantt-twin"
 
+# First settings, not measurements (review finding 7): flags, so the staging day's measurement
+# (MemoryPeak and MemAvailable in status.json at every probe) can change them without an edit.
 HEAP_MB=320
 MEM_HIGH="520M"
 MEM_MAX="600M"
@@ -91,7 +96,7 @@ JOB_TIMERS="quantt-twin-send.timer quantt-twin-verify.timer quantt-twin-probe.ti
 JOB_SERVICES="quantt-twin-send.service quantt-twin-verify.service quantt-twin-probe.service"
 ALL_UNITS="${JOB_TIMERS} ${JOB_SERVICES} quantt-twin-secret.service quantt-ibgw-secret.service quantt-ibgw.service quantt-ibgw-vnc.service"
 
-MODE="install"; VAULT=""; PRECAUTIONS=""; STAGING=""; PY=""; TAG=""
+MODE="install"; VAULT=""; PRECAUTIONS=""; STAGING=""; TREE=""; PY=""; TAG=""
 die() { echo "REFUSED: $*" >&2; exit 2; }
 step() { echo "== $*"; }
 as_quantt() { runuser -u "${RUN_USER}" -- env HOME="${RUN_HOME}" "$@"; }
@@ -102,8 +107,11 @@ parse() {
       uninstall) MODE="uninstall"; shift ;;
       --vault) VAULT="$2"; shift 2 ;;
       --order-precautions) PRECAUTIONS="$2"; shift 2 ;;
-      --staging) STAGING="$2"; shift 2 ;;
+      --staging) STAGING=1; shift ;;
+      --tree) TREE="$2"; shift 2 ;;
       --python) PY="$2"; shift 2 ;;
+      --memory-high) MEM_HIGH="$2"; shift 2 ;;
+      --memory-max) MEM_MAX="$2"; shift 2 ;;
       --gateway-host) GW_HOST="$2"; shift 2 ;;
       --gateway-port) GW_PORT="$2"; shift 2 ;;
       --heap-mb) HEAP_MB="$2"; shift 2 ;;
@@ -116,15 +124,18 @@ parse() {
   case "${PRECAUTIONS}" in keep|bypass) ;; *) die "--order-precautions keep|bypass is required (no default; quantt/deploy/ibc_config.py explains the trade-off)" ;; esac
   case "${GW_PORT}" in 4002|7497) ;; *) die "--gateway-port ${GW_PORT} is not a paper API port (4002, 7497)" ;; esac
   case "${HEAP_MB}" in *[!0-9]*|"") die "--heap-mb must be a number of megabytes" ;; esac
+  for m in "${MEM_HIGH}" "${MEM_MAX}"; do
+    case "${m}" in *[!0-9M]*|M*|"") die "--memory-high/--memory-max ${m} must be megabytes like 520M" ;; esac
+  done
+  [ -n "${TREE}" ] || die "--tree <the twin's code tree> is required"
+  [ -n "${PY}" ] || die "--python <that tree's venv python> is required"
+  case "${TREE}" in /*) ;; *) die "--tree must be an absolute path" ;; esac
+  [ "${TREE}" != "${PROD}" ] || die "--tree ${TREE} is the clone the Alpaca books run from; the twin runs from its own clone"
+  CODE="${TREE}"
   if [ -n "${STAGING}" ]; then
-    [ -n "${PY}" ] || die "--staging needs --python <the staging venv's python>"
-    CODE="${STAGING}"
-    STATE="$(dirname "${STAGING}")/state/twin"
+    STATE="$(dirname "${TREE}")/state/twin"
     IDS="41 42 43"
   else
-    [ -z "${PY}" ] || die "--python is for --staging only; a release runs the prod venv"
-    PY="${PROD_PY}"
-    CODE="${PROD}"
     STATE="${STATE_ROOT}/twin"
     IDS="31 32 33"
   fi
@@ -178,6 +189,14 @@ check_layout() {
   command -v unzip >/dev/null 2>&1 || die "unzip not installed; run bootstrap_ibgw.sh first"
   command -v curl >/dev/null 2>&1 || die "curl not installed"
   [ -n "$(swapon --show=NAME --noheadings)" ] || die "no swap is active (bootstrap.sh makes a 2 GB /swapfile)"
+  # Review finding 6: only uid quantt may reach the Gateway's API port on loopback.
+  systemctl is-enabled quantt-ibgw-firewall.service >/dev/null 2>&1 \
+    || die "quantt-ibgw-firewall.service is not enabled; the team lead runs quantt/deploy/vm/bootstrap_ibgw.sh first"
+  nft list chain inet quantt_ibgw gate 2>/dev/null | grep -q "meta skuid $(id -u "${RUN_USER}") accept" \
+    || die "the nftables table inet quantt_ibgw is not loaded with uid ${RUN_USER}'s rule; re-run bootstrap_ibgw.sh"
+  for port in 4002 7497 5947; do
+    nft list chain inet quantt_ibgw output 2>/dev/null | grep -q "${port}" || die "the port filter does not cover ${port}"
+  done
   for u in ${ALL_UNITS}; do
     for d in "${UNIT_DIR}/${u}.d" "/run/systemd/system/${u}.d" "/usr/lib/systemd/system/${u}.d"; do
       [ ! -e "${d}" ] || die "${d} exists: a drop-in would override what this script writes (DRY_RUN among it)"
@@ -198,13 +217,13 @@ check_code_release() {
     TAG="staging"
     return 0
   fi
-  step "the prod clone is a clean checkout of a release tag that is on origin at HEAD"
-  [ -z "$(as_quantt git -C "${PROD}" status --porcelain)" ] || die "${PROD} has local modifications"
-  for t in $(as_quantt git -C "${PROD}" tag --points-at HEAD); do
+  step "the twin's clone is a clean checkout of a release tag that is on origin at HEAD"
+  [ -z "$(as_quantt git -C "${CODE}" status --porcelain)" ] || die "${CODE} has local modifications"
+  for t in $(as_quantt git -C "${CODE}" tag --points-at HEAD); do
     case "${t}" in release-[0-9]*) TAG="${t}" ;; esac
   done
-  [ -n "${TAG}" ] || die "${PROD} HEAD is not at a release-* tag"
-  (cd "${PROD}" && as_quantt "${PY}" -B -c '
+  [ -n "${TAG}" ] || die "${CODE} HEAD is not at a release-* tag"
+  (cd "${CODE}" && as_quantt "${PY}" -B -c '
 import subprocess, sys
 from pathlib import Path
 from quantt.deploy import install_vm as iv
@@ -220,7 +239,7 @@ head = git("rev-parse", "HEAD").strip()
 if head != commit:
     raise SystemExit(f"{tag} is {commit} on origin, HEAD is {head}")
 print("   origin", url, "tag", tag, "at", commit[:12])
-' "${PROD}" "${TAG}") || die "the release check failed (above)"
+' "${CODE}" "${TAG}") || die "the release check failed (above)"
 }
 
 # ---------------------------------------------------------------- downloads and installs
@@ -417,7 +436,8 @@ write_units() {
 [Unit]
 Description=QUANTT IB Gateway (paper) under Xvfb and IBC (${TAG})
 Wants=network-online.target quantt-ibgw-secret.service
-After=network-online.target quantt-ibgw-secret.service
+Requires=quantt-ibgw-firewall.service
+After=network-online.target quantt-ibgw-secret.service quantt-ibgw-firewall.service
 
 [Service]
 Type=simple
@@ -463,7 +483,7 @@ UNIT
   job_service verify "$2" "# verify exits 0 PASS or 1 FAIL; a FAIL shows as a failed unit" "verify"
   job_service probe "$3" "# probe exits 0 logged in, 2 logged out (shown failed, on purpose)" "probe"
   timer send "Mon..Fri *-*-* 12:30:00" "Mon..Fri *-*-* 12:40:00" "Mon..Fri *-*-* 15:30:00" "Mon..Fri *-*-* 15:40:00"
-  timer verify "Mon..Fri *-*-* 17:45:00"
+  timer verify "Mon..Fri *-*-* 17:45:00" "Mon..Fri *-*-* 18:30:00" "Mon..Fri *-*-* 20:30:00" "Mon..Fri *-*-* 23:00:00"
   timer probe "Mon..Fri *-*-* 09:00:00" "Mon..Fri *-*-* 12:00:00" "Mon..Fri *-*-* 15:15:00" "Sun *-*-* 19:30:00"
   for u in ${JOB_SERVICES}; do
     n="$(grep -c '^Environment=DRY_RUN=1$' "${UNIT_DIR}/${u}")" || true
@@ -510,9 +530,9 @@ IBKR twin installed (${TAG}). NOT ARMED: every twin job unit has DRY_RUN=1, no A
 
 NEXT, BY HAND (docs/RUNBOOK.md §9):
  1. Read the login:     sudo tail -n 40 ${LOGS}/ibgw.out.log
- 2. Probe (read-only):  sudo sh ${CODE}/quantt/deploy/vm/run_twin.sh $( [ -n "${STAGING}" ] && echo "--staging ${STAGING} --python ${PY} " )probe
- 3. The epoch (once):   sudo sh ${CODE}/quantt/deploy/vm/run_twin.sh $( [ -n "${STAGING}" ] && echo "--staging ${STAGING} --python ${PY} " )epoch
- 4. The dry check:      sudo sh ${CODE}/quantt/deploy/vm/run_twin.sh $( [ -n "${STAGING}" ] && echo "--staging ${STAGING} --python ${PY} " )send --dry --session <YYYY-MM-DD>
+ 2. Probe (read-only):  sudo sh ${CODE}/quantt/deploy/vm/run_twin.sh --tree ${CODE} --python ${PY} $( [ -n "${STAGING}" ] && echo "--staging " )probe
+ 3. The epoch (once):   sudo sh ${CODE}/quantt/deploy/vm/run_twin.sh --tree ${CODE} --python ${PY} $( [ -n "${STAGING}" ] && echo "--staging " )epoch
+ 4. The dry check:      sudo sh ${CODE}/quantt/deploy/vm/run_twin.sh --tree ${CODE} --python ${PY} $( [ -n "${STAGING}" ] && echo "--staging " )send --dry --session <YYYY-MM-DD>
 DONE
   systemctl list-timers 'quantt-twin-*' --no-pager || true
 }

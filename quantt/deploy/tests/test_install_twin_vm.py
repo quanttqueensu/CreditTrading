@@ -61,7 +61,10 @@ def test_the_timers_carry_the_slots_of_both_closes_and_the_verify():
     t = INSTALL.read_text()
     for hm in ("12:30", "12:40", "15:30", "15:40"):
         assert f'"Mon..Fri *-*-* {hm}:00"' in t
-    assert '"Mon..Fri *-*-* 17:45:00"' in t
+    for hm in ("17:45", "18:30", "20:30", "23:00"):                   # review finding 1: retry slots
+        assert f'"Mon..Fri *-*-* {hm}:00"' in t
+    from quantt.twin import verify
+    assert verify.LAST_SLOT.strftime("%H:%M") == "23:00"
     from quantt.twin import config
     assert config.SEND_SLOT_MIN == (30, 20)                  # 16:00 - 30/20 and 13:00 - 30/20
 
@@ -178,3 +181,46 @@ def test_no_password_reaches_stdout_stderr_or_an_error(tmp_path, monkeypatch):
 def test_the_staging_wrapper_carries_the_same_secrets_and_forces_dry():
     c = code_lines(WRAP)
     assert 'STAGE_ENV="QUANTT_TWIN_STAGING=1"' in c and "/run/quantt-twin/ibkr.env" in c and "DRY_RUN=1" in c
+
+
+# -- review findings 6, 7 and (c) ----------------------------------------------------------------
+
+def test_the_port_filter_lets_only_quantt_reach_the_api_and_the_admin_reach_vnc():
+    from quantt.deploy import ibgw_firewall as fw
+    text = fw.render(1001, 1000)
+    assert "table inet quantt_ibgw" in text and "delete table inet quantt_ibgw" in text
+    assert "type filter hook output priority 0; policy accept;" in text
+    assert "ip daddr 127.0.0.1 tcp dport { 4002, 7497, 5947 } jump gate" in text
+    assert "ip6 daddr ::1 tcp dport { 4002, 7497, 5947 } jump gate" in text
+    gate = text[text.index("chain gate"):]
+    assert gate.index("meta skuid 1001 accept") < gate.index("reject")
+    assert "tcp dport 5947 meta skuid 1000 accept" in gate
+    assert "tcp dport { 4002, 7497 } counter reject with tcp reset" in gate
+    assert "meta skuid 1000 accept\n" not in gate.replace("tcp dport 5947 meta skuid 1000 accept\n", "")
+    for bad in ((0, 1000), (1001, 1001), (True, 1000)):
+        with pytest.raises(ValueError):
+            fw.render(*bad)
+
+
+def test_the_installer_refuses_without_the_port_filter_and_the_gateway_requires_it():
+    t = INSTALL.read_text()
+    assert "quantt-ibgw-firewall.service is not enabled" in t
+    assert 'nft list chain inet quantt_ibgw gate' in t and "meta skuid $(id -u" in t
+    assert "Requires=quantt-ibgw-firewall.service" in t
+    b = BOOT.read_text()
+    assert "ibgw_firewall.py" in b and "nft -c -f" in b and "WantedBy=multi-user.target" in b
+
+
+def test_memory_limits_are_installer_flags():
+    t = INSTALL.read_text()
+    for flag in ("--heap-mb", "--memory-high", "--memory-max"):
+        assert f"{flag})" in t
+
+
+def test_release_mode_runs_from_its_own_clone_and_venv():
+    t = INSTALL.read_text()
+    assert '--tree <the twin\'s code tree> is required' in t and "--python <that tree's venv python> is required" in t
+    assert "is the clone the Alpaca books run from" in t
+    rel = t[t.index("check_code_release() {"):t.index("# ---------------------------------------------------------------- downloads")]
+    assert '"${PROD}"' not in rel and "iv.clone_origin" in rel and "iv.remote_tag_commit" in rel
+    assert "--order-precautions bypass" in t

@@ -2,12 +2,15 @@
 # Run one twin command BY HAND on the VM, as user quantt, with the installed units' environment and
 # DRY_RUN=1 ALWAYS (CLAUDE.md order-path rules 1 and 4).
 #
-#   sudo sh run_twin.sh probe                              read the account (read-only)
-#   sudo sh run_twin.sh epoch                              once: seed the ledger
-#   sudo sh run_twin.sh send --dry [--session D]           everything but the transmission, any day
-#   sudo sh run_twin.sh approve --sha <plan_sha>           the team lead's per-day approval
-#   sudo sh run_twin.sh verify | compare [--aggregates] | cancel-open (list only)
-#   sudo sh run_twin.sh --staging <dir> --python <py> <command ...>   the same against a staging install
+#   sudo sh run_twin.sh --tree <twin clone> --python <its venv python> [--staging] <command ...>
+#
+#   commands: probe                       read the account (read-only)
+#             epoch                       once: seed the ledger
+#             send --dry [--session D]    everything but the transmission, any day
+#             approve --sha <plan_sha>    the team lead's per-day approval
+#             verify | compare [--aggregates] | cancel-open (list only)
+#   --tree/--python name the install's own clone and venv (release: the twin's clone, never the
+#   Alpaca books'; staging: the copy), as install_twin_vm.sh was given them. No default.
 #
 # It refuses a bare `send` (orders go only from quantt-twin-send.service, armed by the team lead) and
 # `cancel-open --confirm` (a cancel is the team lead's own command, with DRY_RUN=0 typed by hand:
@@ -17,17 +20,22 @@ set -eu
 RUN_USER="quantt"
 RUN_HOME="/home/${RUN_USER}"
 STATE_ROOT="${RUN_HOME}/quantt_state"
-CODE="${RUN_HOME}/prod/quantt-alpaca"
-PY="${RUN_HOME}/venv/bin/python"
+CODE=""; PY=""
 STATE="${STATE_ROOT}/twin"
 STAGE_ENV=""
 die() { echo "REFUSED: $*" >&2; exit 2; }
 
 [ "$(id -u)" -eq 0 ] || die "run as root (sudo); it switches to ${RUN_USER} itself"
-if [ "${1:-}" = "--staging" ]; then
-  [ $# -ge 4 ] && [ "$3" = "--python" ] || die "usage: --staging <dir> --python <py> <command>"
-  CODE="$2"; PY="$4"; STATE="$(dirname "$2")/state/twin"; STAGE_ENV="QUANTT_TWIN_STAGING=1"; shift 4
-fi
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --tree) CODE="$2"; shift 2 ;;
+    --python) PY="$2"; shift 2 ;;
+    --staging) STAGE_ENV="QUANTT_TWIN_STAGING=1"; shift ;;
+    *) break ;;
+  esac
+done
+[ -n "${CODE}" ] && [ -n "${PY}" ] || die "--tree <twin clone> and --python <its venv python> are required"
+if [ -n "${STAGE_ENV}" ]; then STATE="$(dirname "${CODE}")/state/twin"; fi
 [ $# -ge 1 ] || die "usage: sudo sh $0 probe|epoch|send --dry|approve|verify|compare|cancel-open"
 case "$1" in
   probe|epoch|approve|verify|compare) ;;
