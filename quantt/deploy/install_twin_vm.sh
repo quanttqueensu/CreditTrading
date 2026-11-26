@@ -229,6 +229,7 @@ check_layout() {
     || die "${PY} cannot import ib_async 2.1.0 (rebuild the venv from ${CODE}/requirements.txt)"
   command -v Xvfb >/dev/null 2>&1 || die "Xvfb not installed; the team lead runs quantt/deploy/vm/bootstrap_ibgw.sh first"
   command -v x11vnc >/dev/null 2>&1 || die "x11vnc not installed; run bootstrap_ibgw.sh first"
+  command -v xauth >/dev/null 2>&1 || die "xauth not installed (the display's cookie); run bootstrap_ibgw.sh first"
   command -v unzip >/dev/null 2>&1 || die "unzip not installed; run bootstrap_ibgw.sh first"
   command -v curl >/dev/null 2>&1 || die "curl not installed"
   command -v nft >/dev/null 2>&1 || die "nft not installed (nftables); run bootstrap_ibgw.sh first: the port filter needs it"
@@ -370,6 +371,7 @@ install_bin() {
   install -o root -g root -m 755 "${CODE}/quantt/deploy/vm/ibgw_run.sh" "${BIN}/ibgw_run.sh"
   install -o root -g root -m 644 "${CODE}/quantt/deploy/ibc_config.py" "${BIN}/ibc_config.py"
   install -o root -g root -m 755 "${CODE}/quantt/deploy/vm/ibgw_check_firewall.sh" "${BIN}/ibgw_check_firewall.sh"
+  install -o root -g root -m 644 "${CODE}/quantt/deploy/vm/ibgw_check_display.py" "${BIN}/ibgw_check_display.py"
 }
 
 make_state() {
@@ -445,8 +447,33 @@ WantedBy=multi-user.target
 UNIT
 }
 
+# THE RUN-TIME LIMITS (final review, 2026-11-25, a blocker for arming). Every request is bounded in the
+# client (quantt/broker/ibkr.py REQUEST_TIMEOUT_S); these bound everything else, so no twin job can sit
+# on the Gateway session lock for ever. The jobs are Type=oneshot, whose whole run is the start, so the
+# limit is TimeoutStartSec (systemd.service(5): RuntimeMaxSec has no effect on a oneshot); at it systemd
+# kills the job, which drops the socket and the flock with it.
+#   send     480 s: a send that hangs from 12:30 (15:30) is killed by 12:38 (15:38), before the 12:40
+#            backup. A KILLED SEND CAN NEVER LEAD TO A SECOND SET: STARTED is written, exclusively,
+#            before the first order and is never removed, so the backup refuses on it (rule 2) unless
+#            the killed run ended before STARTED, in which case it sent nothing; the order log's
+#            fsynced intent lines and any order resting at IBKR refuse it too (quantt/twin/guard.py).
+#   verify   600 s, probe 600 s: a read of a few hundred rows; a hung one is killed long before the
+#            next slot. The feed keeps its own limit (feed_service): its runs are up to
+#            max_run_minutes by design and stop themselves before every twin window.
+SEND_TIMEOUT_S=480
+READ_TIMEOUT_S=600
+
 job_service() {
   # $1 phase, $2 client id, $3 SuccessExitStatus line, $4 command words after "-m quantt.twin"
+  if [ "$1" = "send" ]; then limit="${SEND_TIMEOUT_S}"; else limit="${READ_TIMEOUT_S}"; fi
+  if [ "$1" = "probe" ]; then
+    # Final review 3: the probe also records whether the port filter is in force (status.json), so a
+    # later flush of the table is seen. The check runs as root ("+"; nft needs it) and never fails
+    # the probe ("-"): its verdict is the record.
+    fw_check="ExecStartPre=-+/bin/sh ${BIN}/ibgw_check_firewall.sh $(id -u "${RUN_USER}") $(id -u "${SHADOW_USER}") --status ${STATE}/firewall.json"
+  else
+    fw_check="# (the port filter is checked by the probe and before every Gateway start)"
+  fi
   if [ -n "${STAGING}" ]; then
     run="/usr/bin/env DRY_RUN=1 QUANTT_TWIN_STAGING=1 ${PY} -B -m quantt.twin $4"
     stage_env="Environment=QUANTT_TWIN_STAGING=1"
@@ -482,6 +509,8 @@ Environment=PYTHONUNBUFFERED=1
 ExecStart=${run}
 ReadOnlyPaths=${CODE} ${PROD}${BOOK_DIRS}
 $3
+TimeoutStartSec=${limit}
+${fw_check}
 StandardOutput=append:${LOGS}/$1.out.log
 StandardError=append:${LOGS}/$1.err.log
 UNIT
@@ -623,7 +652,7 @@ After=quantt-ibgw.service
 Type=simple
 User=${RUN_USER}
 Group=${RUN_USER}
-ExecStart=/usr/bin/x11vnc -display :47 -localhost -rfbport 5947 -once -timeout 900 -nopw -noxdamage -quiet
+ExecStart=/usr/bin/x11vnc -display :47 -auth ${IBC_RUN}/Xauthority -localhost -rfbport 5947 -once -timeout 900 -nopw -noxdamage -quiet
 StandardOutput=append:${LOGS}/vnc.out.log
 StandardError=append:${LOGS}/vnc.err.log
 UNIT
@@ -692,6 +721,11 @@ check_feed_and_guard() {
   if as_quantt test -w "${FEED}/requests"; then die "${RUN_USER} can write ${FEED}/requests (it must only read them)"; fi
   if as_reader test -x "${RUN_HOME}"; then die "${SHADOW_USER} can enter ${RUN_HOME}"; fi
   if as_reader test -x "${STATE}"; then die "${SHADOW_USER} can enter the twin's state ${STATE}"; fi
+  # The Gateway's X display: quantt-shadow can open neither its abstract socket nor, without the
+  # cookie, its file socket (final review, 2026-11-25; quantt/deploy/vm/ibgw_check_display.py).
+  sleep 5
+  runuser -u "${SHADOW_USER}" -- /usr/bin/python3 -I -B "${BIN}/ibgw_check_display.py" 47 \
+    || die "${SHADOW_USER} could open the Gateway's X display :47 (above). Stop quantt-ibgw.service NOW"
   # B10's proof, through the ONE check: a connection as the shadow user is refused BY THE FILTER.
   sh "${BIN}/ibgw_check_firewall.sh" "$(id -u "${RUN_USER}")" "$(id -u "${SHADOW_USER}")" --prove "${GW_HOST}" "${GW_PORT}" \
     || die "the port filter's proof failed (above). Stop quantt-ibgw.service NOW"

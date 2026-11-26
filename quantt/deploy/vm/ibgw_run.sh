@@ -12,6 +12,13 @@
 # paper password and is never on persistent disk. THE CREDENTIALS ARE NEVER ARGUMENTS: ibcstart.sh
 # accepts --user= and --pw=, which `ps` shows to every user, so neither is passed.
 #
+# THE DISPLAY IS ITS OWN (final review, 2026-11-25). A user who can open the Gateway's X display can
+# drive its GUI, which can send orders. Xvfb gets -nolisten tcp AND -nolisten local (on Linux the
+# "local" transport is the ABSTRACT socket @/tmp/.X11-unix/X47, which file permissions and PrivateTmp do
+# not cover), and -auth with an MIT-MAGIC-COOKIE generated at every start into the unit's own tmpfs
+# directory (0700, quantt; the file 0600). IBC, the Gateway and the on-demand x11vnc get XAUTHORITY.
+# The file socket /tmp/.X11-unix/X47 still exists, and without the cookie the server refuses the
+# connection; install_twin_vm.sh proves both as quantt-shadow (ibgw_check_display.py).
 # NOTHING LISTENS BEYOND THIS MACHINE. Xvfb gets -nolisten tcp. The Gateway's API port is the paper
 # port on loopback (the Gateway trusts 127.0.0.1; IBC rejects other incoming connections). VNC is
 # NOT started here: quantt-ibgw-vnc.service starts x11vnc on 127.0.0.1 on demand, for a person to
@@ -33,7 +40,21 @@ esac
 [ -x "${IBC}/scripts/ibcstart.sh" ] || { echo "REFUSED: no executable ${IBC}/scripts/ibcstart.sh" >&2; exit 2; }
 
 DISPLAY_NUM=":47"
-Xvfb "${DISPLAY_NUM}" -nolisten tcp -screen 0 1024x768x16 &
+RUNDIR="$(dirname "${INI}")"                   # the unit's RuntimeDirectory: tmpfs, 0700, quantt
+XAUTH="${RUNDIR}/Xauthority"
+umask 077
+rm -f "${XAUTH}"
+: > "${XAUTH}"
+chmod 600 "${XAUTH}"
+COOKIE="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+[ "${#COOKIE}" -eq 32 ] || { echo "REFUSED: could not make the display cookie" >&2; exit 3; }
+# The cookie goes to xauth on its standard input (`source -`), never as an argument: another user can
+# read a process's arguments in /proc while it runs; `printf` is a shell builtin and has none.
+printf 'add %s MIT-MAGIC-COOKIE-1 %s\n' "${DISPLAY_NUM}" "${COOKIE}" | xauth -q -f "${XAUTH}" source - \
+  || { echo "REFUSED: xauth could not write ${XAUTH}" >&2; exit 3; }
+unset COOKIE
+export XAUTHORITY="${XAUTH}"
+Xvfb "${DISPLAY_NUM}" -auth "${XAUTH}" -nolisten tcp -nolisten local -screen 0 1024x768x16 &
 XVFB_PID=$!
 i=0
 while [ ! -e "/tmp/.X11-unix/X47" ] && [ "${i}" -lt 30 ]; do

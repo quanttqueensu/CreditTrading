@@ -978,6 +978,9 @@ def twin_lines(tw: dict) -> list:
     g = s.get("gateway") or {}
     lines.append(("  gateway", ("LOGGED IN" if g.get("logged_in") else "LOGGED OUT") + f" at {g.get('at')}"
                   + ("" if g.get("logged_in") else f" ({g.get('why')})")))
+    fw = s.get("firewall") or {}
+    lines.append(("  port filter", {True: "IN FORCE", False: "NOT IN FORCE"}.get(fw.get("in_force"), "UNMEASURED")
+                  + f" ({fw.get('detail', 'no record')}; {fw.get('checked_utc', fw.get('at'))})"))
     for k in ("last_send", "last_verify"):
         if k in s:
             v = s[k]

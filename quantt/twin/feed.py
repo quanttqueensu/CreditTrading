@@ -115,6 +115,14 @@ PROBE_PAD = (dt.timedelta(minutes=3), dt.timedelta(minutes=5))
 GATEWAY_RESTART_ET = dt.time(3, 0)           # ibc_config AutoRestartTime (pinned by a test)
 RESTART_PAD = (dt.timedelta(minutes=10), dt.timedelta(minutes=20))
 MIN_RUN = dt.timedelta(minutes=2)
+# THE HARD STOP (final review 1, 2026-11-25). The loop stops itself at `deadline()`, and every request is
+# bounded (request_timeout_s here; REQUEST_TIMEOUT_S in the client). A hang OUTSIDE a request is not, so
+# once connected the run arms SIGALRM (whose default action ends the process; the kernel then closes the
+# socket and frees the Gateway lock) at its own stop time plus request_timeout_s + HARD_GRACE_S: after a
+# request sent at the last moment could have finished, and before the next twin window opens, since
+# deadline() leaves request_timeout_s + request_spacing_s + 60 s and HARD_GRACE_S is less than 60. So no
+# feed run, hung or not, holds the lock into a send. The units' TimeoutStartSec is the outer bound only.
+HARD_GRACE_S = 30
 
 SYMBOL_RE = re.compile(r"^[A-Z]{1,5}(?:\.[A-Z])?$")
 REQUEST_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_]{0,63}\.txt$")
@@ -202,6 +210,7 @@ class FeedDeps:
     feed: Path                                   # the feed directory the shadow user reads
     market: object                               # quantt.twin.market.MarketData (calendar only)
     read_client: Callable[[], object]            # -> an unconnected READ IBKRClient
+    alarm: Callable[[int], object]               # signal.alarm in production (THE HARD STOP); 0 clears
     utcnow: Callable[[], dt.datetime] = dataclasses.field(
         default=lambda: dt.datetime.now(dt.timezone.utc))
     monotonic: Callable[[], float] = None
@@ -626,6 +635,7 @@ def _run(deps: FeedDeps, slot: str) -> int:
     scrub = (lambda t: t.replace(acct, "<account>"))
     bars_rows, quote_rows, gaps, not_asked = [], [], [], []
     try:
+        deps.alarm(hard_stop_s(deps.utcnow().astimezone(ET), stop_at, s))
         wait = deps.wait if deps.wait is not None else client.ib.sleep
         pacer = M.Pacer(s.request_spacing_s, monotonic=deps.monotonic, wait=wait)
         with M.MarketReader(client, pacer=pacer, request_timeout_s=s.request_timeout_s, scrub=scrub, wait=wait,
@@ -668,7 +678,10 @@ def _run(deps: FeedDeps, slot: str) -> int:
                 not_asked = [x for x in asked if x not in done]
             manifest["gateway_messages"] = _dedup([m.to_dict() for m in mr.messages if m.ib_symbol is None])
     finally:
-        client.disconnect()
+        try:
+            client.disconnect()
+        finally:
+            deps.alarm(0)                        # cleared only once the session (and the lock) is gone
 
     for x in not_asked:
         gaps.append(M.Gap(x, "bars", f"not measured: the run stopped ({manifest['stopped']})"))
@@ -695,6 +708,12 @@ def _run(deps: FeedDeps, slot: str) -> int:
     code = EXIT_OK if not n_un and manifest["stopped"] is None else EXIT_PARTIAL
     print(f"exit {code} {EXIT_NAMES[code]}", file=deps.out)
     return code
+
+
+def hard_stop_s(now: dt.datetime, stop_at: dt.datetime, settings: FeedSettings) -> int:
+    """Whole seconds from `now` to THE HARD STOP (stop_at + request_timeout_s + HARD_GRACE_S); at least 1,
+    since alarm(0) would mean no stop at all."""
+    return max(1, math.ceil((stop_at - now).total_seconds() + settings.request_timeout_s + HARD_GRACE_S))
 
 
 def _dedup(msgs: list) -> list:

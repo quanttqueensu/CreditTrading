@@ -41,9 +41,11 @@ def _feed_deps(env):
     state = rec.state_dir_from_env(env)
     cfg = IBKRConfig.from_env(env)
     lock = config.gateway_lock_path(state)
+    import signal
     return feed.FeedDeps(env=env, state=state, feed=feed.feed_dir_from_env(env),
                          market=MarketData.from_environment(env),
-                         read_client=lambda: IBKRClient(cfg, mode="read", session_lock=lock, lock_wait_s=0.0))
+                         read_client=lambda: IBKRClient(cfg, mode="read", session_lock=lock, lock_wait_s=0.0),
+                         alarm=signal.alarm)
 
 
 def main(argv=None) -> int:

@@ -172,7 +172,7 @@ def test_open_orders_union_both_calls_across_client_ids():
 def test_a_failed_open_order_query_is_unknown_not_empty():
     w = F.World()
     c = client(w).connect()
-    c.ib.reqAllOpenOrders = lambda: (_ for _ in ()).throw(TimeoutError("x"))
+    c.ib.reqAllOpenOrders = lambda: (_ for _ in ()).throw(ConnectionError("x"))
     with pytest.raises(I.OpenOrdersUnknown):
         c.open_orders()
 

@@ -337,6 +337,19 @@ books run byte-identically, and the twin only imports their checks and the ledge
   loaded at boot before the Gateway) lets only uid `quantt` connect to ports 4002/7497, on any
   address, and `quantt` or the admin login user (sshd opens `ssh -L` as that user) to 5947. The
   Gateway's unit will not start unless `ibgw_check_firewall.sh` finds the accept and reject rules.
+  Each probe also runs the check as root and records it (`status.json` "firewall"; orient and the
+  daily page show IN FORCE, NOT IN FORCE or UNMEASURED; a record over 15 minutes old is UNMEASURED).
+- **Nothing waits for ever (final review 1).** Every blocking IBKR request has
+  `REQUEST_TIMEOUT_S` (30 s; ib_async's default 0 waits indefinitely); at it the client drops the
+  session, which frees the Gateway lock, and raises `RequestTimedOut` (the send records an
+  `ibkr_read` refusal). The units have `TimeoutStartSec` (a oneshot ignores `RuntimeMaxSec`): send
+  480 s (`config.SEND_RUN_LIMIT_S`), so a send hung from 12:30 is killed before 12:40; verify and
+  probe 600 s. The send stops placing 60 s before its kill, recorded as a cut-off. A killed or
+  stopped send never leads to a second set: STARTED stands and refuses the backup. The feed arms
+  SIGALRM at its own stop time plus the request timeout plus 30 s, before the next twin window.
+- **The display (final review 2).** Xvfb runs with `-nolisten tcp -nolisten local` (no abstract
+  socket) and `-auth` with a cookie made at each start in the unit's tmpfs directory (0600,
+  quantt); the installer proves as `quantt-shadow` that display :47 refuses it.
 - **The Gateway** runs under Xvfb and IBC 3.24.2 with the stored PAPER login (team lead,
   2026-11-25: "Yes, store the paper login"). IBC's repository was archived on 2026-09-01: no
   fixes will come, and a Gateway change that breaks its dialogs leaves the Gateway logged out

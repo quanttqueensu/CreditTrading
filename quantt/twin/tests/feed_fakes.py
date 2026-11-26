@@ -25,6 +25,7 @@ class Clock:
         if start.tzinfo is None:
             raise ValueError("start must be aware")
         self.start, self.t = start, 0.0
+        self.alarms = []                         # every alarm(seconds) the run armed; 0 clears
 
     def monotonic(self) -> float:
         return self.t
@@ -215,6 +216,6 @@ def feed_deps(states, feed, env, world, mw, clock, *, mode="read", lock=None, se
     return FeedDeps(env=env, state=states["twin"], feed=feed, market=F.FakeMarket(clock.utcnow(), F.nov_calendar()),
                     read_client=lambda: IBKRClient(cfg, mode=mode, ib_module=mod, sleep=lambda s: None,
                                                    session_lock=lock, lock_wait_s=0.0),
-                    utcnow=clock.utcnow, monotonic=clock.monotonic, wait=None, out=io.StringIO(),
+                    alarm=clock.alarms.append, utcnow=clock.utcnow, monotonic=clock.monotonic, wait=None, out=io.StringIO(),
                     settings=settings or load_settings(),
                     producer_uid=os.getuid() + 1 if producer_uid is None else producer_uid)
