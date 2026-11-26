@@ -18,6 +18,18 @@ requests==2.32.5
 # Credentials loader (quantt.broker.alpaca_probe reads config/.env)
 python-dotenv==1.1.0
 
+# The IBKR twin's TWS API client (quantt/broker/ibkr.py, imported inside IBKRClient.connect only;
+# team lead 2026-11-25). ib_async, never bare ib_insync (CLAUDE.md landmine 10: it hangs on Python
+# 3.12+). 2.1.0 is pure Python, requires_python >=3.10 [V, PyPI 2026-10-19,
+# results/ops/IBKR_SECOND_BROKER_2026-10-19.md §2.8] and the version on the laptop (2026-11-25).
+# Its dependencies are pinned too: aeventkit below 3 (3.0.1 is outside ib_async's range), and tzdata
+# inside its <2026.0 bound. Changing this file rebuilds the VM's venv at the release
+# (quantt/deploy/install_vm.py refuses a venv built from another requirements file).
+ib_async==2.1.0
+aeventkit==2.1.0
+nest_asyncio==1.6.0
+tzdata==2025.2
+
 # Research data layer (src/data/r2.py reads the R2 WRDS mirror; never on the live
 # path). Listed so a clean install passes its own tests: the 2026-10-08 VM install
 # failed collection on src/data/tests/test_r2.py without it (the laptop's Anaconda

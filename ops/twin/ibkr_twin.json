@@ -1,0 +1,7 @@
+{
+ "_note": "Read by quantt/twin/config.py, where every key is required. PAPER ONLY: the IBKR twin of the three Alpaca paper books (team lead 2026-11-25, results/ops/IBKR_PAPER_MOVE_2026-11-25.md). The twin decides nothing: its targets are the books' saved plans. This file holds the twin's own ruled settings only.",
+ "bp_fit_fraction": 0.97,
+ "_note_bp_fit_fraction": "Team lead 2026-11-25 ('Keep 3% spare', the events book's buying-power fit, quantt/sleeves/fit.py on its branch). At the send the twin compares the buying power its opening orders need (quantt/session/gate.py buying_power_needed: opening notional at the plans' as-of closes, a short at 1.03x, a reduction counting zero) with this fraction of IBKR's BuyingPower, in USD by IBKR's own exchange rate. ABOVE IT THE SEND IS REFUSED, naming the factor that would have fitted: the scale-fit is not ported until quantt/sleeves/fit.py is on main (a labelled difference from the Alpaca books, which scale). Never a literal in code.",
+ "nlv_report_only": true,
+ "_note_nlv_report_only": "Contract section 4.6: the books' ledger values must sum to IBKR's net liquidation. VERIFY records the residual, (NLV - NLV at the epoch) - (the ledger's P&L at the official close - commissions since the epoch), in USD when the base currency is USD, and UNMEASURED otherwise. It does not fail the day on it: no tolerance has been measured (H14). The team lead sets one from the first sessions' residuals; until then this key must stay true."
+}

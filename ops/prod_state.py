@@ -899,6 +899,99 @@ def shadow_lines(sh: dict | None) -> list:
     return lines
 
 
+# ----------------------------------------------------------- the IBKR twin --
+# The IBKR twin (quantt/twin; team lead 2026-11-25) on the VM: its Gateway unit, its timers, and
+# `<state>/twin/status.json`, which the twin itself writes with AGGREGATES ONLY (quantt/twin/
+# status.py: gateway logged in or not, the last send and verify, the side-by-side tally; no
+# symbol, quantity, account id or order id). "No phone": this read, the daily page and orient are
+# the only places a logged-out Gateway shows. Its OWN ssh call (`twin_vm`), so the prod verdict and
+# the reading pinned by ops/tests/test_prod_state.py are untouched; it is never part of PROD's verdict.
+TWIN_STATE = f"/home/{iv.SERVICE_USER}/quantt_state/twin"
+TWIN_UNITS = ("quantt-ibgw.service", "quantt-twin-send.timer", "quantt-twin-verify.timer",
+              "quantt-twin-probe.timer")
+TWIN_SCRIPT = (r"""q() { k=$1; shift; o=$("$@" 2>&1); r=$?; printf '%s\t%s\t%s\n' "$k" "$r" "$(printf '%s' "$o" | tr '\t\n' '  ' | cut -c1-4000)"; }
+q twin.units sh -c "for u in @U@; do printf '%s=%s ' \$u \$(systemctl is-active \$u 2>/dev/null || true); done"
+q twin.status sudo -n sh -c "if [ -e @S@/status.json ]; then cat @S@/status.json; else echo NO-FILE; fi"
+printf 'twin.END\t0\tquantt-prod-state\n'
+""".replace("@U@", " ".join(TWIN_UNITS)).replace("@S@", shlex.quote(TWIN_STATE)))
+
+
+def twin_from_readings(got: dict, alias: str) -> dict:
+    where = f"{alias}:{TWIN_STATE}"
+    if "twin.END" not in got:
+        return {"where": where, UNMEASURED: f"ssh {alias}: no twin.END line; the twin reading was cut short"}
+    out = {"where": where, "label": "PAPER (IBKR twin)"}
+    rc, v = got.get("twin.units", (None, None))
+    units = dict(w.split("=", 1) for w in (v or "").split() if "=" in w)
+    out["units"] = _val(units) if units else _unm(f"`systemctl is-active` exited {rc}: {scrub(v or '')}")
+    rc, v = got.get("twin.status", (None, None))
+    if rc != 0:
+        out["status"] = _unm(f"reading {TWIN_STATE}/status.json exited {rc}: {scrub(v or '')}")
+    elif v == "NO-FILE":
+        out["status"] = _absent(f"no {TWIN_STATE}/status.json: the twin has not run on this VM")
+    else:
+        try:
+            out["status"] = _val(json.loads(v))
+        except json.JSONDecodeError:
+            out["status"] = _unm(f"status.json ({len(v or '')} chars) is not JSON")
+    return out
+
+
+def twin_vm(alias: str = VM_ALIAS, ssh_config: Path | None = None, timeout: float = VM_TIMEOUT_S,
+            run: Run | None = None) -> dict:
+    """The twin's reading over ONE read-only ssh call; refuses under netguard as `vm` does."""
+    if run is None:
+        from ops import netguard
+        if netguard.is_active():
+            return {UNMEASURED: "netguard is active in this process (a test run): no ssh to the VM"}
+    run = run or subprocess.run
+    config = ssh_config if ssh_config is not None else Path.home() / ".ssh" / "config"
+    try:
+        if not _exists(config) or not ssh_alias_present(alias, config):
+            return {UNMEASURED: f"no `Host {alias}` in {config}"}
+    except OSError as e:
+        return {UNMEASURED: f"reading {config}: {type(e).__name__}: {e}"}
+    cmd = ["ssh", "-o", "BatchMode=yes", "-o", f"ConnectTimeout={SSH_CONNECT_TIMEOUT_S}", alias, "sh -s"]
+    r, why = _call(run, cmd, timeout, input=TWIN_SCRIPT)
+    if why:
+        return {UNMEASURED: why}
+    if r.returncode == 255:
+        return {UNMEASURED: f"ssh {alias} failed (exit 255): {scrub(r.stderr)}"}
+    got = {}
+    for line in r.stdout.splitlines():
+        parts = line.split("\t", 2)
+        if len(parts) == 3 and re.fullmatch(r"-?\d+", parts[1]):
+            got[parts[0]] = (int(parts[1]), parts[2].strip())
+    return twin_from_readings(got, alias)
+
+
+def twin_lines(tw: dict) -> list:
+    """(label, text) pairs: the Gateway, the last send and verify, the side-by-side tally."""
+    if UNMEASURED in tw:
+        return [("IBKR twin", f"UNMEASURED — {tw[UNMEASURED]}")]
+    u = tw.get("units") or {}
+    lines = [("IBKR twin  (PAPER)", " ".join(f"{k}={v}" for k, v in (u.get("value") or {}).items()) or show(u))]
+    st = tw.get("status") or {}
+    if "value" not in st:
+        return lines + [("  status", show(st))]
+    s = st["value"]
+    g = s.get("gateway") or {}
+    lines.append(("  gateway", ("LOGGED IN" if g.get("logged_in") else "LOGGED OUT") + f" at {g.get('at')}"
+                  + ("" if g.get("logged_in") else f" ({g.get('why')})")))
+    for k in ("last_send", "last_verify"):
+        if k in s:
+            v = s[k]
+            lines.append((f"  {k.replace('_', ' ')}", f"{v.get('session_date')} "
+                          + (f"{v.get('exit')} {v.get('orders')} order(s) {v.get('refusals') or ''}" if k == "last_send"
+                             else f"{'PASS' if v.get('ok') else 'FAIL'} {v.get('reason', '')[:160]}")))
+    for b, t in (s.get("tally") or {}).items():
+        lines.append((f"  side-by-side {b}", f"{t.get('sessions')} session(s), both traded {t.get('both_traded')}; "
+                      f"full twin {t.get('twin_full')}/{t.get('twin_orders')} vs Alpaca {t.get('alpaca_full')}/"
+                      f"{t.get('alpaca_orders')}; bp twin {t.get('twin_bp')} vs Alpaca {t.get('alpaca_bp')}; "
+                      f"reconciled {t.get('reconciled')}; double sends {t.get('double_sends')}"))
+    return lines
+
+
 def ssh_alias_present(alias: str, config: Path) -> bool:
     """Is there a `Host` line naming exactly this alias? Patterns are not
     expanded: the runbook sets the alias up by name, and a wildcard that

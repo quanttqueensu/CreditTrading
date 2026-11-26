@@ -219,6 +219,176 @@ gets one recorded exception, **paper only**: `ops/books/cef_discount_book.json`
   print (`fill_vs_auction_bp`), beside the shadow benchmark. Revisit after a week.
 - **Revert:** delete the `execution` block; the runner sends `cls` exactly as before.
 
+## The IBKR twin (as built 2026-11-25), PAPER ONLY, beside the Alpaca books
+
+Team lead, 2026-11-25: the three paper books move to IBKR paper so their orders are MOC, into
+the one existing IBKR paper account, netted per symbol, with a per-strategy ledger; each book's
+twin first trades its Alpaca book's plan side by side, and a book switches after one clean
+session in which it matches or beats Alpaca. Contract: `results/ops/IBKR_PAPER_MOVE_2026-11-25.md`
+(its own branch). The code: `quantt/broker/ibkr.py`, `quantt/twin/`, `quantt/deploy/install_twin_vm.sh`.
+**Nothing under `quantt/session/`, `quantt/sleeves/` or `quantt/collect/` changed**: the Alpaca
+books run byte-identically, and the twin only imports their checks and the ledger.
+
+- **What it trades.** Each book's own saved `<state>/<F>/plan.json`, checked with that book's own
+  loader (`load_decided_plan`; events `load_plan` with `record_sha`), never re-decided. Targets
+  are `targets[sym]["target"]` (core, C4) and each events sleeve's own `targets`, which must sum
+  to the book's on every symbol or the send refuses naming the symbols. A plan that is missing,
+  refused, hand-edited, stale (as-of not the session before F) or halted (`ops/HALT_<book>.md`,
+  `<state>/HALT`) HOLDS that book at the twin ledger's shares. Labelled differences from the
+  Alpaca books: the twin trades to target where the core skipped an unborrowable short, deferred
+  a flip, dropped a sub-`min_trade_usd` delta or scaled to Alpaca's buying power.
+- **Slugs** (`quantt.twin.ledger_view`, the switch build's only read): `cef`, `c4`,
+  `events/<sleeve>`, and `legacy`, the account's positions at the epoch (`epoch`, once),
+  flattened by the first session in the same order list as the books' openings.
+- **The order.** combined target − IBKR position, one MOC order a symbol (`orderType=MOC`,
+  `tif=DAY`, SMART, USD), `orderRef = twin-<YYYYMMDD>-<SYM>-<leg>`, in `transmit_sequence` order.
+  The time is IBKR's 15:50 cut-off for every venue (contract §4.3).
+  **Rule 3's `late_market` exception does not apply here: the twin sends MOC.**
+- **A change to the contract's "one MOC order a symbol" (independent review, 2026-11-25, finding
+  2).** When the net order takes a symbol through zero, the twin sends TWO orders on the SAME side:
+  leg `-1` to zero, then leg `-2` to open the other side. Why: IBKR may refuse the opening short,
+  and a refused short must never block the reduction in front of it. If leg 1 is refused, leg 2 is
+  not sent. It is still never both sides of a symbol; the books' own flip rule (close today, open
+  later) is kept in spirit. The ledger books the SUM of a symbol's fills, as before.
+- **Target integrity (finding 4).** A core or C4 plan's orders must start at its targets'
+  `current` and end at its `target` (a deferred flip's closing leg and a binding buying-power
+  fit's smaller opening excepted), and a target off its current with no order must carry the
+  plan's own note (no trade, not shortable, flip deferred); otherwise that book holds, named.
+  `plan_sha` covers the orders only, so this is what binds the targets the twin trades to.
+- **Each book's OWN arming binds its slugs at the twin (CLAUDE.md order-path rule 4; the switch
+  branch's review, 2026-11-25).** A book's slugs trade at the twin only if that book's own send is
+  armed and not halted: its send unit's loaded `DRY_RUN` is exactly `0` (`systemctl show <unit> -p
+  Environment`, read-only: `quantt-cef-session.service`, `quantt-c4-session.service` as
+  `install_vm.py` names them, and `quantt-events-send.service`), its `<book state>/AUTO_ARMED`
+  exists, and no global or per-book halt is active in either clone or in `<book state>/HALT`.
+  Otherwise that book's slugs hold, and the record names why ("cef: its own send is DRY_RUN=1
+  (rule 4)"). A unit that cannot be read holds its book; it is never taken as armed. So the team
+  lead's `DRY_RUN=1` on a book stops it at both brokers, during the side-by-side and after a switch.
+- **The books' clone (re-review N1).** The twin runs from its own clone; the books run from
+  theirs, where a person writes `ops/HALT.md` and `ops/HALT_<book>.md`. `QUANTT_BOOKS_CLONE`
+  (required, no default) names it: every halt is read in BOTH clones (a global one stops the whole
+  twin; a book's holds that book), and the events book's `min_order_usd` and each book's
+  corporate-action mode are read from the books' clone, the files the books actually run with.
+- **Holds and minimums.** An events sleeve the plan holds is held at the TWIN ledger's shares
+  (finding 8). An events change in a symbol under the events book's `min_order_usd` holds the
+  events slugs there, as the events book sends nothing that small; core and C4 have no minimum.
+- **Contracts and the calendar.** Every symbol is resolved by `reqContractDetails` (a read)
+  before the gates, the dry check included; an unresolved one is a named refusal. Alpaca's close
+  for the session must equal `config.expected_close` (13:00 the day after Thanksgiving, on 24
+  December and on 3 July), or the send refuses.
+- **When** (`quantt/twin/config.py`, from the calendar close): slots close − 30 and − 20 min
+  (15:30, 15:40; 12:30, 12:40 on a 13:00 close, which 2026-11-27 is), refused from close − 15,
+  the batch stopped at close − 12; verify at 17:45, the same day (IBKR keeps only today's
+  executions).
+- **The gates at the send**: DRY_RUN exactly "0" (rule 4); not staging (`QUANTT_TWIN_STAGING`
+  set refuses whatever else is set); armed (`<state>/AUTO_ARMED`, or `<F>/APPROVED` naming this
+  plan_sha, from `approve --sha` after `send --dry`); no global or twin halt; the Gateway
+  reachable and logged into the expected paper account (else REFUSED [gateway], a missed
+  session); the ledger summing to IBKR's positions; every earlier STARTED session booked; rule 2
+  (`quantt/twin/guard.py`: STARTED, ANY open order at IBKR from any client id, the twin's own
+  order log, any execution today, and a non-blocking flock); the corporate-action gate in each
+  book's own mode on the twin's holdings (`halt` holds that book); buying power.
+- **Buying power.** The openings' need (`gate.buying_power_needed`) against
+  `ops/twin/ibkr_twin.json` `bp_fit_fraction` (0.97, "Keep 3% spare") × IBKR's BuyingPower in USD
+  by IBKR's own rate. **Over it the send is REFUSED, recording the factor that would fit. The
+  scale-fit (`quantt/sleeves/fit.py`) ports here once it is on main**; until then this is a
+  labelled difference from the Alpaca books, which scale.
+- **Rule 2 and rejections.** STARTED is written exclusively before the first order and holds the
+  whole plan; an `intent` line is fsynced before each `placeOrder`. A rejection skips that symbol
+  (a refused short is named); an order not acknowledged within `ACK_WAIT_S` stops the batch, and
+  nothing is ever resent; the backup slot then refuses (STARTED without DONE).
+- **When an opening leg fails (re-review 3).** For a change-of-side symbol, the slugs opening the
+  new side get only what filled beyond the closing: a refused, skipped or unfilled leg 2 leaves them
+  at their current shares (or at zero, if they held the old side), and only the closing side shares
+  leg 1's fill (`verify.change_of_side_targets`, in the twin; `ledger.py` unchanged). legacy +200
+  NAD and cef targeting -50, with leg 1 SELL 200 filled and leg 2 refused, ends legacy 0, cef 0,
+  the account 0.
+- **The saved read is the read (re-review 1).** `<day>/ibkr_read.json` is written ONCE, by an
+  exclusive create, and never overwritten; a run on the session day reads IBKR only while no read
+  is saved; for a session before today IBKR is never read (its executions are today's), so a past
+  session books from its saved read or is left UNBOOKED. The timer run (no `--date`) first books
+  every earlier STARTED session that is neither booked nor UNBOOKED, from its saved read, then
+  today's; a 07:00 slot exists for that catch-up after a reboot that missed the evening slots.
+- **Verify** runs at 07:00 (catch-up), 17:45, 18:30, 20:30 and 23:00. The first slot that reaches the Gateway saves
+  the raw read (executions with commission reports, positions, open orders, account summary) to
+  `<day>/ibkr_read.json` at once, and the official closes to `prints.json`; a later slot books
+  from them when the Gateway or Alpaca fails (finding 1). A crossed share with no official close
+  yet waits (PENDING); after 23:00 the session is left `UNBOOKED.json` for a person and the send
+  refuses until it is repaired. It is idempotent, checks that the ledger is the one STARTED was
+  built on (its sha), and writes every slug's value at the official close (`slug_pnl`) on EVERY
+  session, a no-send one included. It books only executions the twin's log says it placed (a
+  foreign execution FAILs the day unbooked), with `quantt/sleeves/ledger.py` `apply`, and requires
+  the ledger to sum to IBKR's positions on every symbol. Both brokers' fills are scored against the same official
+  close (`fetch_prints`, condition M); crossed shares are counted apart and never scored.
+  IBKR's NetLiquidation is recorded; its residual against the ledger is report only.
+- **compare** prints, per book and session: orders, filled in full, fill vs close for the twin
+  and the Alpaca book, the paired difference (a standard error only from two sessions), crossed
+  shares, residual, refused shorts, reconciliation, double sends; and each events sleeve's P&L
+  from the twin ledger. `--aggregates` is the form for a committed note.
+- **The weekend check.** `send --dry --session D` runs every gate on D's saved plans against
+  IBKR's positions now, read-only, and transmits nothing whatever DRY_RUN says.
+- **Port access (finding 6, re-review 4).** An nftables table (`quantt/deploy/ibgw_firewall.py`,
+  loaded at boot before the Gateway) lets only uid `quantt` connect to ports 4002/7497, on any
+  address, and `quantt` or the admin login user (sshd opens `ssh -L` as that user) to 5947. The
+  Gateway's unit will not start unless `ibgw_check_firewall.sh` finds the accept and reject rules.
+- **The Gateway** runs under Xvfb and IBC 3.24.2 with the stored PAPER login (team lead,
+  2026-11-25: "Yes, store the paper login"). IBC's repository was archived on 2026-09-01: no
+  fixes will come, and a Gateway change that breaks its dialogs leaves the Gateway logged out
+  until someone logs in through the on-demand VNC. A two-factor prompt cannot be answered by IBC.
+  Either shows as "LOGGED OUT" in orient's IBKR TWIN section and on the daily page; no alert
+  leaves the VM ("No phone").
+
+### The IBKR market-data feed for the shadow books (B10, as built 2026-11-25), READ ONLY
+
+Team lead, 2026-11-25: "we can trade/interacti with ibrk quotes to run shadow books / test ideas". The
+rule that cannot bend: the shadow user never reaches the Gateway's API port, because the Gateway can
+send orders. The code: `quantt/broker/ibkr_market.py`, `quantt/twin/feed.py` (its docstring is the
+design), `ops/twin/ibkr_feed.json` and the feed units in `quantt/deploy/install_twin_vm.sh`;
+on the shadow branch, `shadow/ibkr_feed.py`.
+
+- **Who talks to the Gateway.** Only the trading user. `python3 -m quantt.twin feed --slot ...` builds an
+  `IBKRClient` in READ mode (client id 34; staging 44), which refuses `place_moc`, `cancel` and
+  `global_cancel`; `MarketReader` refuses any other client and names no order method (a test reads its
+  source). The shadow user only reads files, and asks for symbols by dropping `<slug>.txt` into
+  `/srv/quantt-ibkr-feed/requests/`.
+- **THE GUARD, merged into the one port filter (2026-11-25).** File permissions cannot stop a local
+  process opening a loopback socket, and the Gateway trusts 127.0.0.1. B10's guard and the review's
+  filter are ONE nftables table, `inet quantt_ibgw` (`quantt/deploy/ibgw_firewall.py`), loaded by ONE
+  unit, `quantt-ibgw-firewall.service` (bootstrap_ibgw.sh), checked by ONE script,
+  `quantt/deploy/vm/ibgw_check_firewall.sh`; the Gateway's unit has ONE `Requires=` on it. It refuses a
+  TCP connection to the API ports (4001, 4002, 7496, 7497) from every local user but `quantt`, on any
+  address; to 5947 from all but `quantt` and the admin login user; and every loopback TCP connection
+  from `quantt-shadow` but DNS. The installer proves it with a connection attempt as `quantt-shadow`
+  that must be refused with the filter's counter moving (`--prove`).
+- **One Gateway session.** Every `IBKRClient` the desk builds takes the flock on
+  `<twin state>/.gateway.lock` from connect to disconnect (`quantt/broker/ibkr.py`, THE SESSION LOCK).
+  The twin's phases wait up to 90 s for it (`config.TWIN_LOCK_WAIT_S`); the feed never waits and stands
+  down. A busy lock is never written to `status.json` as a logged-out Gateway. The feed also keeps off
+  the twin's windows: the send (close − 35 to close − 10, for the session's close and both standard
+  closes), every verify slot (07:00, 17:45, 18:30, 20:30, 23:00, each −5/+10 min;
+  `config.VERIFY_SLOTS_ET`), the probes and the Gateway's 03:00 restart. The lock covers every twin
+  phase (send, verify, probe, epoch, cancel-open), all built in `quantt/twin/__main__.py`.
+- **What it fetches.** Every key of `targets` in each book's latest plan, then the requests, strictly
+  validated, capped at `max_symbols`. Daily TRADES bars (`reqHistoricalData`, regular hours, 6 months),
+  one request at a time, 10 s apart (`ops/twin/ibkr_feed.json` owns these settings and their sources;
+  IBKR's strictest family, applied to daily bars on purpose); a
+  pacing violation or a lost connection stops the run and nothing is retried. Intraday runs (by hand
+  only) also stream quotes for 12 s per batch of 40 lines at `reqMarketDataType(3)`, never a paid
+  regulatory snapshot.
+- **Labels.** Bars are `source=ibkr`, `data_type=historical`: never called live or delayed, because IBKR
+  does not say. Each quote value is labelled by the tick type that carried it (66 to 76 are delayed) and
+  the type IBKR reported: live, frozen, delayed, delayed_frozen, or unlabelled when the two disagree.
+  ib_async defaults the reported type to live, so the tick type decides: a delayed tick is never written
+  as live. A symbol
+  IBKR will not serve is UNMEASURED with IBKR's codes and words; nothing is filled in. A bar dated after
+  the last complete session (close + 20 min) is dropped and counted.
+- **Times.** 13:20 and 16:20 (`after-close`: the slot that matches the session's close runs, the other
+  idles), 19:05 (`evening`: re-reads the day and counts the closes IBKR revised since the after-close
+  run; moved from 20:20 at the merge, because the 20:30 verify retry's window opens at 20:25). Never in
+  the twin's windows.
+- **It is data, not evidence.** The manifest's label says so: IBKR's daily bar is not the official
+  closing-auction print, and nothing here counts toward any live statistic.
+
 ## As built (2026-11-09): the daily P&L report, beside the runner and outside its order path
 
 **The job.** `scripts/ops/pnl_report.py` (timers `quantt-{cef,c4}-pnl`, 20:30 and 20:35 ET;
