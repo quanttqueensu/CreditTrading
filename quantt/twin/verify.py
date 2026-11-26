@@ -604,10 +604,16 @@ def _prev_pnl(state: Path, F: dt.date) -> dict:
 
 def _nlv(state: Path, summ: dict, new: dict, pnl: dict, comm: float, comm_missing: int, F) -> dict:
     """IBKR's net liquidation, and the REPORT-ONLY residual against the ledger (module docstring)."""
-    out = {"net_liquidation": summ["net_liquidation"], "base_currency": summ["base_currency"], "residual_usd": None}
-    if summ["base_currency"] != "USD":
-        out["why"] = f"base currency {summ['base_currency']}: the ledger is in USD; residual UNMEASURED"
+    out = {"net_liquidation": summ["net_liquidation"], "base_currency": summ["base_currency"], "residual_usd": None,
+           "usd_per_base": summ.get("usd_per_base")}
+    if summ.get("usd_per_base") is None:
+        out["why"] = (f"base currency {summ['base_currency']} and no usable IBKR USD rate "
+                      f"({(summ.get('fx') or {}).get('why')}); residual UNMEASURED")
         return out
+    # IBKR's own rate (quantt/broker/ibkr.py fx_from_rows). The base-currency cash moves with the rate,
+    # so in a non-USD account the residual carries that FX move too: report only.
+    nlv_usd = summ["net_liquidation"] * summ["usd_per_base"]
+    out["net_liquidation_usd"] = round(nlv_usd, 2)
     if any((new["sleeves"].get(LEGACY) or {}).get("shares", {}).values()):
         out["why"] = "legacy still holds shares seeded with no cost; residual measured once it is flat"
         return out
@@ -620,11 +626,16 @@ def _nlv(state: Path, summ: dict, new: dict, pnl: dict, comm: float, comm_missin
     b = state / NLV_BASELINE
     if not b.exists():
         rec.write_json_atomic(b, {"session_date": F, "net_liquidation": summ["net_liquidation"],
-                                  "ledger_pnl": total, "commissions": commsum})
+                                  "net_liquidation_usd": nlv_usd, "ledger_pnl": total, "commissions": commsum})
         out["why"] = "baseline recorded this session; the residual starts next session"
         return out
     base = json.loads(b.read_text())
-    out["residual_usd"] = ((summ["net_liquidation"] - base["net_liquidation"])
+    if "net_liquidation_usd" not in base:
+        rec.write_json_atomic(b, {"session_date": F, "net_liquidation": summ["net_liquidation"],
+                                  "net_liquidation_usd": nlv_usd, "ledger_pnl": total, "commissions": commsum})
+        out["why"] = "the baseline predates the USD conversion (2026-11-26); re-recorded, the residual starts next session"
+        return out
+    out["residual_usd"] = ((nlv_usd - base["net_liquidation_usd"])
                            - ((total - base["ledger_pnl"]) - (commsum - base["commissions"])))
     out["why"] = "report only (ops/twin/ibkr_twin.json nlv_report_only)"
     return out

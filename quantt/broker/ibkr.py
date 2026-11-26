@@ -261,6 +261,71 @@ class IBKRConfig:
         return cls(host=env[ENV_HOST], port=port, client_id=cid, account=env[ENV_ACCOUNT])
 
 
+def fx_from_rows(base: str, summary_rows, value_rows) -> dict:
+    """IBKR's OWN USD rate for a non-USD base (staging on the VM, 2026-11-26: the paper account is CAD).
+
+    IBKR's per-currency `ExchangeRate` is the value of one unit of that currency in the base [S: IBKR's
+    account-value tag list, "the exchange rate of the currency to your base currency"; not re-read], so
+    with base CAD the USD row is CAD per USD and USD = CAD / rate. ib_async passes the rows through
+    unchanged [V: wrapper.accountSummary / updateAccountValue, the installed 2.1.0]. Two sources:
+    `accountSummary` (a fresh request whose `$LEDGER:ALL` tag gives per-currency rows, ib.py
+    reqAccountSummaryAsync) is used; `accountValues` (the account-updates subscription) is recorded
+    beside it. The DIRECTION is checked at run time against IBKR's own ledger when it is there:
+    sum over currencies of NetLiquidationByCurrency x rate must be nearer the BASE row than the same
+    sum divided by the rate; if it is not, the rate is not used. Missing, non-finite or not positive:
+    usd_per_base None, and whatever needs it refuses (no rate is ever made up)."""
+    seen = []
+    for source, rs in (("accountSummary", summary_rows), ("accountValues", value_rows)):
+        for r in rs:
+            if getattr(r, "tag", None) == "ExchangeRate":
+                seen.append({"source": source, "currency": str(getattr(r, "currency", "")), "value": str(r.value)})
+    out = {"tag": "ExchangeRate", "currency": "USD", "base": base, "rows": seen, "base_per_usd": None,
+           "source": None, "direction_check": None, "usd_per_base": None}
+    if base == "USD":
+        out.update(base_per_usd=1.0, usd_per_base=1.0, source="the base is USD", direction_check="not needed")
+        return out
+    for source in ("accountSummary", "accountValues"):
+        for r in seen:
+            if r["source"] == source and r["currency"] == "USD":
+                try:
+                    x = float(r["value"])
+                except ValueError:
+                    continue
+                if math.isfinite(x) and x > 0 and out["base_per_usd"] is None:
+                    out.update(base_per_usd=x, source=source)
+    if out["base_per_usd"] is None:
+        out["why"] = "no finite, positive ExchangeRate row for USD from IBKR"
+        return out
+    rates, nlv = {}, {}
+    for r in summary_rows:
+        tag, cur = getattr(r, "tag", None), str(getattr(r, "currency", ""))
+        try:
+            x = float(r.value)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(x):
+            continue
+        if tag == "ExchangeRate" and cur != "BASE":
+            rates[cur] = x
+        elif tag == "NetLiquidationByCurrency":
+            nlv[cur] = x
+    cur_rows = [c for c in nlv if c != "BASE" and c in rates and rates[c] > 0]
+    if "BASE" in nlv and cur_rows:
+        mul = sum(nlv[c] * rates[c] for c in cur_rows)
+        div = sum(nlv[c] / rates[c] for c in cur_rows)
+        if abs(mul - nlv["BASE"]) <= abs(div - nlv["BASE"]):
+            out["direction_check"] = f"consistent: sum of NetLiquidationByCurrency x rate {mul:,.2f} vs BASE {nlv['BASE']:,.2f}"
+        else:
+            out["direction_check"] = (f"CONTRADICTS: x rate gives {mul:,.2f}, / rate gives {div:,.2f}, "
+                                      f"BASE {nlv['BASE']:,.2f}; the rate is not used")
+            out["why"] = "IBKR's own ledger contradicts reading ExchangeRate as base per unit of the currency"
+            return out
+    else:
+        out["direction_check"] = "UNVERIFIED: no per-currency NetLiquidationByCurrency rows to check against [U]"
+    out["usd_per_base"] = 1.0 / out["base_per_usd"]
+    return out
+
+
 def _num(v, what: str) -> float:
     try:
         x = float(v)
@@ -390,8 +455,10 @@ class IBKRClient:
             # reply refuses the send. The twin never reads the cache they fill: the guard and
             # open_orders() ask reqAllOpenOrders() themselves, and place_moc judges an order only from it.
             sf = self._mod.StartupFetch
+            # account=: the account-updates subscription is for the expected account by name, never
+            # left to ib_async's "the only managed account" pick (the VM's CAD rate came back empty).
             ib.connect(c.host, c.port, clientId=c.client_id, timeout=CONNECT_TIMEOUT_S,
-                       readonly=(self.mode == "read"), raiseSyncErrors=True,
+                       readonly=(self.mode == "read"), raiseSyncErrors=True, account=c.account,
                        fetchFields=sf.POSITIONS | sf.ACCOUNT_UPDATES | sf.SUB_ACCOUNT_UPDATES | sf.EXECUTIONS)
         except Exception as e:  # noqa: BLE001 -- re-raised as the named refusal, never swallowed
             raise NotConnected(f"could not open an API session to {c.host}:{c.port} as client "
@@ -454,7 +521,7 @@ class IBKRClient:
         return t
 
     def account_summary(self) -> dict:
-        """{"net_liquidation", "buying_power", "base_currency", "usd_per_base"}.
+        """{"net_liquidation", "buying_power", "base_currency", "usd_per_base", "fx"}.
 
         From `accountSummary(account)`: NetLiquidation and BuyingPower, each exactly once, in one
         currency, the account's base [S: the September account was CAD-based]. `usd_per_base` is
@@ -479,17 +546,9 @@ class IBKRClient:
         if len(ccy) != 1 or not re.fullmatch(r"[A-Z]{3}", next(iter(ccy))):
             raise UnexpectedReply(f"NetLiquidation and BuyingPower are in {sorted(ccy)}, not one currency")
         base = ccy.pop()
-        usd_per_base = 1.0 if base == "USD" else None
-        if base != "USD":
-            # ExchangeRate rows are per currency: the value converts that currency to the base.
-            for v in self._blocking("accountValues", ib.accountValues, acct) or []:
-                if getattr(v, "tag", None) == "ExchangeRate" and getattr(v, "currency", None) == "USD":
-                    base_per_usd = _num(v.value, "ExchangeRate USD")
-                    if base_per_usd <= 0:
-                        raise UnexpectedReply("ExchangeRate USD is not positive")
-                    usd_per_base = 1.0 / base_per_usd
+        fx = fx_from_rows(base, rows, self._blocking("accountValues", ib.accountValues, acct) or [])
         return {"net_liquidation": got["NetLiquidation"][0], "buying_power": got["BuyingPower"][0],
-                "base_currency": base, "usd_per_base": usd_per_base}
+                "base_currency": base, "usd_per_base": fx["usd_per_base"], "fx": fx}
 
     def positions(self) -> dict:
         """{symbol: signed whole shares} in the expected account, zero rows left out.

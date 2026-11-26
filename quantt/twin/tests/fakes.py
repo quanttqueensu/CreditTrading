@@ -85,7 +85,8 @@ class World:
         self.reject = set()             # symbols whose order the Gateway rejects
         self.silent = set()             # symbols whose order is never acknowledged
         self.nlv, self.bp, self.base = 1_000_000.0, 4_000_000.0, "USD"
-        self.usd_rate = None            # base per USD, for a non-USD base
+        self.usd_rate = None            # base per USD, for a non-USD base (accountValues)
+        self.ledger = None              # {currency: (ExchangeRate, NetLiquidationByCurrency)} incl. "BASE"
         self.connections: list = []
         self.before_place = None        # hook: called before each placeOrder
         self.next_order_id = 100
@@ -172,8 +173,13 @@ def stub_module(world: World):
             return list(world.accounts)
 
         def accountSummary(self, account=""):
-            return [types.SimpleNamespace(account=ACCOUNT, tag="NetLiquidation", value=str(world.nlv), currency=world.base),
+            rows = [types.SimpleNamespace(account=ACCOUNT, tag="NetLiquidation", value=str(world.nlv), currency=world.base),
                     types.SimpleNamespace(account=ACCOUNT, tag="BuyingPower", value=str(world.bp), currency=world.base)]
+            for cur, (rate, nlv) in (world.ledger or {}).items():      # the $LEDGER:ALL rows
+                rows.append(types.SimpleNamespace(account=ACCOUNT, tag="ExchangeRate", value=str(rate), currency=cur))
+                rows.append(types.SimpleNamespace(account=ACCOUNT, tag="NetLiquidationByCurrency", value=str(nlv),
+                                                  currency=cur))
+            return rows
 
         def accountValues(self, account=""):
             if world.usd_rate is None:
