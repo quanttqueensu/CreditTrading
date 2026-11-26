@@ -227,6 +227,11 @@ def test_the_run_stops_before_the_twins_next_window_and_names_what_it_did_not_re
     assert all(X.Clock(start).start + dt.timedelta(seconds=t) < stop for t, _, _ in mw.hist_calls)
     assert man["stopped"].startswith("deadline") and len(mw.hist_calls) < len(syms)
     assert mw.mkt_calls == []                    # a stopped run takes no quotes
+    # THE HARD STOP: armed once connected, after the loop's own stop, before the window opens, then cleared.
+    clock = X.Clock(start)
+    armed, cleared = deps.alarm.__self__[0], deps.alarm.__self__[-1]
+    kill = clock.start + dt.timedelta(seconds=armed)
+    assert stop < kill < F.et(2026, 11, 25, 15, 12) and cleared == 0 and len(deps.alarm.__self__) == 2
 
 
 # ------------------------------------------------------------------ the times

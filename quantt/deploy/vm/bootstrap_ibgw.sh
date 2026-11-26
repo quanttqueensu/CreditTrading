@@ -13,6 +13,7 @@
 #                      read): a different candidate refuses, naming it, rather than install an
 #                      unread version.
 #   unzip              to unpack the pinned IBC release.
+#   xauth              the display's MIT-MAGIC-COOKIE (ibgw_run.sh: only quantt can open :47); not pinned.
 #   nftables           the port filter below (ONE table for the twin and B10's guard); not pinned (not read).
 #   libxtst6 libxi6 libxrender1 fontconfig fonts-dejavu-core
 #                      the X libraries and a font set a Java GUI needs to draw under Xvfb [S: the
@@ -41,7 +42,7 @@ step() { echo "== $*"; }
 
 XVFB_VERSION="2:21.1.12-1ubuntu1.9"
 X11VNC_VERSION="0.9.16-10"
-OTHERS="unzip nftables libxtst6 libxi6 libxrender1 fontconfig fonts-dejavu-core"
+OTHERS="unzip nftables xauth libxtst6 libxi6 libxrender1 fontconfig fonts-dejavu-core"
 NFT_FILE="/etc/quantt/ibgw.nft"
 FW_UNIT="/etc/systemd/system/quantt-ibgw-firewall.service"
 TREE=""; ADMIN=""

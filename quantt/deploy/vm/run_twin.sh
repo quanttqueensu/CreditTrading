@@ -51,6 +51,19 @@ case "$1" in
   *) die "unknown command '$1'" ;;
 esac
 [ -d "${STATE}" ] || die "${STATE} does not exist; run install_twin_vm.sh first"
+# ONE MODE AT A TIME (final review 4). Release and staging keep their Gateway session lock in their own
+# state directories, so a hand run in the other mode than the installed units could be connected beside
+# them. The units say which mode is installed; a hand run in the other one is refused.
+UNIT="/etc/systemd/system/quantt-twin-send.service"
+if [ -f "${UNIT}" ]; then
+  if grep -q '^Environment=QUANTT_TWIN_STAGING=1$' "${UNIT}"; then installed="staging"; else installed="release"; fi
+  if [ -n "${STAGE_ENV}" ]; then mine="staging"; else mine="release"; fi
+  [ "${installed}" = "${mine}" ] || die "the installed twin units are ${installed}; a ${mine} hand run would hold a different Gateway lock beside them"
+fi
+# Every hand run is bounded too (final review 1): the feed by its longest run plus a margin
+# (ops/twin/ibkr_feed.json max_run_minutes is 90), everything else by ten minutes. At the limit the
+# process is killed, which drops its socket and its Gateway lock.
+case "$1" in feed) LIMIT=6000 ;; *) LIMIT=600 ;; esac
 [ -f /run/quantt-twin/ibkr.env ] || die "/run/quantt-twin/ibkr.env is absent: sudo systemctl start quantt-twin-secret.service"
 cd "${CODE}"
 # The books' state directories, by the twin's own table (quantt/twin/books.py BOOKS).
@@ -63,7 +76,7 @@ done
 # shellcheck disable=SC2086
 exec runuser -u "${RUN_USER}" -- sh -c '
   set -a; . /run/quantt-twin/ibkr.env; set +a
-  exec "$@"' sh env HOME="${RUN_HOME}" DRY_RUN=1 ${STAGE_ENV} \
+  exec "$@"' sh timeout -k 30 "${LIMIT}" env HOME="${RUN_HOME}" DRY_RUN=1 ${STAGE_ENV} \
   QUANTT_STATE_DIR="${STATE}" ${BOOK_ENV} QUANTT_ENV_FILE=/run/quantt/alpaca.env \
   QUANTT_BOOKS_CLONE="${RUN_HOME}/prod/quantt-alpaca" \
   QUANTT_TWIN_ALPACA_DATA_BOOK=cef QUANTT_IBKR_HOST=127.0.0.1 QUANTT_IBKR_PORT=4002 QUANTT_IBKR_CLIENT_ID=39 \

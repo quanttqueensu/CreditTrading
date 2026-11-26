@@ -53,6 +53,18 @@ PROBE_ET = (dt.time(9, 0), dt.time(12, 0), dt.time(15, 15))
 GATEWAY_LOCK_NAME = ".gateway.lock"
 TWIN_LOCK_WAIT_S = 90.0
 
+# THE SEND'S RUN LIMIT (final review 1, 2026-11-25). quantt-twin-send.service is killed SEND_RUN_LIMIT_S
+# after it starts (install_twin_vm.sh TimeoutStartSec, pinned to this by a test), so a send hung from
+# 12:30 (15:30) is gone by 12:38 (15:38), before the 12:40 backup: a timer that fires while its oneshot
+# is still running starts nothing [S: systemd merges the start job; not tried on the VM]. The batch
+# itself stops placing SEND_RUN_MARGIN_S before the kill, recorded as a cut-off, so with a live but slow
+# Gateway the kill does not land between an order's intent line and its acknowledgement (ACK_WAIT_S,
+# 10 s, is far inside the margin). Either way STARTED stands, so the backup refuses: a slow send ends
+# PARTIAL, never doubled. How long a healthy batch takes is UNMEASURED [U]; the order log's ack_s
+# measures it from the first send.
+SEND_RUN_LIMIT_S = 480
+SEND_RUN_MARGIN_S = 60
+
 
 class ConfigError(RuntimeError):
     """The twin's settings file is missing a key or holds a value outside its range."""

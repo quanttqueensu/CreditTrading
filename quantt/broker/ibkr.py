@@ -106,6 +106,18 @@ ENV_ACCOUNT = "QUANTT_IBKR_ACCOUNT"
 REQUIRED_ENV = (ENV_HOST, ENV_PORT, ENV_CLIENT_ID, ENV_ACCOUNT)
 
 CONNECT_TIMEOUT_S = 20
+# EVERY BLOCKING REQUEST IS BOUNDED (final review, 2026-11-25, a blocker for arming). ib_async 2.1.0's
+# `IB.RequestTimeout` defaults to 0, "wait indefinitely" [V: the installed library's IB docstring,
+# 2026-11-25]. A half-alive Gateway that never answers `reqAllOpenOrders`, `accountSummary` or
+# `reqExecutions` would then hold the Gateway session lock for ever, and the 12:30 and 12:40 sends
+# would each wait their 90 s for it and refuse: a missed session nobody caused. So every client sets
+# `ib.RequestTimeout` to this before it connects; a request still unanswered then raises
+# `RequestTimedOut`, and the client DISCONNECTS at once, which releases the lock. 30 s: a healthy
+# Gateway answers these in well under a second [U: no timing measured on this account yet; the first
+# probes record their durations], and one hung request plus the drop must fit inside the send's 90 s
+# wait for the lock (quantt/twin/config.py TWIN_LOCK_WAIT_S). The units' own run-time limits
+# (install_twin_vm.sh, TimeoutStartSec) are the second bound, for anything that is not a request.
+REQUEST_TIMEOUT_S = 30.0
 LOCK_POLL_S = 0.5            # how often a waiting client re-tries the session lock (no socket meanwhile)
 # How long `place_moc` waits for the Gateway to say what it did with an order. Measured on nothing
 # yet: the IBKR-era record kept no acknowledgement times. The read-only week and the first armed
@@ -147,6 +159,11 @@ class WrongAccount(IBKRError):
 
 class NotConnected(IBKRError):
     """The Gateway could not be reached or is not logged in (the twin's MISSED session)."""
+
+
+class RequestTimedOut(NotConnected):
+    """A blocking request got no answer within REQUEST_TIMEOUT_S; the session was dropped and the
+    Gateway session lock released. Named, so a hung Gateway is never read as an empty answer."""
 
 
 class GatewayBusy(NotConnected):
@@ -341,6 +358,7 @@ class IBKRClient:
             import ib_async as _ib        # noqa: F401  only here (landmine 10: never ib_insync)
             self._mod = _ib
         ib = self._mod.IB()
+        ib.RequestTimeout = REQUEST_TIMEOUT_S    # every blocking request bounded (REQUEST_TIMEOUT_S)
         c = self.config
         try:
             ib.connect(c.host, c.port, clientId=c.client_id, timeout=CONNECT_TIMEOUT_S,
@@ -386,10 +404,21 @@ class IBKRClient:
         else:
             self._mod.IB.sleep(secs)
 
+    def _blocking(self, what: str, fn, *a, **kw):
+        """`fn(*a, **kw)`, a blocking ib_async request. On no answer within REQUEST_TIMEOUT_S
+        (ib_async raises asyncio.TimeoutError, the built-in TimeoutError on Python 3.11+): drop the
+        session, which releases the Gateway session lock, and raise RequestTimedOut naming it."""
+        try:
+            return fn(*a, **kw)
+        except TimeoutError:
+            self.disconnect()
+            raise RequestTimedOut(f"{what} got no answer within {REQUEST_TIMEOUT_S:.0f} s; the session was "
+                                  "dropped and the Gateway lock released") from None
+
     # --------------------------------------------------------------- reads
 
     def server_time(self) -> dt.datetime:
-        t = self._need().reqCurrentTime()
+        t = self._blocking("reqCurrentTime", self._need().reqCurrentTime)
         if not isinstance(t, dt.datetime) or t.tzinfo is None:
             raise UnexpectedReply(f"reqCurrentTime returned {t!r}, not an aware datetime")
         return t
@@ -404,7 +433,8 @@ class IBKRClient:
         from anywhere else; absent, it is None and the caller must refuse what needs it."""
         ib = self._need()
         acct = self.config.account
-        rows = [r for r in (ib.accountSummary(acct) or []) if getattr(r, "account", acct) == acct]
+        rows = [r for r in (self._blocking("accountSummary", ib.accountSummary, acct) or [])
+                if getattr(r, "account", acct) == acct]
         got: dict = {}
         for r in rows:
             tag = getattr(r, "tag", None)
@@ -422,7 +452,7 @@ class IBKRClient:
         usd_per_base = 1.0 if base == "USD" else None
         if base != "USD":
             # ExchangeRate rows are per currency: the value converts that currency to the base.
-            for v in ib.accountValues(acct) or []:
+            for v in self._blocking("accountValues", ib.accountValues, acct) or []:
                 if getattr(v, "tag", None) == "ExchangeRate" and getattr(v, "currency", None) == "USD":
                     base_per_usd = _num(v.value, "ExchangeRate USD")
                     if base_per_usd <= 0:
@@ -465,9 +495,11 @@ class IBKRClient:
         cannot be read, raises `OpenOrdersUnknown`."""
         ib = self._need()
         try:
-            trades = list(ib.reqAllOpenOrders() or [])
+            trades = list(self._blocking("reqAllOpenOrders", ib.reqAllOpenOrders) or [])
             seen = {id(t) for t in trades}
             trades += [t for t in (ib.openTrades() or []) if id(t) not in seen]
+        except RequestTimedOut:
+            raise                          # the session is gone: not an answer, and not resumable
         except Exception as e:  # noqa: BLE001 -- re-raised as the named unknown
             raise OpenOrdersUnknown(f"could not ask the Gateway what is resting ({type(e).__name__}: "
                                     f"{e}); not knowing is not nothing pending") from None
@@ -510,7 +542,7 @@ class IBKRClient:
         flt = self._mod.ExecutionFilter(acctCode=self.config.account,
                                         time=since.astimezone(dt.timezone.utc).strftime("%Y%m%d-%H:%M:%S"))
         out = []
-        for f in ib.reqExecutions(flt) or []:
+        for f in self._blocking("reqExecutions", ib.reqExecutions, flt) or []:
             ex, c = f.execution, f.contract
             if getattr(ex, "acctNumber", self.config.account) != self.config.account:
                 continue
@@ -560,7 +592,9 @@ class IBKRClient:
             # `reqContractDetails` is a READ (no order, no subscription), so the dry check and a
             # read-only client resolve the same contracts the send will (review of the build, 3).
             try:
-                got = list(ib.reqContractDetails(con) or [])
+                got = list(self._blocking("reqContractDetails", ib.reqContractDetails, con) or [])
+            except RequestTimedOut:
+                raise                      # the session is gone: stop, not one wait per symbol
             except Exception as e:  # noqa: BLE001 -- collected and raised below, named
                 bad.append(f"{s} ({type(e).__name__})")
                 continue

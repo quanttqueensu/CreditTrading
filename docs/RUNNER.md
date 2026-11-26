@@ -264,6 +264,12 @@ books run byte-identically, and the twin only imports their checks and the ledge
   Otherwise that book's slugs hold, and the record names why ("cef: its own send is DRY_RUN=1
   (rule 4)"). A unit that cannot be read holds its book; it is never taken as armed. So the team
   lead's `DRY_RUN=1` on a book stops it at both brokers, during the side-by-side and after a switch.
+- **The revert barrier (the switch branch's re-review, 2026-11-25).** When a book's
+  `eod_equity_sources.json` shows an OPEN `ibkr_twin_ledger` segment but its plan for the session
+  carries no `broker` marker for that session (`{"name": "ibkr", "session_date": F, ...}`, as
+  `quantt/session/switch.py` on branch `ibkr-switch-build` writes it), the plan was decided at Alpaca by
+  a release without the switch, and the twin holds the book, named, so it never trades at both
+  brokers. An unreadable sources file holds it too (`books.revert_barrier`).
 - **The books' clone (re-review N1).** The twin runs from its own clone; the books run from
   theirs, where a person writes `ops/HALT.md` and `ops/HALT_<book>.md`. `QUANTT_BOOKS_CLONE`
   (required, no default) names it: every halt is read in BOTH clones (a global one stops the whole
@@ -331,6 +337,19 @@ books run byte-identically, and the twin only imports their checks and the ledge
   loaded at boot before the Gateway) lets only uid `quantt` connect to ports 4002/7497, on any
   address, and `quantt` or the admin login user (sshd opens `ssh -L` as that user) to 5947. The
   Gateway's unit will not start unless `ibgw_check_firewall.sh` finds the accept and reject rules.
+  Each probe also runs the check as root and records it (`status.json` "firewall"; orient and the
+  daily page show IN FORCE, NOT IN FORCE or UNMEASURED; a record over 15 minutes old is UNMEASURED).
+- **Nothing waits for ever (final review 1).** Every blocking IBKR request has
+  `REQUEST_TIMEOUT_S` (30 s; ib_async's default 0 waits indefinitely); at it the client drops the
+  session, which frees the Gateway lock, and raises `RequestTimedOut` (the send records an
+  `ibkr_read` refusal). The units have `TimeoutStartSec` (a oneshot ignores `RuntimeMaxSec`): send
+  480 s (`config.SEND_RUN_LIMIT_S`), so a send hung from 12:30 is killed before 12:40; verify and
+  probe 600 s. The send stops placing 60 s before its kill, recorded as a cut-off. A killed or
+  stopped send never leads to a second set: STARTED stands and refuses the backup. The feed arms
+  SIGALRM at its own stop time plus the request timeout plus 30 s, before the next twin window.
+- **The display (final review 2).** Xvfb runs with `-nolisten tcp -nolisten local` (no abstract
+  socket) and `-auth` with a cookie made at each start in the unit's tmpfs directory (0600,
+  quantt); the installer proves as `quantt-shadow` that display :47 refuses it.
 - **The Gateway** runs under Xvfb and IBC 3.24.2 with the stored PAPER login (team lead,
   2026-11-25: "Yes, store the paper login"). IBC's repository was archived on 2026-09-01: no
   fixes will come, and a Gateway change that breaks its dialogs leaves the Gateway logged out

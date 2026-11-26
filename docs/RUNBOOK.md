@@ -1661,6 +1661,12 @@ asked for 2FA**: if it did, IBC cannot log in unattended and the stored login do
   book is flattened by its own plan. A dedicated flatten tool (the archived
   `flatten_ibkr_account.py`) is not built.
 - Halt the twin: `sudo -u quantt sh -c 'echo why > /home/quantt/quantt_state/twin/HALT'`.
+- **One mode at a time.** Release and staging keep their Gateway session lock in their own state
+  directories, so hand runs (`run_twin.sh`) must be in the mode the installed units are in;
+  `run_twin.sh` reads the installed send unit and refuses the other mode. Every hand run is bounded
+  (`timeout`: 10 minutes, the feed 100), as every unit is (`TimeoutStartSec`: send 480 s, so a hung
+  12:30 run is killed before 12:40; verify and probe 600 s). A killed send never leads to a second
+  set: STARTED, written before the first order, refuses the backup.
 
 The twin's units set `QUANTT_BOOKS_CLONE=/home/quantt/prod/quantt-alpaca` (the books' clone):
 a halt written there stops the twin too, and a book whose own send is `DRY_RUN=1`, lacks its

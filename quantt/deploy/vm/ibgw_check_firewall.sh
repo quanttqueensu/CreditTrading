@@ -1,20 +1,39 @@
 #!/bin/sh
 # Refuse unless the ONE port filter (nftables table inet quantt_ibgw) is loaded with its rules.
 #
-#   ibgw_check_firewall.sh <quantt uid> <shadow uid>                      the rules are in force
-#   ibgw_check_firewall.sh <quantt uid> <shadow uid> --prove <host> <port>   and a live connection to the
-#                                                                         Gateway as quantt-shadow is
-#                                                                         refused BY THE FILTER (its
-#                                                                         counter moves): B10's proof
+#   ibgw_check_firewall.sh <quantt uid> <shadow uid> [--prove <host> <port>] [--status <file>]
+#
+#   --prove   also show a live connection to the Gateway as quantt-shadow is refused BY THE FILTER
+#             (its counter moves): B10's install-time proof
+#   --status  also write the verdict, {"in_force", "detail", "checked_utc"}, to <file> (owned by the
+#             quantt uid, 0644): the probe's record of the filter (final review 3)
 #
 # Run as root: by bootstrap_ibgw.sh after loading it, by quantt-ibgw.service as `ExecStartPre=+` (the
-# Gateway does not start without the filter; re-review N2), and by install_twin_vm.sh, which adds
-# --prove once the Gateway is up. `nft` prints a set's elements in its own order, so each port is
-# checked alone.
+# Gateway does not start without the filter; re-review N2), by the probe (`--status`), and by
+# install_twin_vm.sh, which adds --prove once the Gateway is up. `nft` prints a set's elements in its
+# own order, so each port is checked alone.
 set -eu
-[ $# -eq 2 ] || [ $# -eq 5 ] || { echo "usage: $0 <quantt uid> <shadow uid> [--prove <host> <port>]" >&2; exit 2; }
-UID_Q="$1"; UID_S="$2"
-fail() { echo "REFUSED: the port filter is not in force: $*" >&2; exit 3; }
+usage() { echo "usage: $0 <quantt uid> <shadow uid> [--prove <host> <port>] [--status <file>]" >&2; exit 2; }
+[ $# -ge 2 ] || usage
+UID_Q="$1"; UID_S="$2"; shift 2
+PROVE_HOST=""; PROVE_PORT=""; STATUS=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --prove) [ $# -ge 3 ] || usage; PROVE_HOST="$2"; PROVE_PORT="$3"; shift 3 ;;
+    --status) [ $# -ge 2 ] || usage; STATUS="$2"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+record() {
+  # $1 true|false, $2 detail (quotes and backslashes removed, so the JSON stays JSON)
+  [ -n "${STATUS}" ] || return 0
+  d="$(printf '%s' "$2" | tr -d '"\\')"
+  printf '{"in_force": %s, "detail": "%s", "checked_utc": "%s"}\n' "$1" "${d}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${STATUS}.new"
+  chown "${UID_Q}" "${STATUS}.new" 2>/dev/null || true
+  chmod 644 "${STATUS}.new"
+  mv "${STATUS}.new" "${STATUS}"
+}
+fail() { record false "$*"; echo "REFUSED: the port filter is not in force: $*" >&2; exit 3; }
 out="$(nft list chain inet quantt_ibgw output 2>/dev/null)" || fail "no chain inet quantt_ibgw output (run bootstrap_ibgw.sh)"
 gate="$(nft list chain inet quantt_ibgw gate 2>/dev/null)" || fail "no chain inet quantt_ibgw gate"
 echo "${out}" | grep -q 'hook output' || fail "the chain is not on the output hook"
@@ -32,9 +51,8 @@ for port in 4001 4002 7496 7497; do
 done
 echo "${gate}" | grep 'reject with tcp reset' | grep -q '5947' || fail "the VNC port is not rejected for other users"
 
-if [ $# -eq 5 ]; then
-  [ "$3" = "--prove" ] || { echo "usage: $0 <quantt uid> <shadow uid> [--prove <host> <port>]" >&2; exit 2; }
-  host="$4"; port="$5"
+if [ -n "${PROVE_HOST}" ]; then
+  host="${PROVE_HOST}"; port="${PROVE_PORT}"
   shadow="$(getent passwd "${UID_S}" | cut -d: -f1)"
   [ -n "${shadow}" ] || fail "no user with uid ${UID_S}"
   count() { nft list table inet quantt_ibgw | awk '/reject/ {for (i = 1; i < NF; i++) if ($i == "packets") s += $(i + 1)} END {print s + 0}'; }
@@ -47,4 +65,5 @@ sys.exit(0 if s.connect_ex((sys.argv[1], int(sys.argv[2]))) else 1)' "${host}" "
   [ "${after}" -gt "${before}" ] || fail "${shadow}'s connection failed, but not at the filter (its counters stayed at ${before})"
   echo "proved: ${shadow}'s connection to ${host}:${port} was refused by the filter (counters ${before} -> ${after})"
 fi
+record true "in force: accept uid ${UID_Q}, reject the rest, shadow uid ${UID_S} refused but DNS"
 echo "port filter in force (uid ${UID_Q}; shadow uid ${UID_S} refused)"

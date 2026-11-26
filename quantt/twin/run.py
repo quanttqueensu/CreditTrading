@@ -334,8 +334,9 @@ def _gateway_down(deps, state, e) -> None:
 
 
 def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> int:
-    from quantt.broker.ibkr import IBKRError, NotConnected, OpenOrdersUnknown, WrongAccount
+    from quantt.broker.ibkr import IBKRError, NotConnected, OpenOrdersUnknown, UnexpectedReply, WrongAccount
     out, env = deps.out, deps.env
+    run_t0 = deps.utcnow()                       # the unit's run limit counts from here (config.SEND_RUN_LIMIT_S)
     state = setup(deps)
     states = books.book_states(env)
     mode = "dry" if dry else "send"
@@ -345,7 +346,8 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
     if not dry and session is not None:
         raise TwinRefused("--session is for --dry only: a real send is always for today's session")
     row, asof = session_for(deps.market, F)
-    record = {"mode": mode, "session_date": F, "clock": now, "staging": staging(env), "refusals": []}
+    record = {"mode": mode, "session_date": F, "clock": now, "staging": staging(env), "refusals": [],
+              "run_started_utc": run_t0}
     if row is None:
         print(f"twin {mode}: {F} is not a trading day; nothing to send", file=out)
         return _finish(deps, state, None, record, EXIT_IDLE, scheduled=False)
@@ -378,6 +380,7 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
     arming = {}
     for name in books.BOOK_NAMES:
         why = books.book_not_armed(name, states[name], deps.unit_env, (deps.own_clone, bclone))
+        why = why or books.revert_barrier(name, states[name], F)
         arming[name] = why or "armed"
         if why and reads[name].status == "decided":
             reads[name] = books.hold(name, why)
@@ -416,13 +419,20 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
             print(f"  REFUSED [ibkr_read] {type(e).__name__}: {e}", file=out)
             return _finish(deps, state, day, record, EXIT_REFUSED, scheduled=not dry)
         try:
-            open_o, open_err = client.open_orders(), None
-        except OpenOrdersUnknown as e:
-            open_o, open_err = None, str(e)
-        try:
-            execs, exec_err = client.executions_today(since=midnight_et(now.date())), None
+            try:
+                open_o, open_err = client.open_orders(), None
+            except OpenOrdersUnknown as e:
+                open_o, open_err = None, str(e)
+            try:
+                execs, exec_err = client.executions_today(since=midnight_et(now.date())), None
+            except (UnexpectedReply, ValueError) as e:
+                execs, exec_err = None, f"{type(e).__name__}: {e}"
         except IBKRError as e:
-            execs, exec_err = None, f"{type(e).__name__}: {e}"
+            # A hung Gateway (RequestTimedOut: the session is dropped, the lock released) or a lost
+            # session: the send stops here and still writes its record (review finding 13).
+            record["refusals"].append({"gate": "ibkr_read", "detail": f"{type(e).__name__}: {e}"})
+            print(f"  REFUSED [ibkr_read] {type(e).__name__}: {e}", file=out)
+            return _finish(deps, state, day, record, EXIT_REFUSED, scheduled=not dry)
         if epoch_simulated:
             led = ledger.empty()
             if pos:
@@ -562,14 +572,19 @@ def _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_
         log = day / "orders.jsonl"
         sent, rejected, stopped = [], [], None
         refused_close = set()
+        stop_placing = record["run_started_utc"] + dt.timedelta(
+            seconds=config.SEND_RUN_LIMIT_S - config.SEND_RUN_MARGIN_S)
         for i, o in enumerate(orders):
             if o.leg == 2 and o.symbol in refused_close:
                 rec.append_jsonl(log, {"event": "skipped_open_leg", "order_ref": o.order_ref, "symbol": o.symbol,
                                        "at": deps.utcnow()})
                 continue
             now = (deps.utcnow() + skew).astimezone(gt.ET)
-            if now >= t["stop_batch"]:
-                stopped = f"cutoff: {now:%H:%M:%S} ET is at or after {t['stop_batch']:%H:%M} ET"
+            if now >= t["stop_batch"] or deps.utcnow() >= stop_placing:
+                stopped = (f"cutoff: {now:%H:%M:%S} ET is at or after {t['stop_batch']:%H:%M} ET"
+                           if now >= t["stop_batch"] else
+                           f"run limit: {config.SEND_RUN_LIMIT_S - config.SEND_RUN_MARGIN_S} s since the run "
+                           f"started (the unit is killed at {config.SEND_RUN_LIMIT_S} s); nothing more placed")
                 for o2 in orders[i:]:
                     rec.append_jsonl(log, {"event": "cutoff", "order_ref": o2.order_ref, "symbol": o2.symbol,
                                            "at": deps.utcnow()})
@@ -609,10 +624,11 @@ def probe(deps) -> int:
     buying power, and COUNTS of positions, open orders and today's executions. Read-only by
     construction: a read client (`IBKRClient` mode "read": no place, no cancel). The
     printed lines are aggregates; the full reading goes to `<state>/probe/<stamp>.json`."""
-    from quantt.broker.ibkr import GatewayBusy, IBKRError, NotConnected, WrongAccount
+    from quantt.broker.ibkr import GatewayBusy, IBKRError, NotConnected, RequestTimedOut, WrongAccount
     state = setup(deps)
     client = deps.ibkr("read")
     at = deps.utcnow().isoformat()
+    status.update(state, "firewall", firewall_record(state, deps.utcnow()), at)
     try:
         client.connect()
     except GatewayBusy as e:
@@ -628,6 +644,11 @@ def probe(deps) -> int:
         oo = client.open_orders()
         ex = client.executions_today(since=midnight_et(deps.utcnow().astimezone(gt.ET).date()))
         st = client.server_time()
+    except RequestTimedOut as e:
+        # A Gateway that connects and then never answers is as good as down for the next send.
+        status.update(state, "gateway", {"logged_in": False, "why": f"unresponsive: {e}"}, at)
+        print(f"PROBE gateway UNRESPONSIVE: {e}", file=deps.out)
+        return 1
     except IBKRError as e:
         print(f"PROBE FAIL: {type(e).__name__}: {e}", file=deps.out)
         return 1
@@ -648,6 +669,30 @@ def probe(deps) -> int:
           f"buying power {s['buying_power']:,.2f}; {len(pos)} position(s); {len(oo)} open order(s); "
           f"{len(ex)} execution(s) today; server clock {skew:+.1f}s from this machine's", file=deps.out)
     return 0
+
+
+FIREWALL_FILE = "firewall.json"
+FIREWALL_STALE = dt.timedelta(minutes=15)
+
+
+def firewall_record(state: Path, now: dt.datetime) -> dict:
+    """The port filter's state as the probe unit's root check wrote it (`<state>/firewall.json`,
+    by ibgw_check_firewall.sh --status, just before this probe; final review 3), for status.json.
+    Missing, unreadable or older than FIREWALL_STALE is UNMEASURED, never "in force"."""
+    p = Path(state) / FIREWALL_FILE
+    if not p.exists():
+        return {"in_force": None, "detail": f"UNMEASURED: no {FIREWALL_FILE} (the probe unit's check did not run)"}
+    try:
+        d = json.loads(p.read_text())
+        at = dt.datetime.fromisoformat(str(d["checked_utc"]).replace("Z", "+00:00"))
+        in_force = d["in_force"]
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        return {"in_force": None, "detail": f"UNMEASURED: {FIREWALL_FILE} cannot be read ({type(e).__name__})"}
+    if not isinstance(in_force, bool) or at.tzinfo is None:
+        return {"in_force": None, "detail": f"UNMEASURED: {FIREWALL_FILE} is not in the check's form"}
+    if now - at > FIREWALL_STALE:
+        return {"in_force": None, "detail": f"UNMEASURED: the last check was {at.isoformat()}, stale", "checked_utc": at.isoformat()}
+    return {"in_force": in_force, "detail": str(d.get("detail", ""))[:200], "checked_utc": at.isoformat()}
 
 
 def epoch(deps) -> int:

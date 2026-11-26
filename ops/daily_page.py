@@ -242,7 +242,9 @@ def twin_block(s: dict) -> dict:
     """The twin's status.json as the page shows it: the Gateway first, because a logged-out Gateway
     misses the next session and nothing else says so (no alert leaves the VM)."""
     g = s.get("gateway") or {}
+    fw = s.get("firewall") or {}
     return {"logged_in": g.get("logged_in"), "gateway_at": g.get("at"), "gateway_why": g.get("why"),
+            "firewall": fw.get("in_force"), "firewall_detail": fw.get("detail", "no record"),
             "last_send": s.get("last_send"), "last_verify": s.get("last_verify"), "tally": s.get("tally") or {}}
 
 
@@ -306,6 +308,8 @@ def render(page: dict) -> str:
         out.append(f"- Gateway: **{'LOGGED IN' if t['logged_in'] else 'LOGGED OUT'}** at {t['gateway_at']}"
                    + ("" if t["logged_in"] else f" ({t['gateway_why']}): the next twin send is missed until someone "
                       "logs in (docs/RUNBOOK.md section 9)"))
+        out.append(f"- Port filter: **{ {True: 'IN FORCE', False: 'NOT IN FORCE'}.get(t.get('firewall'), 'UNMEASURED') }** "
+                   f"({t.get('firewall_detail')})")
         ls, lv = t.get("last_send") or {}, t.get("last_verify") or {}
         if ls:
             out.append(f"- Last send: {ls.get('session_date')} {ls.get('exit')}, {ls.get('orders')} order(s)"
