@@ -20,6 +20,26 @@ class _Status:
         self.status = status
 
 
+class _Log:
+    def __init__(self, message, code):
+        self.message, self.errorCode = message, code
+
+
+class _Later:
+    """A status that reads `first` `after` times, then `then` (ib_async: PreSubmitted -> ValidationError ->
+    Submitted when the warning can be ignored)."""
+
+    def __init__(self, first, then, after):
+        self._first, self._then, self._left = first, then, after
+
+    @property
+    def status(self):
+        if self._left > 0:
+            self._left -= 1
+            return self._first
+        return self._then
+
+
 class _Trade:
     def __init__(self, contract, order, status):
         self.contract, self.order = contract, order
@@ -49,6 +69,8 @@ class World:
         self.next_order_id = 100
         self.unknown_symbols = set()    # symbols reqContractDetails cannot resolve
         self.next_perm = 9000
+        self.sync_error = None          # e.g. "positions request timed out": the connect's initial sync fails
+        self.warn = {}                  # symbol -> (warning code, "absent" | "open" | a later status)
 
     def fill_all_at(self, prices: dict, when: dt.datetime) -> None:
         """The close: every resting MOC fills in full at `prices`, as IBKR paper did in September."""
@@ -102,9 +124,14 @@ def stub_module(world: World):
         def sleep(secs=0.02):
             return True
 
-        def connect(self, host, port, clientId, timeout=4, readonly=False, account=""):
+        def connect(self, host, port, clientId, timeout=4, readonly=False, account="", raiseSyncErrors=False):
             if not world.reachable:
                 raise ConnectionRefusedError("stub: nothing listening")
+            if world.sync_error:
+                # ib_async 2.1.0: a failed initial sync is only logged unless raiseSyncErrors is True
+                if raiseSyncErrors:
+                    raise ConnectionError([world.sync_error])
+                world.positions = {}                         # what the cache would hold: nothing
             self.client_id, self.readonly, self._up = clientId, readonly, True
             world.connections.append(self)
 
@@ -167,6 +194,19 @@ def stub_module(world: World):
                 return _Trade(con, order, "Inactive")
             if con.symbol in world.silent:
                 return _Trade(con, order, "PendingSubmit")
+            if con.symbol in world.warn:
+                # ib_async on a warning code: status ValidationError, the trade kept, a log line with the code
+                code, then = world.warn[con.symbol]
+                t = _Trade(con, order, "ValidationError")
+                t.log.append(_Log(f"Warning {code}, reqId {order.orderId}: held while IBKR locates shares", code))
+                if then == "absent":
+                    return t
+                if then != "open":
+                    # not yet among the open orders when first asked; its own status moves on later
+                    t.orderStatus = _Later("ValidationError", then, after=3)
+                    return t
+                world.open.append(t)
+                return t
             t = _Trade(con, order, "PreSubmitted")
             world.open.append(t)
             return t

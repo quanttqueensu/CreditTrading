@@ -133,6 +133,23 @@ DONE_STATUSES = frozenset({"Filled", "Cancelled", "ApiCancelled", "Inactive"})
 ACCEPTED_STATUSES = frozenset({"PreSubmitted", "Submitted", "Filled"})
 REJECTED_STATUSES = frozenset({"Cancelled", "ApiCancelled", "Inactive"})
 
+# A WARNING IS NOT A REJECTION (release check of 8f9d026, 2026-11-26). ib_async 2.1.0's `Wrapper.error`
+# treats these codes as warnings: it sets the trade's status to "ValidationError" and KEEPS the trade,
+# "because the order is STILL LIVE at the broker" (404: shares for a short are not immediately
+# available; the order is held while IBKR locates them) [V: ib_async/wrapper.py `error`, the installed
+# 2.1.0, read 2026-11-26]. Any other error code on an order makes ib_async set it Cancelled, which is
+# REJECTED_STATUSES here. So a ValidationError, or one of these codes in the trade's log, never refuses
+# an order: place_moc re-asks the Gateway for its open orders, and an order found there is live.
+# Exceptions ib_async itself makes (110 on a PendingSubmit order, or on a what-if request) arrive as
+# Cancelled and are refusals through that status. Pinned against the installed library by a test.
+IB_WARNING_CODES = frozenset({105, 110, 165, 321, 329, 399, 404, 434, 492, 10167})
+IB_WARNING_RANGE = (2100, 2200)              # 2100 <= code < 2200
+VALIDATION_ERROR = "ValidationError"
+
+
+def is_ib_warning(code) -> bool:
+    return isinstance(code, int) and (code in IB_WARNING_CODES or IB_WARNING_RANGE[0] <= code < IB_WARNING_RANGE[1])
+
 # US equity symbols as the books write them (PDI, BRK.B). IBKR writes a share class with a space
 # ("BRK B") [U: the convention of IBKR's contract search; no book traded one at IBKR], so the two
 # spellings are mapped here and nowhere else.
@@ -361,8 +378,13 @@ class IBKRClient:
         ib.RequestTimeout = REQUEST_TIMEOUT_S    # every blocking request bounded (REQUEST_TIMEOUT_S)
         c = self.config
         try:
+            # raiseSyncErrors (release check 5, 2026-11-26): ib_async 2.1.0's connect syncs positions,
+            # open orders, account values and executions, and with the default False a sync request
+            # that times out is only LOGGED, leaving an empty or partial cache that `positions()` would
+            # return as the account [V: ib_async/ib.py connect/connectAsync, the installed 2.1.0]. With
+            # True it raises ConnectionError, refused here as NotConnected (epoch and the saved read).
             ib.connect(c.host, c.port, clientId=c.client_id, timeout=CONNECT_TIMEOUT_S,
-                       readonly=(self.mode == "read"))
+                       readonly=(self.mode == "read"), raiseSyncErrors=True)
         except Exception as e:  # noqa: BLE001 -- re-raised as the named refusal, never swallowed
             raise NotConnected(f"could not open an API session to {c.host}:{c.port} as client "
                                f"{c.client_id}: {type(e).__name__}: {e}. The Gateway is down or "
@@ -641,19 +663,81 @@ class IBKRClient:
         o.transmit = True
         t0 = self._monotonic()
         trade = ib.placeOrder(con, o)
-        status = str(getattr(trade.orderStatus, "status", "") or "")
-        while status not in ACCEPTED_STATUSES | REJECTED_STATUSES and self._monotonic() - t0 < ACK_WAIT_S:
+        status = self._status_of(trade)
+        found, requeries, notes = None, 0, []
+        # Wait for a definite status. A warning (ValidationError) is not one: the order may be live, so
+        # ask the Gateway's open orders, once at once and once more at the deadline (IB_WARNING_CODES).
+        while status not in ACCEPTED_STATUSES | REJECTED_STATUSES:
+            warned = status == VALIDATION_ERROR or bool(self._warnings_of(trade))
+            timed_out = self._monotonic() - t0 >= ACK_WAIT_S
+            if warned and (requeries == 0 or (timed_out and requeries == 1)):
+                found, note = self._find_open(trade)
+                requeries += 1
+                if note:
+                    notes.append(note)
+                status = self._status_of(trade)          # a re-query refreshes ib_async's own status
+                if found is not None or status in ACCEPTED_STATUSES | REJECTED_STATUSES:
+                    break
+            if timed_out:
+                break
             self._wait(ACK_POLL_S)
-            status = str(getattr(trade.orderStatus, "status", "") or "")
-        accepted = True if status in ACCEPTED_STATUSES else False if status in REJECTED_STATUSES else None
+            status = self._status_of(trade)
+        if status in REJECTED_STATUSES:
+            accepted = False                             # Cancelled / Inactive: IBKR refused it
+        elif status in ACCEPTED_STATUSES:
+            accepted = True
+        elif found is not None:
+            found_status = self._status_of(found)
+            accepted = False if found_status in REJECTED_STATUSES else True    # resting at IBKR: live
+        else:
+            accepted = None                              # ambiguous: the runner stops and never resends
         msgs = [str(getattr(e, "message", e)) for e in (getattr(trade, "log", None) or [])
                 if getattr(e, "message", "")]
         return {"symbol": symbol, "side": side, "qty": qty, "order_ref": order_ref,
                 "client_id": getattr(trade.order, "clientId", self.config.client_id),
                 "order_id": getattr(trade.order, "orderId", None),
                 "perm_id": getattr(trade.order, "permId", 0) or 0,
-                "status": status, "accepted": accepted, "messages": msgs[-5:],
+                "status": status, "accepted": accepted, "messages": (msgs + notes)[-5:],
+                "warnings": self._warnings_of(trade), "found_open": found is not None, "requeries": requeries,
                 "ack_s": round(self._monotonic() - t0, 3)}
+
+    @staticmethod
+    def _status_of(trade) -> str:
+        return str(getattr(getattr(trade, "orderStatus", None), "status", "") or "")
+
+    @staticmethod
+    def _warnings_of(trade) -> list:
+        """The warning codes (is_ib_warning) in the trade's log, in order, each once."""
+        out = []
+        for e in getattr(trade, "log", None) or []:
+            c = getattr(e, "errorCode", 0)
+            if is_ib_warning(c) and c not in out:
+                out.append(c)
+        return out
+
+    def _find_open(self, trade):
+        """(the order as one of the Gateway's open orders now, or None; a note when the query failed).
+        Matched on this client's id and order id, or on the permanent id. A failed query is never read
+        as "absent and refused": it returns None with the reason, and the caller's answer stays None."""
+        ib = self._need()
+        oid = getattr(trade.order, "orderId", None)
+        cid = getattr(trade.order, "clientId", self.config.client_id)
+        perm = getattr(trade.order, "permId", 0) or 0
+        try:
+            rows = list(self._blocking("reqAllOpenOrders", ib.reqAllOpenOrders) or [])
+            rows += list(ib.openTrades() or [])
+        except RequestTimedOut:
+            raise
+        except Exception as e:  # noqa: BLE001 -- named in the order's messages; the order stays ambiguous
+            return None, f"open-order query after a warning failed: {type(e).__name__}: {e}"
+        for t in rows:
+            o = getattr(t, "order", None)
+            if o is None:
+                continue
+            if (getattr(o, "orderId", None) == oid and getattr(o, "clientId", None) == cid) or \
+                    (perm and (getattr(o, "permId", 0) or 0) == perm):
+                return t, None
+        return None, None
 
     def cancel(self, order_id: int) -> dict:
         """Cancel ONE of this client id's open orders by its order id. Human-run tools only: the

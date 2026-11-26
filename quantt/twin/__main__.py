@@ -58,6 +58,8 @@ def main(argv=None) -> int:
     s.add_argument("--session", type=dt.date.fromisoformat, default=None, help="with --dry: that session's plans")
     s.add_argument("--approve", default=None, metavar="PLAN_SHA")
     a = sub.add_parser("approve")
+    a.add_argument("--session", type=dt.date.fromisoformat, required=True,
+                   help="YYYY-MM-DD: the session this list is approved for (required; no default)")
     a.add_argument("--sha", required=True)
     v = sub.add_parser("verify")
     v.add_argument("--date", type=dt.date.fromisoformat, default=None)
@@ -96,7 +98,7 @@ def main(argv=None) -> int:
     if args.cmd == "send":
         return run.send(deps, dry=args.dry, session=args.session, approve=args.approve)
     if args.cmd == "approve":
-        return run.approve(deps, sha=args.sha)
+        return run.approve(deps, session=args.session, sha=args.sha)
     if args.cmd == "verify":
         return verify.verify(deps, date=args.date)
     if args.cmd == "cancel-open":

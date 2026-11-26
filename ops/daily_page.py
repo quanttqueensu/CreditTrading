@@ -245,7 +245,7 @@ def twin_block(s: dict) -> dict:
     fw = s.get("firewall") or {}
     return {"logged_in": g.get("logged_in"), "gateway_at": g.get("at"), "gateway_why": g.get("why"),
             "firewall": fw.get("in_force"), "firewall_detail": fw.get("detail", "no record"),
-            "last_send": s.get("last_send"), "last_verify": s.get("last_verify"), "tally": s.get("tally") or {}}
+            "last_send": s.get("last_session_send"), "last_verify": s.get("last_verify"), "tally": s.get("tally") or {}}
 
 
 def _usd(x) -> str:
@@ -312,8 +312,10 @@ def render(page: dict) -> str:
                    f"({t.get('firewall_detail')})")
         ls, lv = t.get("last_send") or {}, t.get("last_verify") or {}
         if ls:
-            out.append(f"- Last send: {ls.get('session_date')} {ls.get('exit')}, {ls.get('orders')} order(s)"
+            out.append(f"- Last session send: {ls.get('session_date')} {ls.get('exit')}, {ls.get('orders')} order(s)"
                        + (f", refused by {', '.join(ls['refusals'])}" if ls.get("refusals") else ""))
+        else:
+            out.append("- Last session send: none recorded")
         if lv:
             out.append(f"- Last verify: {lv.get('session_date')} {'PASS' if lv.get('ok') else 'FAIL'}: {lv.get('reason')}")
         for b, x in t["tally"].items():

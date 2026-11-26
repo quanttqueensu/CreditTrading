@@ -46,6 +46,7 @@ import dataclasses
 import datetime as dt
 import json
 import os
+import re
 import sys
 import time
 import traceback
@@ -312,15 +313,59 @@ def _finish(deps, state: Path, day: Path | None, record: dict, code: int, *, sch
         marker = {EXIT_SENT: "DONE", EXIT_NOTHING: "DONE", EXIT_DRY: "DRY_DONE"}.get(code)
         if marker:
             (day / marker).write_text(f"{EXIT_NAMES[code]} at {stamp}\n")
-        rec.write_json_atomic(day / "send.json", record)
+        write_send_record(day, record)
     if record["mode"] in ("send", "dry"):
         summ = {"mode": record["mode"], "session_date": record.get("session_date"),
                 "exit": EXIT_NAMES[code], "orders": len(record.get("orders") or []),
                 "refusals": sorted({r["gate"] for r in record.get("refusals") or []}),
                 "sent": record.get("sent"), "rejected": record.get("rejected")}
         status.update(state, "last_" + record["mode"], summ, deps.utcnow().isoformat())
+        if code != EXIT_IDLE:
+            # Release check 4: an IDLE run (outside a slot, or the day already DONE) overwrites
+            # last_send every time; the last run that did anything is kept apart for orient and the page.
+            status.update(state, "last_session_" + record["mode"], summ, deps.utcnow().isoformat())
     print(f"exit {code} {EXIT_NAMES[code]}", file=deps.out)
     return code
+
+
+SEND_RECORD = "send.json"
+_SEND_RUN_RE = re.compile(r"^send_\d{4}(?:_\d+)?\.json$")
+
+
+def write_send_record(day: Path, record: dict) -> Path:
+    """THE RUN THAT WROTE STARTED HAS THE ONE `send.json` (release check 2, 2026-11-26). It is created
+    exclusively and never overwritten. Every other scheduled run (a backup that refused on STARTED, a
+    refusal before any set, a dry run) gets its own `send_<HHMM>.json`, New York time of its clock, so a
+    backup can never replace the record of a first send that stopped or was rejected (verify read the
+    last record, and scored a part-sent batch PASS)."""
+    if record.get("wrote_started"):
+        if rec.create_exclusive(day / SEND_RECORD, record):
+            return day / SEND_RECORD
+        other = day / f"send_STARTED_conflict_{dt.datetime.now(dt.timezone.utc):%Y%m%dT%H%M%S%fZ}.json"
+        rec.write_json_atomic(other, record)
+        raise TwinRefused(f"{day / SEND_RECORD} already exists although this run wrote STARTED; this run's "
+                          f"record is {other.name}. Read both before verify books anything")
+    hhmm = record["clock"].astimezone(gt.ET).strftime("%H%M")
+    for n in range(1000):
+        p = day / (f"send_{hhmm}.json" if n == 0 else f"send_{hhmm}_{n}.json")
+        if rec.create_exclusive(p, record):
+            return p
+    raise TwinRefused(f"{day}: a thousand send records for {hhmm}; not writing another")
+
+
+def started_send_record(day: Path) -> dict | None:
+    """The record of the run that wrote STARTED, or None (it never finished: a crash after STARTED)."""
+    p = day / SEND_RECORD
+    return json.loads(p.read_text()) if p.exists() else None
+
+
+def latest_send_record(day: Path) -> dict | None:
+    """With no STARTED: the newest run's own record (`send_<HHMM>.json`). A `send.json` without STARTED
+    is a record in the format before 2026-11-26 (every run rewrote it); it is read when no newer one exists."""
+    runs = sorted(p.name for p in day.iterdir() if _SEND_RUN_RE.fullmatch(p.name)) if day.exists() else []
+    if runs:
+        return json.loads((day / runs[-1]).read_text())
+    return started_send_record(day)
 
 
 def _gateway_down(deps, state, e) -> None:
@@ -502,7 +547,12 @@ def _send(deps, *, dry: bool, session: dt.date | None, approve: str | None) -> i
                                        "install never transmits"})
         appr = approve
         if appr is None and day is not None and (day / "APPROVED").exists():
-            appr = json.loads((day / "APPROVED").read_text())["plan_sha"]
+            a = json.loads((day / "APPROVED").read_text())
+            if str(a.get("session_date")) != F.isoformat():
+                record["refusals"].append({"gate": "arming", "detail": f"{day / 'APPROVED'} approves session "
+                                           f"{a.get('session_date')}, not {F}"})
+            else:
+                appr = a["plan_sha"]
         for r in gt.gate_arming(appr, sha, (state / "AUTO_ARMED").exists()):
             record["refusals"].append({"gate": r.gate, "detail": r.detail})
         for h in twin_halts(deps, bclone):
@@ -567,6 +617,7 @@ def _transmit(deps, client, state, day, F, close, t, orders, sha, record, epoch_
         if not rec.create_exclusive(day / "STARTED", started):
             record["refusals"].append({"gate": "no_set_in_auction", "detail": "STARTED appeared between gate and record"})
             return _finish(deps, state, day, record, EXIT_REFUSED, scheduled=True)
+        record["wrote_started"] = True                   # this run's record is THE send.json
         rec.write_json_atomic(day / "plan.json", {**record, "status": "decided"})
         log = day / "orders.jsonl"
         sent, rejected, stopped = [], [], None
@@ -741,11 +792,26 @@ def epoch(deps) -> int:
     return 0
 
 
-def approve(deps, *, sha: str) -> int:
-    """`<state>/<F>/APPROVED` naming the plan_sha the team lead read in `send --dry` (rule 1). The
-    send transmits only if it recomputes exactly this sha. Sends nothing."""
+def approve(deps, *, session: dt.date, sha: str) -> int:
+    """`<state>/<session>/APPROVED` naming the plan_sha the team lead read in `send --dry --session`
+    (rule 1). The send for THAT session transmits only if it recomputes exactly this sha; no other
+    session reads it. `session` is required, with no default (release check 3, 2026-11-26: the approval
+    used to be written under today's date, so an approval read on Thursday for Friday armed nothing, and
+    one written after midnight armed the wrong day). Refuses a past session and a day that does not
+    trade. Sends nothing."""
     state = setup(deps)
-    F = deps.market.clock()["timestamp"].astimezone(gt.ET).date()
+    if not isinstance(session, dt.date):
+        print("REFUSED approve: --session YYYY-MM-DD is required (the session the list is for)", file=deps.out)
+        return EXIT_REFUSED
+    today = deps.market.clock()["timestamp"].astimezone(gt.ET).date()
+    if session < today:
+        print(f"REFUSED approve: {session} is before today ({today}) in New York", file=deps.out)
+        return EXIT_REFUSED
+    row, _ = session_for(deps.market, session)
+    if row is None:
+        print(f"REFUSED approve: {session} is not a trading day", file=deps.out)
+        return EXIT_REFUSED
+    F = session
     day = rec.day_dir(state, F)
     if (day / "STARTED").exists():
         print(f"REFUSED approve: a set already STARTED for {F}", file=deps.out)

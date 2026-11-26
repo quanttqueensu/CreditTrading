@@ -165,11 +165,11 @@ def test_not_armed_is_dry(tmp_path):
 
 def test_an_approval_must_name_exactly_the_list_sent(tmp_path):
     st, w, mk, d, out = world_and_books(tmp_path)
-    assert run.approve(d, sha="0" * 64) == 0
+    assert run.approve(d, session=S, sha="0" * 64) == 0
     assert run.send(d) == run.EXIT_DRY and w.placed == []          # wrong sha: arming refuses
     sha = json.loads((st["twin"] / "2026-11-27" / "plan.json").read_text())["plan_sha"]
     (st["twin"] / "2026-11-27" / "DRY_DONE").unlink()
-    assert run.approve(d, sha=sha) == 0
+    assert run.approve(d, session=S, sha=sha) == 0
     assert run.send(d) == 0 and w.placed
 
 
@@ -220,7 +220,7 @@ def test_a_rejected_short_is_skipped_and_the_rest_go(tmp_path):
     armed(st)
     w.reject = {"IWM"}
     assert run.send(d) == 0
-    send = json.loads((st["twin"] / "2026-11-27" / "send.json").read_text())
+    send = run.latest_send_record(st["twin"] / "2026-11-27")
     assert [r["symbol"] for r in send["rejected"]] == ["IWM"] and send["rejected"][0]["opens_short"]
     assert send["sent"] == 3
 

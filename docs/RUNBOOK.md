@@ -1634,10 +1634,16 @@ trading mode, read-only flags, precautions and auto-restart at every start.
 3. `run_twin.sh epoch` once: seeds the account's positions under `legacy`.
 4. `run_twin.sh send --dry --session <a session with saved plans>`: the whole order list and
    every gate, nothing sent. Before the first armed send, the TL reads that day's list, then
-   `run_twin.sh approve --sha <plan_sha>`, and sets `DRY_RUN=0` in
+   `run_twin.sh approve --session <YYYY-MM-DD> --sha <plan_sha>` (`--session` is required, with
+   no default; since 2026-11-26 the approval is written under THAT session, so a list read on
+   Thursday evening for Friday arms Friday's send and no other day's; a past session or a day
+   that does not trade is refused), and sets `DRY_RUN=0` in
    `/etc/systemd/system/quantt-twin-send.service` (release install only) and `daemon-reload`.
    On 2026-11-27 (13:00 close) the send fires at 12:30, with 12:40 as backup.
 5. 17:45 (retries 18:30, 20:30, 23:00): `quantt-twin-verify`; then `run_twin.sh ... compare`.
+   The run that wrote STARTED keeps `<D>/send.json`, written once; every other send run that day
+   (the 12:40 backup, a refusal, a dry run) writes its own `<D>/send_<HHMM>.json`, and verify reads
+   the STARTED run's record, so a backup can never hide a first send that stopped.
    Every `run_twin.sh` call takes `--tree <clone> --python <venv python>` (and `--staging`).
 
 ### 9.5 A logged-out Gateway, and two-factor

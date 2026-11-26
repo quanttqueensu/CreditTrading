@@ -981,12 +981,14 @@ def twin_lines(tw: dict) -> list:
     fw = s.get("firewall") or {}
     lines.append(("  port filter", {True: "IN FORCE", False: "NOT IN FORCE"}.get(fw.get("in_force"), "UNMEASURED")
                   + f" ({fw.get('detail', 'no record')}; {fw.get('checked_utc', fw.get('at'))})"))
-    for k in ("last_send", "last_verify"):
-        if k in s:
-            v = s[k]
-            lines.append((f"  {k.replace('_', ' ')}", f"{v.get('session_date')} "
-                          + (f"{v.get('exit')} {v.get('orders')} order(s) {v.get('refusals') or ''}" if k == "last_send"
-                             else f"{'PASS' if v.get('ok') else 'FAIL'} {v.get('reason', '')[:160]}")))
+    # Release check 4: the last send that DID something (an idle run rewrites last_send every slot).
+    v = s.get("last_session_send")
+    lines.append(("  last session send", f"{v.get('session_date')} {v.get('exit')} {v.get('orders')} order(s) "
+                  f"{v.get('refusals') or ''} at {v.get('at')}" if v else "none recorded"))
+    if "last_verify" in s:
+        v = s["last_verify"]
+        lines.append(("  last verify", f"{v.get('session_date')} {'PASS' if v.get('ok') else 'FAIL'} "
+                      f"{v.get('reason', '')[:160]}"))
     for b, t in (s.get("tally") or {}).items():
         lines.append((f"  side-by-side {b}", f"{t.get('sessions')} session(s), both traded {t.get('both_traded')}; "
                       f"full twin {t.get('twin_full')}/{t.get('twin_orders')} vs Alpaca {t.get('alpaca_full')}/"
